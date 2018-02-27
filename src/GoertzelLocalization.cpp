@@ -124,17 +124,14 @@ vector<string> runSetup(int num_recordings, char** ips) {
 		cout << "Created config for " << ip << " in " << filename << endl;
 	}
 	
-	cout << "Setting permissions for scripts..\n";
-	
 	system("chmod +x scripts/*");
-	sleep(1);
 	system("wait");
 	
 	for (size_t i = 0; i < files.size(); i++) {
 		string call = "sshpass -p pass scp ";
 		call += "-oStrictHostKeyChecking=no ";
 		call += files.at(i);
-		call += " root@";
+		call += " data/testTone.wav root@";
 		call += configs.at(i);
 		call += ":/tmp/";
 		call += " &";
@@ -144,46 +141,15 @@ vector<string> runSetup(int num_recordings, char** ips) {
 		system(call.c_str());
 	}
 	
-	cout << "Waiting for system call completion..\n";
-	sleep(1);
-	system("wait");
-	
-	for (size_t i = 0; i < files.size(); i++) {
-		string call = "sshpass -p pass ssh -oStrictHostKeyChecking=no root@";
-		call += configs.at(i);
-		call += " \'chmod +x ";
-		call += "/tmp/script";
-		call += configs.at(i);
-		call += ".sh\' &";
-		
-		cout << "Executing system call: " << call << endl;
-		
-		system(call.c_str());
-	}
-	
-	cout << "Waiting for system call completion..\n";
-	sleep(1);
-	system("wait");
-	cout << "Transferring testTone.wav..\n";
-	
-	for (auto& ip : configs) {
-		string call = "sshpass -p pass scp -oStrictHostKeyChecking=no data/testTone.wav root@";
-		call += ip;
-		call += ":/tmp/ &";
-		
-		cout << "Executing system call: " << call << endl;
-		
-		system(call.c_str());
-	}
-	
-	cout << "Waiting for system call completion..\n";
-	sleep(1);
+	sleep(2);
 	system("wait");
 	
 	for (auto& ip : configs) {
 		string call = "sshpass -p pass ssh -oStrictHostKeyChecking=no root@";
 		call += ip;
-		call += " \'/tmp/script";
+		call += " \'chmod +x /tmp/script";
+		call += ip;
+		call += ".sh && /tmp/script";
 		call += ip;
 		call += ".sh\' &";
 		
@@ -196,15 +162,11 @@ vector<string> runSetup(int num_recordings, char** ips) {
 	cout << "Scripts started, waiting for completion\n";
 	
 	if (RUN_SCRIPTS) {
-		for (int i = 0; i < duration_seconds + 1; i++) {
+		for (int i = 0; i < duration_seconds + 2; i++) {
 			sleep(1);
-			printf("%d/%d seconds elapsed (%1.0f%%)\n", (i + 1), duration_seconds + 1, (static_cast<double>(i + 1) / (duration_seconds + 1)) * 100.0);
+			printf("%d/%d seconds elapsed (%1.0f%%)\n", (i + 1), duration_seconds + 2, (static_cast<double>(i + 2) / (duration_seconds + 1)) * 100.0);
 		}
 	}
-	
-	cout << "Scripts executed hopefully, collecting data into recordings/\n";
-	sleep(1);
-	system("wait");
 	
 	for (auto& ip : configs) {
 		string call = "sshpass -p pass scp -oStrictHostKeyChecking=no root@";
@@ -223,8 +185,6 @@ vector<string> runSetup(int num_recordings, char** ips) {
 	cout << "Waiting for data transfer..\n";
 	sleep(2);
 	system("wait");
-	
-	cout << "Creating filenames for algorithm\n";
 	
 	return createFilenames(configs);
 }
