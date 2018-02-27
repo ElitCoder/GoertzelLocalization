@@ -3,4 +3,4 @@ all:
 	#./Localization < test_localization4.txt
 	
 clean:
-	rm -rf Localization
+	rm -rf Localization live_localization.txt

@@ -211,6 +211,33 @@ void writeResults(vector<Recording>& recordings) {
 	file.close();
 }
 
+void writeLocalization(vector<Recording>& recordings) {
+	ofstream file("Localization/live_localization.txt");
+	
+	if (!file.is_open()) {
+		cout << "Warning: could not open file for writing results\n";
+		
+		return;
+	}
+	
+	file << to_string(recordings.size()) << endl;
+	
+	for (size_t i = 0; i < recordings.size(); i++) {
+		Recording& master = recordings.at(i);
+		
+		for (size_t j = 0; j < recordings.size(); j++) {
+			Recording& slave = recordings.at(j);
+			
+			if (i == j)
+				file << to_string(0) << endl;
+			else
+			 	file << to_string(master.getDistance(j)) << endl;
+		}
+	}
+	
+	file.close();
+}
+
 int main(int argc, char** argv) {
 	/*
 		0: program path
@@ -280,6 +307,7 @@ int main(int argc, char** argv) {
 	}
 	
 	writeResults(recordings);
+	writeLocalization(recordings);
 		
 	return 0;
 }
