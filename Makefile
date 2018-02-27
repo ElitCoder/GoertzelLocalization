@@ -17,6 +17,7 @@ clean:
 	rm -rf obj/*.o obj/*.d bin/$(EXECUTABLE)
 	rm -rf bin/scripts/
 	rm -rf bin/recordings/
+	rm -rf Calculated\ level\ 3
 	
 CC_FLAGS += -MMD
 -include $(OBJFILES:.o=.d)
