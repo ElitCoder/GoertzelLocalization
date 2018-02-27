@@ -22,63 +22,21 @@ static const double FREQ_THRESHOLD = 0.01;
 static bool RUN_SCRIPTS = true;
 
 int g_playingLength = 2e05;
-#if 0
-
-size_t getEnding(size_t start) {
-	return start + g_playingLength - 1;
-}
-
-size_t findPeak(vector<short>& data, size_t start) {
-	double		dft;
-	double		threshold = FREQ_THRESHOLD;
-			
-	while (threshold > 0) {
-		for (size_t i = start; i < getEnding(start) - FREQ_N; i += FREQ_N) {
-			dft = goertzel(FREQ_N, FREQ_FREQ, 48000 /* read this from wav file later */, data.data() + i) / static_cast<double>(SHRT_MAX);
-						
-			if (dft > threshold)
-				return i;
-		}
-		
-		threshold -= FREQ_REDUCING;
-	}
-	
-	return 0;
-}
-
-void calculatePlacement(vector<Recording>& recordings) {
-	recordings.front().setPosition({ 0, 0 });
-}
-#endif
 
 double calculateDistance(Recording& master, Recording& recording) {
-	long long	play_1 = 0;
-	long long	play_2 = 0;
-	long long	record_1 = 0;
-	long long	record_2 = 0;
-	
-	/*
-	play_1 = findPeak(master.getData(), master.getStartingPoint());
-	play_2 = findPeak(recording.getData(), recording.getStartingPoint());
-	record_1 = findPeak(master.getData(), recording.getStartingPoint());
-	record_2 = findPeak(recording.getData(), master.getStartingPoint());
-	*/
+	long long play_1 = 0;
+	long long play_2 = 0;
+	long long record_1 = 0;
+	long long record_2 = 0;
 	
 	play_1 = master.getTonePlayingWhen(master.getId());
 	play_2 = recording.getTonePlayingWhen(recording.getId());
 	record_1 = master.getTonePlayingWhen(recording.getId());
 	record_2 = recording.getTonePlayingWhen(master.getId());
 	
-	/*
-	cout << "play_1: " << play_1 << endl;
-	cout << "play_2: " << play_2 << endl;
-	cout << "record_1: " << record_1 << endl;
-	cout << "record_2: " << record_2 << endl;
-	*/
+	long long sum = (record_1 + record_2) - (play_1 + play_2);
 	
-	long long	sum = (record_1 + record_2) - (play_1 + play_2);
-	
-	return abs(((double)sum/2))*343/48000;
+	return abs((static_cast<double>(sum)/2))*343/48000;
 }
 
 template<class T>
@@ -90,15 +48,6 @@ static void plot(vector<T>& data) {
 	plt::show();
 }
 
-/*
-	create configs from ip
-	send to speakers using scp (ssh -oStrictHostKeyChecking=no to skip fingerprints)
-	start the scripts at the same time, how?
-	wait until done
-	scp to computer using scripted filename
-	continue running this program
-*/ 
-
 void printHelp() {
 	cout << "Usage: ./GoertzelLocalization <pause length in seconds> <speaker #1 IP> <speaker #2 IP>\n\n# of speakers is arbitrary\n\n1. Creates configuration files for every speaker based on IP, and sends"
 		 <<	" the files using scp\n2. Starts the scripts at the same time\n3. Wait until done\n4. Retrieve all recordings from the speakers\n5. Calculate distances using Goertzel\n\n";
@@ -106,8 +55,6 @@ void printHelp() {
 
 string createConfig(string& ip, int number, int duration) {
 	string config = "";
-	//config += "cd tmp;\n";
-	//config += "\n";
 	config += "systemctl stop audio*\n";
 	config += "arecord -Daudiosource -r 48000 -fS16_LE -c1 -d";
 	config += to_string(duration);
@@ -282,6 +229,28 @@ vector<string> runSetup(int num_recordings, char** ips) {
 	return createFilenames(configs);
 }
 
+void writeResults(vector<Recording>& recordings) {
+	ofstream file("../Calculated level 3");
+	
+	if (!file.is_open()) {
+		cout << "Warning: could not open file for writing results\n";
+		
+		return;
+	}
+	
+	for (size_t i = 0; i < recordings.size(); i++) {
+		Recording& master = recordings.at(i);
+		
+		for (size_t j = i + 1; j < recordings.size(); j++) {
+			Recording& slave = recordings.at(j);
+			
+			file << master.getLastIP() << " -> " << slave.getLastIP() << "\t= " << master.getDistance(j) << endl;
+		}
+	}
+	
+	file.close();
+}
+
 int main(int argc, char** argv) {
 	/*
 		0: program path
@@ -320,17 +289,15 @@ int main(int argc, char** argv) {
 	//vector<string> filenames = createFilenames(ips);
 	
 	for (int i = 0; i < num_recordings; i++) {
-		string filename = filenames.at(i);//argv[2 + i];
+		string filename = filenames.at(i);
 		
-		recordings.push_back(Recording(filename, ips.at(i)));
+		recordings.push_back(Recording(ips.at(i)));
 		
 		Recording& recording = recordings.back();
-		WavReader::read(recording.getFilename(), recording.getData());
+		WavReader::read(filename, recording.getData());
 		
 		recording.findStartingTones(num_recordings, FREQ_N, FREQ_THRESHOLD, FREQ_REDUCING, FREQ_FREQ);
 	}
-	
-	chrono::steady_clock::time_point begin = chrono::steady_clock::now();
 	
 	for (int i = 0; i < num_recordings; i++) {
 		Recording& master = recordings.at(i);
@@ -352,7 +319,7 @@ int main(int argc, char** argv) {
 		}
 	}
 	
-	cout << "Algorithm execution time: " << static_cast<double>(std::chrono::duration_cast<std::chrono::nanoseconds>(chrono::steady_clock::now() - begin).count()) / 1e09 << " s\n";
+	writeResults(recordings);
 		
 	return 0;
 }

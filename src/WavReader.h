@@ -5,13 +5,6 @@
 #include <vector>
 #include <string>
 
-struct WavData {
-	union {
-		short	s_data;
-		char	c_data[2];
-	};
-};
-
 struct WavHeader {
 	/* RIFF Chunk Descriptor */
 	uint8_t         RIFF[4];        // RIFF Header Magic header
