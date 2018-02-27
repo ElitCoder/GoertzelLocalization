@@ -4,6 +4,7 @@
 #include "matplotlibcpp.h"
 
 #include <iostream>
+#include <sstream>
 #include <climits>
 
 namespace plt = matplotlibcpp;
@@ -18,8 +19,13 @@ static void plot(vector<T>& data) {
 	plt::show();
 }
 
-Recording::Recording(const string& filename) :
-	filename_(filename) {
+Recording::Recording(const string& filename, const string& ip) :
+	filename_(filename), ip_(ip) {
+	static int id;
+	
+	id_ = id++;
+	
+	cout << "Set ID to " << id_ << endl;
 }
 
 const string& Recording::getFilename() {
@@ -88,4 +94,56 @@ size_t Recording::findActualStart(const int N, double threshold, double reducing
 	cout << "Warning: could not find actual starting point\n";
 	
 	return actual_start_;
+}
+
+void Recording::findStartingTones(int num_recordings, const int N, double threshold, double reducing, int frequency) {
+	double dft;
+	double orig_threshold = threshold;
+	size_t current_i = 0;
+	
+	for (int i = 0; i < num_recordings; i++) {
+		threshold = orig_threshold;
+		
+		while (threshold > 0) {
+			bool found = false;
+			
+			for (; current_i < data_.size(); current_i++) {
+				dft = goertzel(N, frequency, 48000, data_.data() + current_i) / static_cast<double>(SHRT_MAX);
+				
+				if (dft > threshold) {
+					starting_tones_.push_back(current_i);
+					current_i += 60000;
+					
+					found = true;
+					break;
+				}
+			}
+			
+			if (found)
+				break;
+				
+			threshold -= reducing;	
+		}
+	}
+}
+
+size_t Recording::getTonePlayingWhen(int id) {
+	return starting_tones_.at(id);
+}
+
+int Recording::getId() {
+	return id_;
+}
+
+string Recording::getLastIP() {
+	istringstream stream(ip_);
+	vector<string> tokens;
+	string token;
+	
+	while (getline(stream, token, '.')) {
+	    if (!token.empty())
+	        tokens.push_back(token);
+	}
+	
+	return "." + tokens.back();
 }

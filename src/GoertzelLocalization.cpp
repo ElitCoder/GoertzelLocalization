@@ -22,6 +22,7 @@ static const double FREQ_THRESHOLD = 0.01;
 static bool RUN_SCRIPTS = true;
 
 int g_playingLength = 2e05;
+#if 0
 
 size_t getEnding(size_t start) {
 	return start + g_playingLength - 1;
@@ -48,17 +49,25 @@ size_t findPeak(vector<short>& data, size_t start) {
 void calculatePlacement(vector<Recording>& recordings) {
 	recordings.front().setPosition({ 0, 0 });
 }
+#endif
 
 double calculateDistance(Recording& master, Recording& recording) {
 	long long	play_1 = 0;
 	long long	play_2 = 0;
 	long long	record_1 = 0;
 	long long	record_2 = 0;
-		
+	
+	/*
 	play_1 = findPeak(master.getData(), master.getStartingPoint());
 	play_2 = findPeak(recording.getData(), recording.getStartingPoint());
 	record_1 = findPeak(master.getData(), recording.getStartingPoint());
 	record_2 = findPeak(recording.getData(), master.getStartingPoint());
+	*/
+	
+	play_1 = master.getTonePlayingWhen(master.getId());
+	play_2 = recording.getTonePlayingWhen(recording.getId());
+	record_1 = master.getTonePlayingWhen(recording.getId());
+	record_2 = recording.getTonePlayingWhen(master.getId());
 	
 	/*
 	cout << "play_1: " << play_1 << endl;
@@ -107,11 +116,27 @@ string createConfig(string& ip, int number, int duration) {
 	config += ".wav &\n";
 	config += "\n";
 	config += "sleep ";
-	config += to_string(g_playingLength / 48000 * (number + 1));
+	config += to_string(1 + (g_playingLength / 48000 * (number + 1)));
 	config += "\n";
 	config += "aplay -Dlocalhw_0 -r 48000 -fS16_LE /tmp/testTone.wav\n\nexit;\n";
 	
 	return config;
+}
+
+vector<string> createFilenames(vector<string>& configs) {
+	vector<string> filenames;
+	
+	for (auto& ip : configs) {
+		string filename = "recordings/cap";
+		filename += ip;
+		filename += ".wav";
+		
+		filenames.push_back(filename);
+		
+		cout << "Creating filename: " << filename << endl;
+	}
+	
+	return filenames;
 }
 
 vector<string> runSetup(int num_recordings, char** ips) {
@@ -224,14 +249,14 @@ vector<string> runSetup(int num_recordings, char** ips) {
 	cout << "Scripts started, waiting for completion\n";
 	
 	if (RUN_SCRIPTS) {
-		for (int i = 0; i < duration_seconds + 2; i++) {
+		for (int i = 0; i < duration_seconds + 1; i++) {
 			sleep(1);
-			printf("%d/%d seconds elapsed (%1.0f%%)\n", (i + 1), duration_seconds + 2, (static_cast<double>(i + 1) / (duration_seconds + 2)) * 100.0);
+			printf("%d/%d seconds elapsed (%1.0f%%)\n", (i + 1), duration_seconds + 1, (static_cast<double>(i + 1) / (duration_seconds + 1)) * 100.0);
 		}
 	}
 	
 	cout << "Scripts executed hopefully, collecting data into recordings/\n";
-	sleep(2);
+	sleep(1);
 	system("wait");
 	
 	for (auto& ip : configs) {
@@ -254,19 +279,7 @@ vector<string> runSetup(int num_recordings, char** ips) {
 	
 	cout << "Creating filenames for algorithm\n";
 	
-	vector<string> filenames;
-	
-	for (auto& ip : configs) {
-		string filename = "recordings/cap";
-		filename += ip;
-		filename += ".wav";
-		
-		filenames.push_back(filename);
-		
-		cout << "Creating filename: " << filename << endl;
-	}
-	
-	return filenames;
+	return createFilenames(configs);
 }
 
 int main(int argc, char** argv) {
@@ -276,6 +289,10 @@ int main(int argc, char** argv) {
 		2: recording speaker # 1 IP
 		3: recording speaker # 2 IP
 	*/
+	
+	/*
+		script runs test tone at 4000 hz and 1 sec, 60000 samples
+	*/	
 	
 	vector<Recording> recordings;
 	
@@ -293,23 +310,26 @@ int main(int argc, char** argv) {
 		
 	int num_recordings = argc - 2;
 	
+	vector<string> ips(argv + 2, argv + 2 + num_recordings);
 	vector<string> filenames = runSetup(num_recordings, argv + 2);
 	
 	if (!RUN_SCRIPTS)
 		return 1;
-		
-	//vector<string> filenames = { "recordings/cap172.25.11.47.wav", "recordings/cap172.25.11.186.wav" };	
 	
-	size_t startingPoint = 2e05;
+	//vector<string> ips = { "172.25.9.27", "172.25.9.38", "172.25.12.99", "172.25.12.168", "172.25.13.200", "172.25.13.250" };
+	//vector<string> filenames = createFilenames(ips);
 	
 	for (int i = 0; i < num_recordings; i++) {
 		string filename = filenames.at(i);//argv[2 + i];
 		
-		recordings.push_back(Recording(filename));
+		recordings.push_back(Recording(filename, ips.at(i)));
 		
 		Recording& recording = recordings.back();
 		WavReader::read(recording.getFilename(), recording.getData());
 		
+		recording.findStartingTones(num_recordings, FREQ_N, FREQ_THRESHOLD, FREQ_REDUCING, FREQ_FREQ);
+		
+		/*
 		if (i == 0) {
 			startingPoint = recording.findActualStart(FREQ_N, FREQ_THRESHOLD, FREQ_REDUCING, FREQ_FREQ);
 			recording.setStartingPoint(startingPoint);
@@ -317,8 +337,9 @@ int main(int argc, char** argv) {
 			startingPoint += g_playingLength;
 			recording.setStartingPoint(startingPoint);
 		}
+		*/
 		
-		cout << "Set starting point to " << recording.getStartingPoint() << endl;
+		//cout << "Set starting point to " << recording.getStartingPoint() << endl;
 		
 		// ignore plot if matplotlibcpp fails
 		/*
@@ -345,7 +366,7 @@ int main(int argc, char** argv) {
 			master.addDistance(j, distance);
 				
 			if (master.getDistance(j) < 1e04 /* sanity check */)
-				cout << "Distance from " << i + 1 << " -> " << j + 1 << " is "  << master.getDistance(j) << " m\n";
+				cout << "Distance from " << master.getLastIP() << " -> " << recording.getLastIP() << " is "  << master.getDistance(j) << " m\n";
 		}
 	}
 	
