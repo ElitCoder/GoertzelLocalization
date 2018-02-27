@@ -19,6 +19,8 @@ static const int FREQ_FREQ = 4000;
 static const double FREQ_REDUCING = 0.001;
 static const double FREQ_THRESHOLD = 0.01;
 
+static bool RUN_SCRIPTS = true;
+
 int g_playingLength = 2e05;
 
 size_t getEnding(size_t start) {
@@ -57,6 +59,11 @@ double calculateDistance(Recording& master, Recording& recording) {
 	play_2 = findPeak(recording.getData(), recording.getStartingPoint());
 	record_1 = findPeak(master.getData(), recording.getStartingPoint());
 	record_2 = findPeak(recording.getData(), master.getStartingPoint());
+	
+	cout << "play_1: " << play_1 << endl;
+	cout << "play_2: " << play_2 << endl;
+	cout << "record_1: " << record_1 << endl;
+	cout << "record_2: " << record_2 << endl;
 	
 	long long	sum = (record_1 + record_2) - (play_1 + play_2);
 	
@@ -105,8 +112,9 @@ string createConfig(string& ip, int number, int duration) {
 	return config;
 }
 
-void runSetup(int num_recordings, char** ips) {
+vector<string> runSetup(int num_recordings, char** ips) {
 	vector<string> configs(ips, ips + num_recordings);
+	vector<string> files;
 	int duration = g_playingLength /* until first tone */ + num_recordings * g_playingLength + g_playingLength /* to make up for jitter */;
 	int duration_seconds = duration / 48000;
 	
@@ -116,6 +124,8 @@ void runSetup(int num_recordings, char** ips) {
 		ERROR("system calls are not available");
 		
 	system("mkdir scripts");
+	system("mkdir recordings");
+	system("wait");
 	
 	for (size_t i = 0; i < configs.size(); i++) {
 		string& ip = configs.at(i);
@@ -123,6 +133,8 @@ void runSetup(int num_recordings, char** ips) {
 		string filename = "scripts/script";
 		filename += ip;
 		filename += ".sh";
+		
+		files.push_back(filename);
 		
 		ofstream file(filename);
 		
@@ -134,15 +146,104 @@ void runSetup(int num_recordings, char** ips) {
 		file << createConfig(ip, i, duration_seconds);
 		
 		file.close();
+		
+		cout << "Created config for " << ip << " in " << filename << endl;
 	}
 	
-	/*
-	string config =
-		"cd tmp;\n" +
-		"\n" +
-		"systemctl stop audio*\n" + 
-		"arecord -Daudiosource -r 48000 -fS16_LE -c1 -d" + duration_seconds;
-	*/	
+	cout << "Setting permissions for scripts..\n";
+	
+	system("chmod +x scripts/*");
+	system("wait");
+	
+	for (size_t i = 0; i < files.size(); i++) {
+		string call = "sshpass -p pass scp ";
+		call += "-oStrictHostKeyChecking=no ";
+		call += files.at(i);
+		call += " root@";
+		call += configs.at(i);
+		call += ":/tmp/";
+		call += " &";
+		
+		cout << "Executing system call: " << call << endl;
+		
+		system(call.c_str());
+	}
+	
+	cout << "Waiting for system call completion..\n";
+	system("wait");
+	cout << "Transferring testTone.wav..\n";
+	
+	for (auto& ip : configs) {
+		string call = "sshpass -p pass scp -oStrictHostKeyChecking=no data/testTone.wav root@";
+		call += ip;
+		call += ":/tmp/ &";
+		
+		cout << "Executing system call: " << call << endl;
+		
+		system(call.c_str());
+	}
+	
+	cout << "Waiting for system call completion..\n";
+	system("wait");
+	
+	for (auto& ip : configs) {
+		string call = "sshpass -p pass ssh -oStrictHostKeyChecking=no root@";
+		call += ip;
+		call += " \'/tmp/script";
+		call += ip;
+		call += ".sh\' &";
+		
+		cout << "Running script: " << call << endl;
+		
+		if (RUN_SCRIPTS)
+			system(call.c_str());
+	}
+	
+	cout << "Scripts started, waiting for completion\n";
+	
+	if (RUN_SCRIPTS) {
+		for (int i = 0; i < duration_seconds + 2; i++) {
+			sleep(1);
+			printf("%d/%d seconds elapsed (%1.0f%%)\n", (i + 1), duration_seconds + 2, (static_cast<double>(i + 1) / (duration_seconds + 4)) * 100.0);
+		}
+	}
+	
+	cout << "Scripts executed hopefully, collecting data into recordings/\n";
+	system("wait");
+	
+	for (auto& ip : configs) {
+		string call = "sshpass -p pass scp -oStrictHostKeyChecking=no root@";
+		call += ip;
+		call += ":/tmp/cap";
+		call += ip;
+		call += ".wav";
+		call += " recordings/ &";
+		
+		cout << "Running script: " << call << endl;
+		
+		if (RUN_SCRIPTS)
+			system(call.c_str());
+	}
+	
+	cout << "Waiting for data transfer..\n";
+	sleep(2);
+	system("wait");
+	
+	cout << "Creating filenames for algorithm\n";
+	
+	vector<string> filenames;
+	
+	for (auto& ip : configs) {
+		string filename = "recordings/cap";
+		filename += ip;
+		filename += ".wav";
+		
+		filenames.push_back(filename);
+		
+		cout << "Creating filename: " << filename << endl;
+	}
+	
+	return filenames;
 }
 
 int main(int argc, char** argv) {
@@ -169,15 +270,17 @@ int main(int argc, char** argv) {
 		
 	int num_recordings = argc - 2;
 	
-	runSetup(num_recordings, argv + 2);
+	vector<string> filenames = runSetup(num_recordings, argv + 2);
 	
-	// just test runSetup()
-	exit(1);
+	if (!RUN_SCRIPTS)
+		return 1;
+		
+	//vector<string> filenames = { "recordings/cap172.25.11.47.wav", "recordings/cap172.25.11.186.wav" };	
 	
 	size_t startingPoint = 2e05;
 	
 	for (int i = 0; i < num_recordings; i++) {
-		string filename = argv[2 + i];
+		string filename = filenames.at(i);//argv[2 + i];
 		
 		recordings.push_back(Recording(filename));
 		
@@ -193,6 +296,8 @@ int main(int argc, char** argv) {
 		}
 		
 		cout << "Set starting point to " << recording.getStartingPoint() << endl;
+		
+		plot(recording.getData());
 	}
 	
 	chrono::steady_clock::time_point begin = chrono::steady_clock::now();

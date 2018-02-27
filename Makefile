@@ -16,6 +16,7 @@ obj/%.o: src/%.cpp
 clean:
 	rm -rf obj/*.o obj/*.d bin/$(EXECUTABLE)
 	rm -rf bin/scripts/
+	rm -rf bin/recordings/
 	
 CC_FLAGS += -MMD
 -include $(OBJFILES:.o=.d)
