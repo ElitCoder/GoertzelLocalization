@@ -320,7 +320,14 @@ int main(int argc, char** argv) {
 		
 		cout << "Set starting point to " << recording.getStartingPoint() << endl;
 		
-		plot(recording.getData());
+		// ignore plot if matplotlibcpp fails
+		/*
+		try {
+			plot(recording.getData());
+		} catch(...) {
+			continue;
+		}
+		*/
 	}
 	
 	chrono::steady_clock::time_point begin = chrono::steady_clock::now();
