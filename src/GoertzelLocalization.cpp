@@ -11,8 +11,12 @@
 #define ERROR(...)	do { fprintf(stderr, "Error: "); fprintf(stderr, __VA_ARGS__); fprintf(stderr, "\n"); exit(1); } while(0)
 
 namespace plt = matplotlibcpp;
-
 using namespace std;
+
+static const int FREQ_N = 16;
+static const int FREQ_FREQ = 4000;
+static const double FREQ_REDUCING = 0.001;
+static const double FREQ_THRESHOLD = 0.01;
 
 int g_playingLength = 2e05;
 
@@ -21,19 +25,18 @@ size_t getEnding(size_t start) {
 }
 
 size_t findPeak(vector<short>& data, size_t start) {
-	const int	N = 16;
 	double		dft;
-	double		threshold = 0.01;
+	double		threshold = FREQ_THRESHOLD;
 			
 	while (threshold > 0) {
-		for (size_t i = start; i < getEnding(start) - N; i += N) {
-			dft = goertzel(N, 4000, 48000, data.data() + i) / 32767.0;
+		for (size_t i = start; i < getEnding(start) - FREQ_N; i += FREQ_N) {
+			dft = goertzel(FREQ_N, FREQ_FREQ, 48000 /* read this from wav file later */, data.data() + i) / static_cast<double>(SHRT_MAX);
 						
 			if (dft > threshold)
 				return i;
 		}
 		
-		threshold -= 0.001;
+		threshold -= FREQ_REDUCING;
 	}
 	
 	return 0;
@@ -60,7 +63,7 @@ double calculateDistance(Recording& master, Recording& recording) {
 }
 
 template<class T>
-void plot(vector<T>& data) {
+static void plot(vector<T>& data) {
 	vector<int>	tmp;
 	for_each(data.begin(), data.end(), [&tmp] (T& element) { tmp.push_back(element); });
 	
@@ -71,35 +74,45 @@ void plot(vector<T>& data) {
 int main(int argc, char** argv) {
 	/*
 		0: program path
-		1: # of recordings
-		2: recording # 1 filename
-		3: recording # 1 starting point
-		?: custom length
+		1: pause length in seconds
+		2: # of recordings
+		3: recording # 1 filename
 	*/
 	
 	vector<Recording> recordings;
 	
 	if (argc < 2)
-		ERROR("specify recordings");
+		ERROR("specify pause length");
 		
-	int num_recordings = stoi(argv[1]);		
+	g_playingLength = static_cast<int>((stod(argv[1]) * 48000 /* read this from file later */));
 	
-	if (argc < 2 + num_recordings * 2)
+	if (argc < 3)
+		ERROR("specify number of recordings");
+		
+	int num_recordings = stoi(argv[2]);		
+	
+	if (argc < 3 + num_recordings)
 		ERROR("missing parameters for recordings");
 	
-	for (int i = 0; i < num_recordings * 2; i += 2) {
-		string filename = argv[2 + i];
-		int start = stoi(argv[2 + i + 1]);
+	size_t startingPoint = 2e05;
+	
+	for (int i = 0; i < num_recordings; i++) {
+		string filename = argv[3 + i];
 		
-		recordings.push_back(Recording(filename, start));
+		recordings.push_back(Recording(filename));
 		
 		Recording& recording = recordings.back();
 		WavReader::read(recording.getFilename(), recording.getData());
-	}
-	
-	if (argc >= 2 + num_recordings * 2 + 1) {
-		cout << "Setting custom length\n";
-		g_playingLength = stoi(argv[2 + num_recordings * 2 + 1]);
+		
+		if (i == 0) {
+			startingPoint = recording.findActualStart(FREQ_N, FREQ_THRESHOLD, FREQ_REDUCING, FREQ_FREQ);
+			recording.setStartingPoint(startingPoint);
+		} else {
+			startingPoint += g_playingLength;
+			recording.setStartingPoint(startingPoint);
+		}
+		
+		cout << "Set starting point to " << recording.getStartingPoint() << endl;
 	}
 	
 	chrono::steady_clock::time_point begin = chrono::steady_clock::now();
@@ -116,7 +129,7 @@ int main(int argc, char** argv) {
 			
 			master.addDistance(j, distance);
 				
-			if (master.getDistance(j) < 1e21)
+			if (master.getDistance(j) < 1e04 /* sanity check */)
 				cout << "Distance from " << i + 1 << " -> " << j + 1 << " is "  << master.getDistance(j) << " m\n";
 		}
 	}
