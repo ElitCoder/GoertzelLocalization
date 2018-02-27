@@ -1,0 +1,3 @@
+Check for exit codes for system calls, i.e wait until scp is done.
+
+Smarter way to detect starting points when there's a lot of noise, maybe using means?
