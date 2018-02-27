@@ -60,10 +60,12 @@ double calculateDistance(Recording& master, Recording& recording) {
 	record_1 = findPeak(master.getData(), recording.getStartingPoint());
 	record_2 = findPeak(recording.getData(), master.getStartingPoint());
 	
+	/*
 	cout << "play_1: " << play_1 << endl;
 	cout << "play_2: " << play_2 << endl;
 	cout << "record_1: " << record_1 << endl;
 	cout << "record_2: " << record_2 << endl;
+	*/
 	
 	long long	sum = (record_1 + record_2) - (play_1 + play_2);
 	
@@ -153,6 +155,7 @@ vector<string> runSetup(int num_recordings, char** ips) {
 	cout << "Setting permissions for scripts..\n";
 	
 	system("chmod +x scripts/*");
+	sleep(1);
 	system("wait");
 	
 	for (size_t i = 0; i < files.size(); i++) {
@@ -170,6 +173,24 @@ vector<string> runSetup(int num_recordings, char** ips) {
 	}
 	
 	cout << "Waiting for system call completion..\n";
+	sleep(1);
+	system("wait");
+	
+	for (size_t i = 0; i < files.size(); i++) {
+		string call = "sshpass -p pass ssh -oStrictHostKeyChecking=no root@";
+		call += configs.at(i);
+		call += " \'chmod +x ";
+		call += "/tmp/script";
+		call += configs.at(i);
+		call += ".sh\' &";
+		
+		cout << "Executing system call: " << call << endl;
+		
+		system(call.c_str());
+	}
+	
+	cout << "Waiting for system call completion..\n";
+	sleep(1);
 	system("wait");
 	cout << "Transferring testTone.wav..\n";
 	
@@ -184,6 +205,7 @@ vector<string> runSetup(int num_recordings, char** ips) {
 	}
 	
 	cout << "Waiting for system call completion..\n";
+	sleep(1);
 	system("wait");
 	
 	for (auto& ip : configs) {
@@ -204,11 +226,12 @@ vector<string> runSetup(int num_recordings, char** ips) {
 	if (RUN_SCRIPTS) {
 		for (int i = 0; i < duration_seconds + 2; i++) {
 			sleep(1);
-			printf("%d/%d seconds elapsed (%1.0f%%)\n", (i + 1), duration_seconds + 2, (static_cast<double>(i + 1) / (duration_seconds + 4)) * 100.0);
+			printf("%d/%d seconds elapsed (%1.0f%%)\n", (i + 1), duration_seconds + 2, (static_cast<double>(i + 1) / (duration_seconds + 2)) * 100.0);
 		}
 	}
 	
 	cout << "Scripts executed hopefully, collecting data into recordings/\n";
+	sleep(2);
 	system("wait");
 	
 	for (auto& ip : configs) {
