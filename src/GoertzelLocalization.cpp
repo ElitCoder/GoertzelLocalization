@@ -7,6 +7,7 @@
 #include <iostream>
 #include <algorithm>
 #include <chrono>
+#include <fstream>
 
 #define ERROR(...)	do { fprintf(stderr, "Error: "); fprintf(stderr, __VA_ARGS__); fprintf(stderr, "\n"); exit(1); } while(0)
 
@@ -71,33 +72,112 @@ static void plot(vector<T>& data) {
 	plt::show();
 }
 
+/*
+	create configs from ip
+	send to speakers using scp (ssh -oStrictHostKeyChecking=no to skip fingerprints)
+	start the scripts at the same time, how?
+	wait until done
+	scp to computer using scripted filename
+	continue running this program
+*/ 
+
+void printHelp() {
+	cout << "Usage: ./GoertzelLocalization <pause length in seconds> <speaker #1 IP> <speaker #2 IP>\n\n# of speakers is arbitrary\n\n1. Creates configuration files for every speaker based on IP, and sends"
+		 <<	" the files using scp\n2. Starts the scripts at the same time\n3. Wait until done\n4. Retrieve all recordings from the speakers\n5. Calculate distances using Goertzel\n\n";
+}
+
+string createConfig(string& ip, int number, int duration) {
+	string config = "";
+	config += "cd tmp;\n";
+	config += "\n";
+	config += "systemctl stop audio*\n";
+	config += "arecord -Daudiosource -r 48000 -fS16_LE -c1 -d";
+	config += to_string(duration);
+	config += " /tmp/cap";
+	config += ip;
+	config += ".wav &\n";
+	config += "\n";
+	config += "sleep ";
+	config += to_string(g_playingLength / 48000 * (number + 1));
+	config += "\n";
+	config += "aplay -Dlocalhw_0 -r 48000 -fS16_LE /tmp/testTone.wav\n\nexit;\n";
+	
+	return config;
+}
+
+void runSetup(int num_recordings, char** ips) {
+	vector<string> configs(ips, ips + num_recordings);
+	int duration = g_playingLength /* until first tone */ + num_recordings * g_playingLength + g_playingLength /* to make up for jitter */;
+	int duration_seconds = duration / 48000;
+	
+	cout << num_recordings << " speakers and " << g_playingLength << " pause length, writing " << duration_seconds << " as total duration\n";
+	
+	if (!system(NULL))
+		ERROR("system calls are not available");
+		
+	system("mkdir scripts");
+	
+	for (size_t i = 0; i < configs.size(); i++) {
+		string& ip = configs.at(i);
+		
+		string filename = "scripts/script";
+		filename += ip;
+		filename += ".sh";
+		
+		ofstream file(filename);
+		
+		if (!file.is_open()) {
+			cout << "Warning: could not open file " << filename << endl;
+			continue;
+		}
+		
+		file << createConfig(ip, i, duration_seconds);
+		
+		file.close();
+	}
+	
+	/*
+	string config =
+		"cd tmp;\n" +
+		"\n" +
+		"systemctl stop audio*\n" + 
+		"arecord -Daudiosource -r 48000 -fS16_LE -c1 -d" + duration_seconds;
+	*/	
+}
+
 int main(int argc, char** argv) {
 	/*
 		0: program path
 		1: pause length in seconds
-		2: # of recordings
-		3: recording # 1 filename
+		2: recording speaker # 1 IP
+		3: recording speaker # 2 IP
 	*/
 	
 	vector<Recording> recordings;
 	
-	if (argc < 2)
+	if (argc < 2) {
+		printHelp();
 		ERROR("specify pause length");
+	}
 		
 	g_playingLength = static_cast<int>((stod(argv[1]) * 48000 /* read this from file later */));
-	
-	if (argc < 3)
-		ERROR("specify number of recordings");
 		
-	int num_recordings = stoi(argv[2]);		
+	if (argc <= 2) {
+		printHelp();
+		ERROR("specify input IP:s");
+	}
+		
+	int num_recordings = argc - 2;
 	
-	if (argc < 3 + num_recordings)
-		ERROR("missing parameters for recordings");
+	runSetup(num_recordings, argv + 2);
+	
+	// just test runSetup()
+	exit(1);
 	
 	size_t startingPoint = 2e05;
 	
 	for (int i = 0; i < num_recordings; i++) {
-		string filename = argv[3 + i];
+		string filename = argv[2 + i];
 		
 		recordings.push_back(Recording(filename));
 		
@@ -134,7 +214,7 @@ int main(int argc, char** argv) {
 		}
 	}
 	
-	cout << "Execution time: " << static_cast<double>(std::chrono::duration_cast<std::chrono::nanoseconds>(chrono::steady_clock::now() - begin).count()) / 1e09 << " s\n";
+	cout << "Algorithm execution time: " << static_cast<double>(std::chrono::duration_cast<std::chrono::nanoseconds>(chrono::steady_clock::now() - begin).count()) / 1e09 << " s\n";
 		
 	return 0;
 }

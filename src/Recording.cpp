@@ -65,6 +65,8 @@ void Recording::normalizeActualStart() {
 size_t Recording::findActualStart(const int N, double threshold, double reducing, int frequency) {
 	double		dft;
 			
+	//plot(data_);
+			
 	while (threshold > 0) {
 		for (size_t i = 0; i < data_.size(); i += N) {
 			dft = goertzel(N, frequency, 48000 /* read this from wav file later */, data_.data() + i) / static_cast<double>(SHRT_MAX);
