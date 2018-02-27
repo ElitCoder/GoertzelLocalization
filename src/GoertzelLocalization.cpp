@@ -106,8 +106,8 @@ void printHelp() {
 
 string createConfig(string& ip, int number, int duration) {
 	string config = "";
-	config += "cd tmp;\n";
-	config += "\n";
+	//config += "cd tmp;\n";
+	//config += "\n";
 	config += "systemctl stop audio*\n";
 	config += "arecord -Daudiosource -r 48000 -fS16_LE -c1 -d";
 	config += to_string(duration);
@@ -328,27 +328,6 @@ int main(int argc, char** argv) {
 		WavReader::read(recording.getFilename(), recording.getData());
 		
 		recording.findStartingTones(num_recordings, FREQ_N, FREQ_THRESHOLD, FREQ_REDUCING, FREQ_FREQ);
-		
-		/*
-		if (i == 0) {
-			startingPoint = recording.findActualStart(FREQ_N, FREQ_THRESHOLD, FREQ_REDUCING, FREQ_FREQ);
-			recording.setStartingPoint(startingPoint);
-		} else {
-			startingPoint += g_playingLength;
-			recording.setStartingPoint(startingPoint);
-		}
-		*/
-		
-		//cout << "Set starting point to " << recording.getStartingPoint() << endl;
-		
-		// ignore plot if matplotlibcpp fails
-		/*
-		try {
-			plot(recording.getData());
-		} catch(...) {
-			continue;
-		}
-		*/
 	}
 	
 	chrono::steady_clock::time_point begin = chrono::steady_clock::now();
@@ -356,15 +335,18 @@ int main(int argc, char** argv) {
 	for (int i = 0; i < num_recordings; i++) {
 		Recording& master = recordings.at(i);
 		
-		for (int j = 0; j < num_recordings; j++) {
+		for (int j = i + 1; j < num_recordings; j++) {
 			if (j == i)
-			continue;
+				continue;
 			
 			Recording& recording = recordings.at(j);
 			double distance = calculateDistance(master, recording);
 			
 			master.addDistance(j, distance);
-				
+			
+			if (master.getDistance(j) > 1e01)
+				ERROR("results did not pass sanity check, they are wrong");
+					
 			if (master.getDistance(j) < 1e04 /* sanity check */)
 				cout << "Distance from " << master.getLastIP() << " -> " << recording.getLastIP() << " is "  << master.getDistance(j) << " m\n";
 		}

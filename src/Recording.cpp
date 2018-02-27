@@ -7,6 +7,8 @@
 #include <sstream>
 #include <climits>
 
+#define ERROR(...)	do { fprintf(stderr, "Error: "); fprintf(stderr, __VA_ARGS__); fprintf(stderr, "\n"); exit(1); } while(0)
+
 namespace plt = matplotlibcpp;
 using namespace std;
 
@@ -24,8 +26,6 @@ Recording::Recording(const string& filename, const string& ip) :
 	static int id;
 	
 	id_ = id++;
-	
-	cout << "Set ID to " << id_ << endl;
 }
 
 const string& Recording::getFilename() {
@@ -128,6 +128,9 @@ void Recording::findStartingTones(int num_recordings, const int N, double thresh
 }
 
 size_t Recording::getTonePlayingWhen(int id) {
+	if (static_cast<unsigned int>(id) >= starting_tones_.size())
+		ERROR("not all tones were recorded, aborting");
+		
 	return starting_tones_.at(id);
 }
 
