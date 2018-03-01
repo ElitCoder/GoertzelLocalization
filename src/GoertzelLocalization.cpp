@@ -1,6 +1,7 @@
 #include "WavReader.h"
 #include "Goertzel.h"
 #include "Recording.h"
+#include "Connections.h"
 
 #include "matplotlibcpp.h"
 
@@ -87,19 +88,21 @@ vector<string> createFilenames(vector<string>& configs) {
 }
 
 vector<string> runSetup(int num_recordings, char** ips) {
+	Connections ssh_master;
+	
 	vector<string> configs(ips, ips + num_recordings);
 	vector<string> files;
 	int duration = g_playingLength /* until first tone */ + num_recordings * g_playingLength + g_playingLength /* to make up for jitter */;
 	int duration_seconds = duration / 48000;
 	
-	cout << num_recordings << " speakers and " << g_playingLength << " pause length, writing " << duration_seconds << " as total duration\n";
+	cout << "Connecting to speakers using SSH..\n";
+	ssh_master.connect(configs, "pass");
 	
 	if (!system(NULL))
 		ERROR("system calls are not available");
 		
-	system("mkdir scripts");
-	system("mkdir recordings");
-	system("wait");
+	system("mkdir scripts; wait");
+	system("mkdir recordings; wait");
 	
 	for (size_t i = 0; i < configs.size(); i++) {
 		string& ip = configs.at(i);
@@ -124,8 +127,7 @@ vector<string> runSetup(int num_recordings, char** ips) {
 		cout << "Created config for " << ip << " in " << filename << endl;
 	}
 	
-	system("chmod +x scripts/*");
-	system("wait");
+	system("chmod +x scripts/*; wait");
 	
 	for (size_t i = 0; i < files.size(); i++) {
 		string call = "sshpass -p pass scp ";
@@ -142,29 +144,22 @@ vector<string> runSetup(int num_recordings, char** ips) {
 	}
 	
 	sleep(2);
-	system("wait");
 	
 	for (auto& ip : configs) {
-		string call = "sshpass -p pass ssh -oStrictHostKeyChecking=no root@";
-		call += ip;
-		call += " \'chmod +x /tmp/script";
-		call += ip;
-		call += ".sh && /tmp/script";
-		call += ip;
-		call += ".sh\' &";
+		string call = "chmod +x /tmp/script" + ip + ".sh; /tmp/script" + ip + ".sh";
 		
 		cout << "Running script: " << call << endl;
 		
 		if (RUN_SCRIPTS)
-			system(call.c_str());
+			ssh_master.command(ip, call);
 	}
 	
 	cout << "Scripts started, waiting for completion\n";
 	
 	if (RUN_SCRIPTS) {
-		for (int i = 0; i < duration_seconds + 2; i++) {
+		for (int i = 0; i < duration_seconds + 1; i++) {
 			sleep(1);
-			printf("%d/%d seconds elapsed (%1.0f%%)\n", (i + 1), duration_seconds + 2, (static_cast<double>(i + 1) / (duration_seconds + 2)) * 100.0);
+			printf("%d/%d seconds elapsed (%1.0f%%)\n", (i + 1), duration_seconds + 1, (static_cast<double>(i + 1) / (duration_seconds + 1)) * 100.0);
 		}
 	}
 	
@@ -184,7 +179,6 @@ vector<string> runSetup(int num_recordings, char** ips) {
 	
 	cout << "Waiting for data transfer..\n";
 	sleep(2);
-	system("wait");
 	
 	return createFilenames(configs);
 }
@@ -287,7 +281,7 @@ int main(int argc, char** argv) {
 	for (int i = 0; i < num_recordings; i++) {
 		Recording& master = recordings.at(i);
 		
-		for (int j = i + 1; j < num_recordings; j++) {
+		for (int j = 0; j < num_recordings; j++) {
 			if (j == i)
 				continue;
 			
@@ -299,7 +293,7 @@ int main(int argc, char** argv) {
 			if (master.getDistance(j) > 1e01)
 				ERROR("results did not pass sanity check, they are wrong");
 					
-			if (master.getDistance(j) < 1e04 /* sanity check */)
+			if (j > i)
 				cout << "Distance from " << master.getLastIP() << " -> " << recording.getLastIP() << " is "  << master.getDistance(j) << " m\n";
 		}
 	}
