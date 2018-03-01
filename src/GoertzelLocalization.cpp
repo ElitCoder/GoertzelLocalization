@@ -164,7 +164,7 @@ vector<string> runSetup(int num_recordings, char** ips) {
 	if (RUN_SCRIPTS) {
 		for (int i = 0; i < duration_seconds + 2; i++) {
 			sleep(1);
-			printf("%d/%d seconds elapsed (%1.0f%%)\n", (i + 1), duration_seconds + 2, (static_cast<double>(i + 2) / (duration_seconds + 1)) * 100.0);
+			printf("%d/%d seconds elapsed (%1.0f%%)\n", (i + 1), duration_seconds + 2, (static_cast<double>(i + 2) / (duration_seconds + 2)) * 100.0);
 		}
 	}
 	
@@ -212,7 +212,7 @@ void writeResults(vector<Recording>& recordings) {
 }
 
 void writeLocalization(vector<Recording>& recordings) {
-	ofstream file("Localization/live_localization.txt");
+	ofstream file("../Localization/live_localization.txt");
 	
 	if (!file.is_open()) {
 		cout << "Warning: could not open file for writing results\n";
