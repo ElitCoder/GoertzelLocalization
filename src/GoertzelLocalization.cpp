@@ -164,7 +164,7 @@ vector<string> runSetup(int num_recordings, char** ips) {
 	if (RUN_SCRIPTS) {
 		for (int i = 0; i < duration_seconds + 2; i++) {
 			sleep(1);
-			printf("%d/%d seconds elapsed (%1.0f%%)\n", (i + 1), duration_seconds + 2, (static_cast<double>(i + 2) / (duration_seconds + 2)) * 100.0);
+			printf("%d/%d seconds elapsed (%1.0f%%)\n", (i + 1), duration_seconds + 2, (static_cast<double>(i + 1) / (duration_seconds + 2)) * 100.0);
 		}
 	}
 	
@@ -226,8 +226,6 @@ void writeLocalization(vector<Recording>& recordings) {
 		Recording& master = recordings.at(i);
 		
 		for (size_t j = 0; j < recordings.size(); j++) {
-			Recording& slave = recordings.at(j);
-			
 			if (i == j)
 				file << to_string(0) << endl;
 			else

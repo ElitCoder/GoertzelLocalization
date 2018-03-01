@@ -4,8 +4,8 @@
 #include <algorithm>
 #include <set>
 
-#define DISTANCE_ACCURACY	(0.01)
-#define POINT_ACCURACY		(0.001)
+#define DISTANCE_ACCURACY	(1)
+#define POINT_ACCURACY		(0.1)
 
 using namespace std;
 
