@@ -1,5 +1,8 @@
 Build essentials:
-sudo apt-get install python-matplotlib python-numpy python2.7-dev g++ sshpass
+sudo apt-get install python-matplotlib python-numpy python2.7-dev g++ sshpass unar
+
+Install libraries:
+./dep/install.sh
 
 How to calculate differences:
 Usage: ./GoertzelLocalization -X <path to real data> <path to simulated data>
