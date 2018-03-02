@@ -3,17 +3,15 @@
 #include "Recording.h"
 #include "Connections.h"
 
-#include "matplotlibcpp.h"
-
 #include <iostream>
 #include <algorithm>
 #include <chrono>
 #include <fstream>
 #include <sstream>
+#include <cmath>
 
 #define ERROR(...)	do { fprintf(stderr, "Error: "); fprintf(stderr, __VA_ARGS__); fprintf(stderr, "\n"); exit(1); } while(0)
 
-namespace plt = matplotlibcpp;
 using namespace std;
 
 static const int FREQ_N = 16;
@@ -39,15 +37,6 @@ double calculateDistance(Recording& master, Recording& recording) {
 	long long sum = (record_1 + record_2) - (play_1 + play_2);
 	
 	return abs((static_cast<double>(sum)/2))*343/48000;
-}
-
-template<class T>
-static void plot(vector<T>& data) {
-	vector<int>	tmp;
-	for_each(data.begin(), data.end(), [&tmp] (T& element) { tmp.push_back(element); });
-	
-	plt::plot(tmp);
-	plt::show();
 }
 
 void printHelp() {
