@@ -9,6 +9,7 @@
 #include <algorithm>
 #include <chrono>
 #include <fstream>
+#include <sstream>
 
 #define ERROR(...)	do { fprintf(stderr, "Error: "); fprintf(stderr, __VA_ARGS__); fprintf(stderr, "\n"); exit(1); } while(0)
 
@@ -85,6 +86,64 @@ vector<string> createFilenames(vector<string>& configs) {
 	}
 	
 	return filenames;
+}
+
+vector<string> splitString(const string& input, char split) {
+	vector<string> splitted;
+	size_t last_split = 0;
+	
+	for (size_t i = 0; i < input.length(); i++) {
+		if (input.at(i) == split) {
+			splitted.push_back(input.substr(last_split, i - last_split));
+			last_split = i + 1;
+		}
+	}
+	
+	// Don't forget last token
+	if (last_split != input.length()) {
+		splitted.push_back(input.substr(last_split, input.length() - last_split));
+	}
+	
+	return splitted;
+}
+
+vector<double> calculateRealDifference(const string& real, const string& simulated) {
+	vector<double> differences;
+	
+	string real_line;
+	string simulated_line;
+	stringstream real_stream(real);
+	stringstream simulated_stream(simulated);
+	
+	while (getline(real_stream, real_line, '\n') && getline(simulated_stream, simulated_line, '\n')) {
+		auto real_tokens = splitString(real_line, ' ');
+		auto simulated_tokens = splitString(simulated_line, ' ');
+		
+		double difference = abs(stod(real_tokens.back()) - stod(simulated_tokens.back()));
+		
+		differences.push_back(difference);
+	}
+	
+	return differences;
+}
+
+vector<double> calculateRealDifference(ifstream& real, ifstream& simulated) {
+	if (!real.is_open() || !simulated.is_open()) {
+		cout << "Warning: real or simulated is not open (files)\n";
+		
+		return vector<double>();
+	}
+	
+	stringstream real_stream;
+	real_stream << real.rdbuf();
+	
+	stringstream simulated_stream;
+	simulated_stream << simulated.rdbuf();
+	
+	real.close();
+	simulated.close();
+	
+	return calculateRealDifference(real_stream.str(), simulated_stream.str());
 }
 
 vector<string> runSetup(int num_recordings, char** ips) {
@@ -248,7 +307,25 @@ int main(int argc, char** argv) {
 		printHelp();
 		ERROR("specify pause length");
 	}
+	
+	if (string(argv[1]) == "-X") {
+		if (argc < 4)
+			ERROR("specify input files as ./program -X <real> <simulated>");
+			
+		string real_file = argv[2];
+		string simulated_file = argv[3];
 		
+		ifstream real(real_file);
+		ifstream simulated(simulated_file);
+		
+		auto differences = calculateRealDifference(real, simulated);
+		
+		cout << "Differences:\n";
+		for_each(differences.begin(), differences.end(), [] (double difference) { cout << difference << endl; });
+		
+		return 0;
+	}
+	
 	g_playingLength = static_cast<int>((stod(argv[1]) * 48000 /* read this from file later */));
 		
 	if (argc <= 2) {
