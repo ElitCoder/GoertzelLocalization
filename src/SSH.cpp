@@ -195,6 +195,7 @@ bool SSH::transferLocal(const string& from, const string& to) {
 				if (!file.is_open()) {
 					cout << "Warning: could not open file for writing local SCP\n";
 					
+					delete[] file_buffer;
 					succeeded = false;
 					end = true;
 					break;
@@ -208,7 +209,7 @@ bool SSH::transferLocal(const string& from, const string& to) {
 					
 					if (read == SSH_ERROR) {
 						cout << "Error reading SCP\n";
-						
+					
 						succeeded = false;
 						end = true;
 						break;
@@ -223,6 +224,7 @@ bool SSH::transferLocal(const string& from, const string& to) {
 				}
 				
 				file.close();
+				delete[] file_buffer;
 				
 				break;
 			}

@@ -4,12 +4,14 @@
 #include <algorithm>
 #include <set>
 
-#define DISTANCE_ACCURACY	(1)
-#define POINT_ACCURACY		(0.1)
+//#define DISTANCE_ACCURACY	(1)
+//#define POINT_ACCURACY		(0.1)
 
 using namespace std;
 
 static double g_maxDistance;
+static double g_distanceAccuracy = 0.5;
+static double g_pointAccuracy = 0.01;
 
 double RelDif(double a, double b) {
 	return abs(a - b);
@@ -102,12 +104,12 @@ double distanceBetweenPoints(double x1, double y1, double x2, double y2) {
 vector<Point> getSinglePossibles(Point& point, double actual_distance) {
 	vector<Point> possibles;
 	
-	for (double i = -g_maxDistance; i < g_maxDistance; i += POINT_ACCURACY) {
-		for (double j = -g_maxDistance; j < g_maxDistance; j += POINT_ACCURACY) {
+	for (double i = -g_maxDistance; i < g_maxDistance; i += g_pointAccuracy) {
+		for (double j = -g_maxDistance; j < g_maxDistance; j += g_pointAccuracy) {
 			double distance = distanceBetweenPoints(i, j, point.x_, point.y_);
 			double compared = abs(distance - actual_distance);
 			
-			if (compared < DISTANCE_ACCURACY)
+			if (compared < g_distanceAccuracy)
 				possibles.push_back(Point(i, j));
 		}
 	}
@@ -161,7 +163,7 @@ vector<Point> getPossibles(vector<Point>& points, size_t i) {
 		
 		for (auto& origin : points) {
 			double distance = origin.getDistance(i);
-			if (abs(distance - distanceBetweenPoints(point.getX(), point.getY(), origin.getX(), origin.getY())) > DISTANCE_ACCURACY) {
+			if (abs(distance - distanceBetweenPoints(point.getX(), point.getY(), origin.getX(), origin.getY())) > g_distanceAccuracy) {
 				good = false;
 				
 				break;
@@ -222,7 +224,24 @@ vector<Point> getPlacement(vector<Point> points, size_t start) {
 	return vector<Point>();
 }
 
-int main() {
+void printHelp() {
+	cout << "Usage: ./Localization <distance accuracy> <point accuracy>\n";
+	cout << "Print this message with -h or --help\n";
+}
+
+int main(int argc, char** argv) {
+	if (argc == 2) {
+		if (string(argv[1]) == "-h" || string(argv[1]) == "--help")
+			printHelp();
+			
+		return 0;
+	}
+	
+	if (argc >= 3) {
+		g_distanceAccuracy = stod(argv[1]);
+		g_pointAccuracy = stod(argv[2]);
+	}
+	
 	size_t num_points;
 	cin >> num_points;
 	
