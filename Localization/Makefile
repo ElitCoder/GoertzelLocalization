@@ -3,7 +3,7 @@ OBJ_FILES := $(addprefix ./,$(notdir $(CPP_FILES:.cpp=.o)))
 CC_FLAGS := -std=c++11
 CC_FLAGS +=	-Wall -Wextra -pedantic-errors
 CC_FLAGS += -O3
-LD_LIBS := -lpthread -lssh -lssh_threads
+#LD_LIBS := -lpthread -lssh -lssh_threads
 EXECUTABLE := Localization
 
 $(EXECUTABLE): $(OBJ_FILES)

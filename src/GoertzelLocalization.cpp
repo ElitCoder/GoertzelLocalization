@@ -110,6 +110,7 @@ vector<double> calculateRealDifference(const string& real, const string& simulat
 		
 		double difference = abs(stod(real_tokens.back()) - stod(simulated_tokens.back()));
 		
+		cout << "Difference (" << real_tokens.front() << " -> " << real_tokens.at(2) << ")\t= " << difference << endl;
 		differences.push_back(difference);
 	}
 	
@@ -318,8 +319,10 @@ int main(int argc, char** argv) {
 		
 		auto differences = calculateRealDifference(real, simulated);
 		
+		/*
 		cout << "Differences:\n";
 		for_each(differences.begin(), differences.end(), [] (double difference) { cout << difference << endl; });
+		*/
 		
 		return 0;
 	}
