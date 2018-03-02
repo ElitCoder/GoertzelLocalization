@@ -71,13 +71,13 @@ vector<string> createFilenames(vector<string>& configs) {
 		
 		filenames.push_back(filename);
 		
-		cout << "Creating filename: " << filename << endl;
+		//cout << "Creating filename: " << filename << endl;
 	}
 	
 	return filenames;
 }
 
-vector<string> splitString(const string& input, char split) {
+static vector<string> splitString(const string& input, char split) {
 	vector<string> splitted;
 	size_t last_split = 0;
 	
@@ -143,14 +143,17 @@ vector<string> runSetup(int num_recordings, char** ips) {
 	int duration = g_playingLength /* until first tone */ + num_recordings * g_playingLength + g_playingLength /* to make up for jitter */;
 	int duration_seconds = duration / 48000;
 	
-	cout << "Connecting to speakers using SSH..\n";
+	cout << "Connecting to speakers using SSH.. ";
 	ssh_master.connect(configs, "pass");
+	cout << "done\n";
 	
 	if (!system(NULL))
 		ERROR("system calls are not available");
 		
 	system("mkdir scripts; wait");
 	system("mkdir recordings; wait");
+	
+	cout << "Creating config files.. ";
 	
 	for (size_t i = 0; i < configs.size(); i++) {
 		string& ip = configs.at(i);
@@ -171,38 +174,41 @@ vector<string> runSetup(int num_recordings, char** ips) {
 		file << createConfig(ip, i, duration_seconds);
 		
 		file.close();
-		
-		cout << "Created config for " << ip << " in " << filename << endl;
 	}
 	
 	system("chmod +x scripts/*; wait");
 	
-	for (size_t i = 0; i < files.size(); i++) {
-		string call = "sshpass -p pass scp ";
-		call += "-oStrictHostKeyChecking=no ";
-		call += files.at(i);
-		call += " data/testTone.wav root@";
-		call += configs.at(i);
-		call += ":/tmp/";
-		call += " &";
+	cout << "done\n";
+	
+	cout << "Transferring scripts and test files.. ";
+	
+	if (RUN_SCRIPTS) {
+		vector<string> from;
+		vector<string> to;
 		
-		cout << "Executing system call: " << call << endl;
+		for (size_t i = 0; i < files.size(); i++) {
+			string file = "data/testTone.wav " + files.at(i);
+			
+			from.push_back(file);
+			to.push_back("/tmp/");
+		}
 		
-		system(call.c_str());
+		ssh_master.transferRemote(configs, from, to);
 	}
 	
-	sleep(2);
+	cout << "done\n";
 	
-	for (auto& ip : configs) {
-		string call = "chmod +x /tmp/script" + ip + ".sh; /tmp/script" + ip + ".sh";
-		
-		cout << "Running script: " << call << endl;
-		
-		if (RUN_SCRIPTS)
-			ssh_master.command(ip, call);
-	}
+	cout << "Running scripts at remotes.. ";
 	
-	cout << "Scripts started, waiting for completion\n";
+	vector<string> commands;
+	
+	for (auto& ip : configs)
+		commands.push_back("chmod +x /tmp/script" + ip + ".sh; /tmp/script" + ip + ".sh");
+	
+	if (RUN_SCRIPTS)
+		ssh_master.command(configs, commands);
+	
+	cout << "done, waiting for finish\n";
 	
 	if (RUN_SCRIPTS) {
 		for (int i = 0; i < duration_seconds + 1; i++) {
@@ -211,24 +217,27 @@ vector<string> runSetup(int num_recordings, char** ips) {
 		}
 	}
 	
-	for (auto& ip : configs) {
-		string call = "sshpass -p pass scp -oStrictHostKeyChecking=no root@";
-		call += ip;
-		call += ":/tmp/cap";
-		call += ip;
-		call += ".wav";
-		call += " recordings/ &";
+	if (RUN_SCRIPTS) {
+		cout << "Downloading recordings.. ";
 		
-		cout << "Running script: " << call << endl;
+		vector<string> from;
+		vector<string> to;
 		
-		if (RUN_SCRIPTS)
-			system(call.c_str());
+		for (auto& ip : configs) {
+			from.push_back("/tmp/cap" + ip + ".wav");
+			to.push_back("recordings/");
+		}
+			
+		ssh_master.transferLocal(configs, from, to, true);
+		
+		cout << "done\n";
 	}
 	
-	cout << "Waiting for data transfer..\n";
-	sleep(2);
+	cout << "Creating filenames.. ";
+	auto filenames = createFilenames(configs);
+	cout << "done\n\n";
 	
-	return createFilenames(configs);
+	return filenames;
 }
 
 void writeResults(vector<Recording>& recordings) {
@@ -330,9 +339,6 @@ int main(int argc, char** argv) {
 	if (!RUN_SCRIPTS)
 		return 1;
 	
-	//vector<string> ips = { "172.25.9.27", "172.25.9.38", "172.25.12.99", "172.25.12.168", "172.25.13.200", "172.25.13.250" };
-	//vector<string> filenames = createFilenames(ips);
-	
 	for (int i = 0; i < num_recordings; i++) {
 		string filename = filenames.at(i);
 		
@@ -343,6 +349,8 @@ int main(int argc, char** argv) {
 		
 		recording.findStartingTones(num_recordings, FREQ_N, FREQ_THRESHOLD, FREQ_REDUCING, FREQ_FREQ);
 	}
+	
+	cout << endl;
 	
 	for (int i = 0; i < num_recordings; i++) {
 		Recording& master = recordings.at(i);

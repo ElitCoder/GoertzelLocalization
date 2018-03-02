@@ -13,6 +13,8 @@ public:
 	bool connect();
 	void disconnect();
 	bool command(const std::string& command);
+	bool transferLocal(const std::string& from, const std::string& to);
+	bool transferRemote(const std::string& from, const std::string& to);
 	
 	bool operator==(const std::string& ip);
 	

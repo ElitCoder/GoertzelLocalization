@@ -7,3 +7,9 @@ Install libraries:
 How to calculate differences:
 Usage: ./GoertzelLocalization -X <path to real data> <path to simulated data>
 Example: make clean && make -j 9 && ./bin/GoertzelLocalization -X Distances\ level\ 3 Test\ level\ 3
+
+How to build all:
+./create.sh
+
+How to run distance calculation:
+./create.sh run
