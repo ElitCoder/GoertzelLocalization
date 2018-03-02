@@ -1,5 +1,6 @@
 #!/bin/bash
 
+cd dep/
 unar libssh-0.7.5.tar.xz
 cd libssh-0.7.5/
 mkdir build
