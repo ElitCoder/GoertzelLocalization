@@ -78,6 +78,10 @@ int Recording::getId() {
 	return id_;
 }
 
+string Recording::getIP() {
+	return ip_;
+}
+
 string Recording::getLastIP() {
 	istringstream stream(ip_);
 	vector<string> tokens;

@@ -16,6 +16,7 @@ public:
 	size_t getTonePlayingWhen(int id);
 	int getId();
 	std::string getLastIP();
+	std::string getIP();
 	
 private:
 	std::string ip_;

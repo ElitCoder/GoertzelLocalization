@@ -274,6 +274,9 @@ void writeLocalization(vector<Recording>& recordings) {
 	
 	file << to_string(recordings.size()) << endl;
 	
+	for (auto& recording : recordings)
+		file << recording.getIP() << endl;
+	
 	for (size_t i = 0; i < recordings.size(); i++) {
 		Recording& master = recordings.at(i);
 		

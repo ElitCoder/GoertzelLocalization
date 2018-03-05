@@ -19,8 +19,9 @@ double RelDif(double a, double b) {
 
 class Point {
 public:
-	explicit Point() {
+	explicit Point(const string& ip) {
 		set = false;
+		ip_ = ip;
 	}
 	
 	explicit Point(double x, double y) :
@@ -33,6 +34,14 @@ public:
 		y_ = position.second;
 		
 		set = true;
+	}
+	
+	void setIP(const string& ip) {
+		ip_ = ip;
+	}
+	
+	const string& getIP() {
+		return ip_;
 	}
 	
 	pair<double, double> getFinalPosition() {
@@ -95,6 +104,7 @@ public:
 	double x_;
 	double y_;
 	vector<Point> possible_placements;
+	string ip_;
 };
 
 double distanceBetweenPoints(double x1, double y1, double x2, double y2) {
@@ -242,13 +252,25 @@ int main(int argc, char** argv) {
 		g_pointAccuracy = stod(argv[2]);
 	}
 	
+	string tmp;
+	getline(cin, tmp);
+	
 	size_t num_points;
-	cin >> num_points;
+	num_points = stoi(tmp);
+	
+	vector<string> ips;
+	
+	for (size_t i = 0; i < num_points; i++) {
+		string ip;
+		getline(cin, ip);
+				
+		ips.push_back(ip);
+	}
 	
 	vector<Point> points;
 	
 	for (size_t i = 0; i < num_points; i++) {
-		Point point;
+		Point point(ips.at(i));
 		
 		for (size_t j = 0; j < num_points; j++) {
 			double distance;
@@ -266,7 +288,7 @@ int main(int argc, char** argv) {
 	}
 	
 	g_maxDistance *= 1.5;
-	cout << "Set max distance to: " << g_maxDistance << endl;
+	cout << "\nSet max distance to: " << g_maxDistance << endl << endl;
 	
 	points.front().setPosition({ 0, 0 });
 	
@@ -278,7 +300,18 @@ int main(int argc, char** argv) {
 			
 		auto position = point.getFinalPosition();
 		
-		printf("(%1.2f, %1.2f)\n", position.first, position.second);
+		printf("%s: (%1.2f, %1.2f)\n", point.getIP().c_str(), position.first, position.second);
+	}
+	
+	cout << endl;
+	
+	for (auto& point : results) {
+		if (!point.isSet())
+			break;
+			
+		auto position = point.getFinalPosition();
+		
+		printf("(%1.2f, %1.2f)\n", position.first, position.second);	
 	}
 	
 	return 0;
