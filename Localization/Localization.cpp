@@ -4,14 +4,10 @@
 #include <algorithm>
 #include <set>
 
-//#define DISTANCE_ACCURACY	(1)
-//#define POINT_ACCURACY		(0.1)
-
 using namespace std;
 
-static double g_maxDistance;
-static double g_distanceAccuracy = 0.5;
-static double g_pointAccuracy = 0.01;
+static double g_distanceAccuracy = 1;
+static double PI;
 
 double RelDif(double a, double b) {
 	return abs(a - b);
@@ -26,6 +22,7 @@ public:
 	
 	explicit Point(double x, double y) :
 		x_(x), y_(y) {
+		ip_ = "not set";
 		set = true;
 	}
 	
@@ -36,19 +33,12 @@ public:
 		set = true;
 	}
 	
-	void setIP(const string& ip) {
-		ip_ = ip;
-	}
-	
 	const string& getIP() {
 		return ip_;
 	}
 	
 	pair<double, double> getFinalPosition() {
-		if (set)
-			return {x_, y_};
-			
-		return possible_placements.front().getFinalPosition();
+		return { x_, y_ };
 	}
 	
 	double getX() {
@@ -69,14 +59,6 @@ public:
 	
 	double getDistance(size_t i) {
 		return distance_.at(i);
-	}
-	
-	void addPossible(const Point& point) {
-		possible_placements.push_back(point);
-	}
-	
-	void addPossible(const vector<Point>& possibles) {
-		possible_placements.insert(possible_placements.end(), possibles.begin(), possibles.end());
 	}
 	
 	bool operator==(const Point& point) {
@@ -103,56 +85,32 @@ public:
 	bool set;
 	double x_;
 	double y_;
-	vector<Point> possible_placements;
 	string ip_;
 };
 
-class Point3D : public Point {
-public:
-	explicit Point3D() = delete;
-	
-	double z_;
-};
-
-double distanceBetweenPoints(double x1, double y1, double x2, double y2) {
-	return sqrt((x2 - x1) * (x2 - x1) + (y2 - y1) * (y2 - y1));
+namespace PrivateOperations {
+	double distanceBetweenPoints(double x1, double y1, double x2, double y2) {
+		return (x2 - x1) * (x2 - x1) + (y2 - y1) * (y2 - y1);
+	}
 }
 
-double distanceBetweenPoints(double x1, double y1, double x2, double y2, double z1, double z2) {
-	double x = (x2 - x1) * (x2 - x1);
-	double y = (y2 - y1) * (y2 - y1);
-	double z = (z2 - z1) * (z2 - z1);
-	
-	return sqrt(x + y + z);
+double distanceBetweenPointsNoSqrt(double x1, double y1, double x2, double y2) {
+	return PrivateOperations::distanceBetweenPoints(x1, y1, x2, y2);
+}
+
+double toRadians(double degrees) {
+	return (degrees * PI) / 180;
 }
 
 vector<Point> getSinglePossibles(Point& point, double actual_distance) {
 	vector<Point> possibles;
 	
-	for (double i = -g_maxDistance; i < g_maxDistance; i += g_pointAccuracy) {
-		for (double j = -g_maxDistance; j < g_maxDistance; j += g_pointAccuracy) {
-			double distance = distanceBetweenPoints(i, j, point.x_, point.y_);
-			double compared = abs(distance - actual_distance);
-			
-			if (compared < g_distanceAccuracy)
-				possibles.push_back(Point(i, j));
-		}
-	}
-	
-	return possibles;
-}
+	for (int a = 0; a < 360; a++) {
+		double x = point.getX() + actual_distance * cos(toRadians(a));
+		double y = point.getY() + actual_distance * sin(toRadians(a));
 
-vector<Point> getMultiplePossibles(Point& point, double actual_distance) {
-	if (point.set)
-		return getSinglePossibles(point, actual_distance);
-		
-	vector<Point> possibles;
-		
-	for (auto& master : point.possible_placements) {
-		auto master_possibles = getSinglePossibles(master, actual_distance);
-		
-		possibles.insert(possibles.end(), master_possibles.begin(), master_possibles.end());
-	}	
+		possibles.push_back(Point(x, y));;
+	}
 	
 	return possibles;
 }
@@ -169,34 +127,54 @@ vector<Point> getPossibles(vector<Point>& points, size_t i) {
 	vector<Point> possibles;
 	vector<Point> working;
 	
-	for (auto& master : points) {
-		double distance = master.getDistance(i);
-		auto master_possibles = getMultiplePossibles(master, distance);
+	#pragma omp parallel
+	{
+		vector<Point> parallel_possibles;
 		
-		possibles.insert(possibles.end(), master_possibles.begin(), master_possibles.end());
+		#pragma omp for
+		for (size_t j = 0; j < points.size(); j++) {
+			Point& master = points.at(j);
+			double distance = master.getDistance(i);
+			auto master_possibles = getSinglePossibles(master, distance);
+			
+			parallel_possibles.insert(parallel_possibles.end(), master_possibles.begin(), master_possibles.end());
+		}
+		
+		#pragma omp critical
+		{
+			possibles.insert(possibles.end(), parallel_possibles.begin(), parallel_possibles.end());
+		}
 	}
 	
 	removeDuplicates(possibles);
 	
-	//cout << "After duplicates: " << possibles.size() << endl;
-	
-	//cout << points.front().getX() << " " << points.front().getY() << endl;
-	//cout << points.front().getDistance(i) << endl;
-	
-	for (auto& point : possibles) {
-		bool good = true;
+	#pragma omp parallel
+	{
+		vector<Point> parallel_working;
 		
-		for (auto& origin : points) {
-			double distance = origin.getDistance(i);
-			if (abs(distance - distanceBetweenPoints(point.getX(), point.getY(), origin.getX(), origin.getY())) > g_distanceAccuracy) {
-				good = false;
-				
-				break;
+		#pragma omp for
+		for (size_t j = 0; j < possibles.size(); j++) {
+			Point& point = possibles.at(j);
+			bool good = true;
+			
+			for (auto& origin : points) {
+				double distance = origin.getDistance(i);
+				distance *= distance;
+				if (abs(distance - distanceBetweenPointsNoSqrt(point.getX(), point.getY(), origin.getX(), origin.getY())) > g_distanceAccuracy) {
+					good = false;
+					
+					break;
+				}
+			}
+
+			if (good) {
+				parallel_working.push_back(point);
 			}
 		}
 		
-		if (good) {
-			working.push_back(point);
+		#pragma omp critical
+		{
+			working.insert(working.end(), parallel_working.begin(), parallel_working.end());
 		}
 	}
 	
@@ -205,13 +183,6 @@ vector<Point> getPossibles(vector<Point>& points, size_t i) {
 
 vector<Point> getPlacement(vector<Point> points, size_t start) {
 	vector<Point> origins(points.begin(), points.begin() + start);
-	
-	/*
-	cout << "start: " << start << endl;
-	cout << "points.size(): " << points.size() << endl;
-	cout << "origins.size(): " << origins.size() << endl;
-	*/
-	
 	vector<Point> possibles = getPossibles(origins, start);
 	
 	// Do we have any possibility?
@@ -250,7 +221,7 @@ vector<Point> getPlacement(vector<Point> points, size_t start) {
 }
 
 void printHelp() {
-	cout << "Usage: ./Localization <distance accuracy> <point accuracy>\n";
+	cout << "Usage: ./Localization <distance accuracy>\n";
 	cout << "Print this message with -h or --help\n";
 }
 
@@ -262,10 +233,12 @@ int main(int argc, char** argv) {
 		return 0;
 	}
 	
-	if (argc >= 3) {
+	if (argc >= 2) {
 		g_distanceAccuracy = stod(argv[1]);
-		g_pointAccuracy = stod(argv[2]);
 	}
+	
+	PI = atan(1) * 4;
+	cout << "Setting PI to " << PI << endl;
 	
 	string tmp;
 	getline(cin, tmp);
@@ -294,39 +267,48 @@ int main(int argc, char** argv) {
 			point.addDistance(distance);
 			
 			printf("%zu -> %zu\t= %1.2f\n", i, j, distance);
-			
-			if (distance > g_maxDistance)
-				g_maxDistance = distance;
 		}
 		
 		points.push_back(point);
 	}
 	
-	g_maxDistance *= 1.5;
-	cout << "\nSet max distance to: " << g_maxDistance << endl << endl;
-	
 	points.front().setPosition({ 0, 0 });
 	
-	auto results = getPlacement(points, 1);
-	
-	for (auto& point : results) {
-		if (!point.isSet())
-			break;
-			
-		auto position = point.getFinalPosition();
+	while (g_distanceAccuracy > 0) {
+		cout << "Trying for accuracy " << g_distanceAccuracy << " m\n\n";
 		
-		printf("%s: (%1.2f, %1.2f)\n", point.getIP().c_str(), position.first, position.second);
-	}
-	
-	cout << endl;
-	
-	for (auto& point : results) {
-		if (!point.isSet())
-			break;
-			
-		auto position = point.getFinalPosition();
+		vector<Point> basic_points(points);
+		auto results = getPlacement(basic_points, 1);
 		
-		printf("(%1.2f, %1.2f)\n", position.first, position.second);	
+		if (results.empty()) {
+			cout << "No more possible results\n";
+			
+			break;
+		}
+		
+		for (auto& point : results) {
+			if (!point.isSet())
+				break;
+				
+			auto position = point.getFinalPosition();
+			
+			printf("%s: (%1.2f, %1.2f)\n", point.getIP().c_str(), position.first, position.second);
+		}
+		
+		cout << endl;
+		
+		for (auto& point : results) {
+			if (!point.isSet())
+				break;
+				
+			auto position = point.getFinalPosition();
+			
+			printf("(%1.2f, %1.2f)\n", position.first, position.second);	
+		}
+		
+		cout << endl;
+		
+		g_distanceAccuracy -= 0.01;
 	}
 	
 	return 0;

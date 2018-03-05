@@ -1,7 +1,7 @@
 # number of speakers
 # speaker # 1 ip
-# speaker # 2 ip
 # 1 -> 1 distance (0)
 # 1 -> 2 distance
+# speaker # 2 ip
 # 2 -> 1 distance
 # 2 -> 2 distance (0)
