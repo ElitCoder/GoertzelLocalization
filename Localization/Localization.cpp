@@ -107,8 +107,23 @@ public:
 	string ip_;
 };
 
+class Point3D : public Point {
+public:
+	explicit Point3D() = delete;
+	
+	double z_;
+};
+
 double distanceBetweenPoints(double x1, double y1, double x2, double y2) {
 	return sqrt((x2 - x1) * (x2 - x1) + (y2 - y1) * (y2 - y1));
+}
+
+double distanceBetweenPoints(double x1, double y1, double x2, double y2, double z1, double z2) {
+	double x = (x2 - x1) * (x2 - x1);
+	double y = (y2 - y1) * (y2 - y1);
+	double z = (z2 - z1) * (z2 - z1);
+	
+	return sqrt(x + y + z);
 }
 
 vector<Point> getSinglePossibles(Point& point, double actual_distance) {

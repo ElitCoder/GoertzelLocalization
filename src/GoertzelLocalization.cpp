@@ -370,7 +370,7 @@ int main(int argc, char** argv) {
 			
 			master.addDistance(j, distance);
 			
-			if (master.getDistance(j) > 1e01)
+			if (master.getDistance(j) > 1e09)
 				ERROR("results did not pass sanity check, they are wrong");
 					
 			if (j > i)
