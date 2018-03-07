@@ -1,9 +1,9 @@
 CPP_FILES := $(wildcard src/*.cpp)
 OBJ_FILES := $(addprefix obj/,$(notdir $(CPP_FILES:.cpp=.o)))
 CC_FLAGS := -std=c++11
-CC_FLAGS +=	-Wall -Wextra -pedantic-errors
+CC_FLAGS +=	-Wall -Wextra -pedantic-errors -fopenmp
 CC_FLAGS += -O3
-LD_LIBS := -lpthread -lssh -lssh_threads
+LD_LIBS := -lpthread -lssh -lssh_threads -fopenmp
 EXECUTABLE := GoertzelLocalization
 
 bin/$(EXECUTABLE): $(OBJ_FILES)

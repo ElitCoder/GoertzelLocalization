@@ -2,6 +2,7 @@
 #include "Goertzel.h"
 #include "Recording.h"
 #include "Connections.h"
+#include "Matrix.h"
 
 #include <iostream>
 #include <algorithm>
@@ -44,7 +45,33 @@ double calculateDistance(Recording& master, Recording& recording) {
 	long long Tp = (Tp1 + Tp2) / 2;
 	double Tp_sec = static_cast<double>(Tp) / 48000;
 	
-	return Tp_sec * 343;
+	cout << "Dt in seconds: " << static_cast<double>(Dt) / 48000 << endl;
+	cout << "Dt in milliseconds: " << (static_cast<double>(Dt) * 1000) / 48000 << endl;
+	
+	return abs(Tp_sec * 343);
+}
+
+Matrix<double> calculateDeltas(const vector<Recording>& recordings) {
+	Matrix<double> matrix(recordings.size(), recordings.size());
+
+	//Txy = rxy - px
+	//Tyx = ryx - py
+	//(i, j) = Tij = rij - pi
+	//(i, j) = j.tone(i) - i.tone(i)
+	
+	for (size_t i = 0; i < recordings.size(); i++) {
+		for (size_t j = 0; j < recordings.size(); j++) {
+			const Recording& i_recording = recordings.at(i);
+			const Recording& j_recording = recordings.at(j);
+			
+			long long rij = j_recording.getTonePlayingWhen(i_recording.getId());
+			long long pi = i_recording.getTonePlayingWhen(i_recording.getId());
+			
+			matrix[i][j] = (rij - pi) / static_cast<double>(48000);
+		}
+	}
+	
+	return (matrix - matrix.transpose()) * 0.5;
 }
 
 void printHelp() {
@@ -376,6 +403,7 @@ int main(int argc, char** argv) {
 	
 	vector<string> ips(argv + 2, argv + 2 + num_recordings);
 	vector<string> filenames = runSetup(num_recordings, argv + 2);
+	//vector<string> filenames = createFilenames(ips);
 	
 	if (!RUN_SCRIPTS)
 		return 1;
@@ -412,6 +440,10 @@ int main(int argc, char** argv) {
 				cout << "Distance from " << master.getLastIP() << " -> " << recording.getLastIP() << " is "  << master.getDistance(j) << " m\n";
 		}
 	}
+	
+	for_each(recordings.begin(), recordings.end(), [] (const Recording& recording) { cout << recording.getLastIP() << "\tID: " << recording.getId() << endl; });
+	cout << "Deltas:\n" << calculateDeltas(recordings) << endl;
+	//calculateDeltas(recordings);
 	
 	writeResults(recordings);
 	writeLocalization(recordings);

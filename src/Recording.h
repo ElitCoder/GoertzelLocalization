@@ -13,9 +13,9 @@ public:
 	double getDistance(int id);
 	void setPosition(const std::pair<double, double>& position);
 	void findStartingTones(int num_recordings, const int N, double threshold, double reducing, int frequency);
-	size_t getTonePlayingWhen(int id);
-	int getId();
-	std::string getLastIP();
+	size_t getTonePlayingWhen(int id) const;
+	int getId() const;
+	std::string getLastIP() const;
 	std::string getIP();
 	
 private:

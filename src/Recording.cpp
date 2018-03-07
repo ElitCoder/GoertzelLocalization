@@ -67,14 +67,14 @@ void Recording::findStartingTones(int num_recordings, const int N, double thresh
 	}
 }
 
-size_t Recording::getTonePlayingWhen(int id) {
+size_t Recording::getTonePlayingWhen(int id) const {
 	if (static_cast<unsigned int>(id) >= starting_tones_.size())
 		ERROR("not all tones were recorded, aborting");
 		
 	return starting_tones_.at(id);
 }
 
-int Recording::getId() {
+int Recording::getId() const {
 	return id_;
 }
 
@@ -82,7 +82,7 @@ string Recording::getIP() {
 	return ip_;
 }
 
-string Recording::getLastIP() {
+string Recording::getLastIP() const {
 	istringstream stream(ip_);
 	vector<string> tokens;
 	string token;

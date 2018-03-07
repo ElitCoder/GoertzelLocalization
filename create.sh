@@ -30,7 +30,7 @@ if [ $# -ne 0 ]; then
 	#./GoertzelLocalization 2 172.25.14.33 172.25.13.125 172.25.9.248 <-- våning 3 öppen yta
 	
 	cd ../bin/
-	until ./GoertzelLocalization 2 172.25.9.27 172.25.9.38 172.25.13.250; do echo "Running again"; sleep 1; done
+	until valgrind ./GoertzelLocalization 2 172.25.9.27 172.25.9.38 172.25.13.250; do echo "Running again"; sleep 1; done
 	cd ../
 	
 	exit 0
