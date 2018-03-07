@@ -221,8 +221,9 @@ vector<Point> getPlacement(vector<Point> points, size_t start) {
 }
 
 void printHelp() {
-	cout << "Usage: ./Localization <distance accuracy>\n";
+	cout << "Usage: ./Localization <starting distance accuracy>\n";
 	cout << "Print this message with -h or --help\n";
+	cout << "\nReads input_structure from stdin and calculates distance between points, with accuracy starting at <starting distance accuracy> (default 0.6m)\n";
 }
 
 int main(int argc, char** argv) {

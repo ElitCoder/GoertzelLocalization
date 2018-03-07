@@ -24,19 +24,27 @@ static bool RUN_SCRIPTS = true;
 int g_playingLength = 2e05;
 
 double calculateDistance(Recording& master, Recording& recording) {
-	long long play_1 = 0;
-	long long play_2 = 0;
-	long long record_1 = 0;
-	long long record_2 = 0;
+	long long r12 = recording.getTonePlayingWhen(master.getId());
+	long long p1 = master.getTonePlayingWhen(master.getId());
+	long long r21 = master.getTonePlayingWhen(recording.getId());
+	long long p2 = recording.getTonePlayingWhen(recording.getId());
 	
-	play_1 = master.getTonePlayingWhen(master.getId());
-	play_2 = recording.getTonePlayingWhen(recording.getId());
-	record_1 = master.getTonePlayingWhen(recording.getId());
-	record_2 = recording.getTonePlayingWhen(master.getId());
+	//T12 = Tp + Dt
+	//T21 = Tp - Dt
+	long long T12 = r12 - p1;
+	long long T21 = r21 - p2;
 	
-	long long sum = (record_1 + record_2) - (play_1 + play_2);
+	long long Dt = -(T21 - T12) / 2;
 	
-	return abs((static_cast<double>(sum)/2))*343/48000;
+	//T12 - Dt = Tp
+	//T21 + Dt = Tp
+	long long Tp1 = T12 - Dt;
+	long long Tp2 = T21 + Dt;
+	
+	long long Tp = (Tp1 + Tp2) / 2;
+	double Tp_sec = static_cast<double>(Tp) / 48000;
+	
+	return Tp_sec * 343;
 }
 
 void printHelp() {
