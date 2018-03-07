@@ -3,6 +3,7 @@
 #include "Recording.h"
 #include "Connections.h"
 #include "Matrix.h"
+#include "DeltaContainer.h"
 
 #include <iostream>
 #include <algorithm>
@@ -10,6 +11,8 @@
 #include <fstream>
 #include <sstream>
 #include <cmath>
+
+#define EPSILON	(0.001)
 
 #define ERROR(...)	do { fprintf(stderr, "Error: "); fprintf(stderr, __VA_ARGS__); fprintf(stderr, "\n"); exit(1); } while(0)
 
@@ -24,6 +27,12 @@ static bool RUN_SCRIPTS = true;
 
 int g_playingLength = 2e05;
 
+/*
+static bool equal(double a, double b) {
+	return abs(a - b) < EPSILON;
+}
+*/
+
 double calculateDistance(Recording& master, Recording& recording) {
 	long long r12 = recording.getTonePlayingWhen(master.getId());
 	long long p1 = master.getTonePlayingWhen(master.getId());
@@ -35,18 +44,15 @@ double calculateDistance(Recording& master, Recording& recording) {
 	long long T12 = r12 - p1;
 	long long T21 = r21 - p2;
 	
-	long long Dt = -(T21 - T12) / 2;
+	double Dt = -(static_cast<double>(T21) - static_cast<double>(T12)) / 2;
 	
 	//T12 - Dt = Tp
 	//T21 + Dt = Tp
-	long long Tp1 = T12 - Dt;
-	long long Tp2 = T21 + Dt;
+	double Tp1 = T12 - Dt;
+	double Tp2 = T21 + Dt;
 	
-	long long Tp = (Tp1 + Tp2) / 2;
-	double Tp_sec = static_cast<double>(Tp) / 48000;
-	
-	cout << "Dt in seconds: " << static_cast<double>(Dt) / 48000 << endl;
-	cout << "Dt in milliseconds: " << (static_cast<double>(Dt) * 1000) / 48000 << endl;
+	double Tp = (Tp1 + Tp2) / 2;
+	double Tp_sec = Tp / 48000;
 	
 	return abs(Tp_sec * 343);
 }
@@ -71,7 +77,80 @@ Matrix<double> calculateDeltas(const vector<Recording>& recordings) {
 		}
 	}
 	
+	// D = (1/2) * (M - M^T) 
 	return (matrix - matrix.transpose()) * 0.5;
+}
+
+vector<Matrix<double>> compareDeltaDifferences(const Matrix<double>& deltas) {
+	vector<Matrix<double>> differences;
+	
+	for (size_t i = 0; i < deltas.size(); i++) {
+		differences.push_back(Matrix<double>(deltas.size(), deltas.size()));
+		auto& difference = differences.back();
+		
+		for (size_t j = 0; j < deltas.size() - 1; j++) {
+			if (i == j)
+				continue;
+				
+			size_t choose_second_j = j + 1 == i ? j + 2 : j + 1;
+			
+			if (choose_second_j >= deltas.size())
+				break;
+			
+			//cout << "i: " << i << " j: " << j << " second_j: " << choose_second_j << endl;
+			difference[choose_second_j][j] = deltas[i][j] - deltas[i][choose_second_j];
+			difference[j][choose_second_j] = -difference[choose_second_j][j];
+			
+			//printf("saving in [%zu][%zu]\n", choose_second_j, j);
+		}
+	}
+	
+	return differences;
+}
+
+vector<DeltaContainer> getDeltaValues(const Matrix<double>& deltas, const vector<Matrix<double>>& differences) {
+	vector<DeltaContainer> containers;
+	
+	for (size_t i = 0; i < deltas.size(); i++) {
+		for (size_t j = 0; j < deltas.size(); j++) {
+			if (i == j)
+				continue;
+								
+			containers.push_back(DeltaContainer(i, j));
+		}
+	}
+		
+	for (size_t i = 0; i < deltas.size(); i++) {
+		const auto& difference = differences.at(i);
+		
+		for (size_t j = 0; j < deltas.size(); j++) {
+			if (i == j)
+				continue;
+			
+			size_t choose_second_j = j + 1 == i ? j + 2 : j + 1;
+			
+			if (choose_second_j >= deltas.size())
+				break;	
+								
+			DeltaContainer& container_positive = *find(containers.begin(), containers.end(), DeltaContainer(choose_second_j, j));
+			DeltaContainer& container_negative = *find(containers.begin(), containers.end(), DeltaContainer(j, choose_second_j));
+			
+			container_positive.add(difference[choose_second_j][j]);
+			container_negative.add(difference[j][choose_second_j]);
+		}
+	}
+		
+	for (size_t i = 0; i < deltas.size(); i++) {
+		for (size_t j = 0; j < deltas.size(); j++) {
+			if (i == j)
+				continue;
+				
+			DeltaContainer& container = *find(containers.begin(), containers.end(), DeltaContainer(i, j));
+			container.add(deltas[i][j]);	
+		}
+	}
+	
+	return containers;
 }
 
 void printHelp() {
@@ -384,11 +463,6 @@ int main(int argc, char** argv) {
 		
 		auto differences = calculateRealDifference(real, simulated);
 		
-		/*
-		cout << "Differences:\n";
-		for_each(differences.begin(), differences.end(), [] (double difference) { cout << difference << endl; });
-		*/
-		
 		return 0;
 	}
 	
@@ -430,20 +504,21 @@ int main(int argc, char** argv) {
 			
 			Recording& recording = recordings.at(j);
 			double distance = calculateDistance(master, recording);
-			
-			master.addDistance(j, distance);
-			
-			if (master.getDistance(j) > 1e09)
-				ERROR("results did not pass sanity check, they are wrong");
-					
+			master.addDistance(j, distance);	
+				
 			if (j > i)
-				cout << "Distance from " << master.getLastIP() << " -> " << recording.getLastIP() << " is "  << master.getDistance(j) << " m\n";
+				cout << "Distance from " << master.getLastIP() << " -> " << recording.getLastIP() << " is "  << distance << " m\n";	
 		}
-	}
+	}	
 	
-	for_each(recordings.begin(), recordings.end(), [] (const Recording& recording) { cout << recording.getLastIP() << "\tID: " << recording.getId() << endl; });
-	cout << "Deltas:\n" << calculateDeltas(recordings) << endl;
-	//calculateDeltas(recordings);
+	auto deltas = calculateDeltas(recordings);
+	auto delta_differences = compareDeltaDifferences(deltas);
+	auto delta_values = getDeltaValues(deltas, delta_differences);
+	
+	//cout << "Delta containers:\n";
+	
+	//for (size_t i = 0; i < delta_values.size(); i++)
+	//	cout << delta_values.at(i) << endl;
 	
 	writeResults(recordings);
 	writeLocalization(recordings);

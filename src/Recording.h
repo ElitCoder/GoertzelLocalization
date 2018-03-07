@@ -10,6 +10,7 @@ public:
 	
 	std::vector<short>& getData();
 	void addDistance(int id, double distance);
+	void setDistance(int id, double distance);
 	double getDistance(int id);
 	void setPosition(const std::pair<double, double>& position);
 	void findStartingTones(int num_recordings, const int N, double threshold, double reducing, int frequency);

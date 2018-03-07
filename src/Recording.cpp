@@ -23,6 +23,12 @@ void Recording::addDistance(int id, double distance) {
 	distances_.push_back({ id, distance});
 }
 
+void Recording::setDistance(int id, double distance) {
+	for (auto& pair : distances_)
+		if (pair.first == id)
+			pair.second = distance;
+}
+
 double Recording::getDistance(int id) {
 	for (size_t i = 0; i < distances_.size(); i++)
 		if (distances_.at(i).first == id)
