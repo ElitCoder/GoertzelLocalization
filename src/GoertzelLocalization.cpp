@@ -57,6 +57,22 @@ double calculateDistance(Recording& master, Recording& recording) {
 	return abs(Tp_sec * 343);
 }
 
+double calculateDistance(Recording& master, Recording& recording, double delta) {
+	long long r12 = recording.getTonePlayingWhen(master.getId());
+	long long p1 = master.getTonePlayingWhen(master.getId());
+	long long r21 = master.getTonePlayingWhen(recording.getId());
+	long long p2 = recording.getTonePlayingWhen(recording.getId());
+	
+	long long T12 = r12 - p1;
+	long long T21 = r21 - p2;
+	
+	delta *= 48000;
+	
+	double Tp = sqrt((((T12 * T12) + (T21 * T21)) / 2) - (delta * delta));
+	
+	return (Tp / 48000) * 343;
+}
+
 Matrix<double> calculateDeltas(const vector<Recording>& recordings) {
 	Matrix<double> matrix(recordings.size(), recordings.size());
 
@@ -504,10 +520,11 @@ int main(int argc, char** argv) {
 			
 			Recording& recording = recordings.at(j);
 			double distance = calculateDistance(master, recording);
-			master.addDistance(j, distance);	
+			master.addDistance(j, distance);
 				
-			if (j > i)
+			if (j > i) {
 				cout << "Distance from " << master.getLastIP() << " -> " << recording.getLastIP() << " is "  << distance << " m\n";	
+			}
 		}
 	}	
 	
@@ -519,6 +536,24 @@ int main(int argc, char** argv) {
 	
 	//for (size_t i = 0; i < delta_values.size(); i++)
 	//	cout << delta_values.at(i) << endl;
+	
+	/*
+	for (int i = 0; i < num_recordings; i++) {
+		Recording& master = recordings.at(i);
+		
+		for (int j = 0; j < num_recordings; j++) {
+			if (j == i)
+				continue;
+			
+			Recording& recording = recordings.at(j);
+			double mean = (*find(delta_values.begin(), delta_values.end(), DeltaContainer(i, j))).mean();
+			double distance = calculateDistance(master, recording, mean);
+				
+			if (j > i) {
+				cout << "Distance from " << master.getLastIP() << " -> " << recording.getLastIP() << " is "  << distance << " m (old: " << master.getDistance(j) << " m)\n";	
+			}
+		}
+	}	*/
 	
 	writeResults(recordings);
 	writeLocalization(recordings);
