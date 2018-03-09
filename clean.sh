@@ -11,4 +11,6 @@ rm -rf live_localization.txt
 make clean
 cd ../Server/
 make clean
+cd ../Client/
+make clean
 exit
