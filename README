@@ -1,5 +1,5 @@
 Build essentials:
-sudo apt-get install g++ sshpass unar cmake
+sudo apt-get install g++ sshpass unar cmake libssl-dev zlib1g-dev
 
 Install libraries:
 ./install.sh
