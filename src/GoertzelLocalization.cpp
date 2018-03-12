@@ -281,8 +281,10 @@ vector<string> runSetup(int num_recordings, char** ips) {
 	if (!system(NULL))
 		ERROR("system calls are not available");
 		
-	system("mkdir scripts; wait");
-	system("mkdir recordings; wait");
+	int call = system("mkdir scripts; wait");
+	call = system("mkdir recordings; wait");
+	
+	if (call) {} // Hide warnings
 	
 	cout << "Creating config files.. ";
 	
@@ -307,7 +309,7 @@ vector<string> runSetup(int num_recordings, char** ips) {
 		file.close();
 	}
 	
-	system("chmod +x scripts/*; wait");
+	call = system("chmod +x scripts/*; wait");
 	
 	cout << "done\n";
 	

@@ -5,6 +5,8 @@
 using namespace std;
 
 void handle(Connection& connection, Packet& packet) {
+	if (connection.getSocket()) { }
+		
 	switch (packet.getByte()) {
 		case 0x01: {
 			cout << "Debug: got update packet!\n";

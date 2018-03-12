@@ -1,334 +1,389 @@
 #include <iostream>
 #include <vector>
-#include <cassert>
-#include <fstream>
 #include <cmath>
+#include <algorithm>
 #include <set>
-
-#define NUM_DIMENSIONS	(3)
-
-#define ERROR(...)	do { fprintf(stderr, "Error: "); fprintf(stderr, __VA_ARGS__); fprintf(stderr, "\n"); exit(1); } while(0)
 
 using namespace std;
 
-static double g_maxDistance;
-static double g_distanceAccuracy = 0.4;
-static double g_pointAccuracy = 0.05;
-
+static double g_distanceAccuracy = 0.3;
 static double PI;
 
-double RelDiff(double a, double b) {
+double RelDif(double a, double b) {
 	return abs(a - b);
 }
 
 class Point {
 public:
-	explicit Point(const string& ip, const vector<double>& distances) {
-		distances_.insert(distances_.end(), distances.begin(), distances.end());	
-		ip_ = ip;
+	explicit Point(const string& ip) {
 		set = false;
+		ip_ = ip;
 	}
 	
-	explicit Point(const vector<double>& coordinates) {
-		coordinates_.insert(coordinates_.end(), coordinates.begin(), coordinates.end());
+	explicit Point(double x, double y, double z) :
+		x_(x), y_(y) {
+		z_ = z;
 		ip_ = "not set";
 		set = true;
+	}
+	
+	/*
+	void setPosition(pair<double, double> position) {
+		x_ = position.first;
+		y_ = position.second;
+		
+		set = true;
+	}
+	*/
+	
+	void setPosition(double x, double y, double z) {
+		x_ = x;
+		y_ = y;
+		z_ = z;
+		
+		set = true;
+	}
+	
+	void setPosition(vector<double> positions) {
+		setPosition(positions.at(0), positions.at(1), positions.at(2));
 	}
 	
 	const string& getIP() {
 		return ip_;
 	}
 	
-	void setCoordinates(const vector<double>& coordinates) {
-		coordinates_ = coordinates;
+	/*
+	pair<double, double> getFinalPosition() {
+		return { x_, y_ };
+	}
+	*/
+	
+	vector<double> getFinalPosition() {
+		return { x_, y_, z_ };
 	}
 	
-	const vector<double>& getCoordinates() const {
-		assert(coordinates_.size() >= NUM_DIMENSIONS);
-		
-		return coordinates_;
+	double getX() {
+		return x_;
 	}
 	
-	bool isPlacementSet() {
+	double getY() {
+		return y_;
+	}
+	
+	double getZ() const {
+		return z_;
+	}
+	
+	bool isSet() {
 		return set;
 	}
 	
-	void setPlacement(bool status) {
-		set = status;
+	void addDistance(double distance) {
+		distance_.push_back(distance);	
 	}
 	
-	double getDistanceTo(size_t element) const {
-		return distances_.at(element);
+	double getDistance(size_t i) {
+		return distance_.at(i);
 	}
 	
 	bool operator==(const Point& point) {
-		for (size_t i = 0; i < coordinates_.size(); i++)
-			if (RelDiff(coordinates_.at(i), point.coordinates_.at(i)) > 0.001)
-				return false;
-				
-		return true;
+		if (RelDif(point.x_, x_) <= 0.001 && RelDif(point.y_, y_) <= 0.001 && RelDif(point.z_, z_) <= 0.001)
+			return true;
+			
+		return false;	
 	}
 	
 	friend ostream& operator<<(ostream& out, const Point& point) {
-		cout << "(";
-		
-		for (size_t i = 0; i < point.coordinates_.size(); i++) {
-			cout << point.coordinates_.at(i);
-			
-			if ((i + 1) != point.coordinates_.size())
-				cout << ", ";	
-		}
-		
-		cout << ")";
+		cout << "(" << point.x_ << ", " << point.y_ << ", " << point.z_ << ")";
 		
 		return out;
 	}
 	
 	friend bool operator<(const Point& a, const Point& b) {
-		for (size_t i = 0; i < a.coordinates_.size(); i++)
-			if (RelDiff(a.coordinates_.at(i), b.coordinates_.at(i)) >= 0.001)
-				return a.coordinates_.at(i) < b.coordinates_.at(i);
-				
-		// If they are the same point		
-		return true;
+		double x_diff = abs(a.x_ - b.x_);
+		double y_diff = abs(a.y_ - b.y_);
+		double z_diff = abs(a.z_ - b.z_);
+		
+		if (x_diff > 0.001)
+		 	return a.x_ < b.x_;
+			
+		if (y_diff > 0.001)
+			return a.y_ < b.y_;
+			
+		if (z_diff > 0.001)
+			return a.z_ < b.z_;
+			
+		return a.x_ < b.x_;	
+		
+		/*
+		if (RelDif(a.x_, b.x_) <= 0.001) {
+			
+			return a.y_ < b.y_;
+		}
+			
+		return a.x_ < b.x_;	
+		*/
 	}
 	
-private:
-	vector<double> coordinates_;
-	vector<double> distances_;
-	string ip_;
+	vector<double> distance_;
 	bool set;
+	double x_;
+	double y_;
+	double z_;
+	string ip_;
 };
 
-double distanceBetweenPoints(const Point& from, const Point& to) {
-	const vector<double>& from_coordinates = from.getCoordinates();
-	const vector<double>& to_coordinates = to.getCoordinates();
-	
-	double euclidian = 0.0;
-	
-	for (size_t i = 0; i < NUM_DIMENSIONS; i++) {
-		double d1 = from_coordinates.at(i);
-		double d2 = to_coordinates.at(i);
-		
-		euclidian += (d2 - d1) * (d2 - d1);
+namespace PrivateOperations {
+	double distanceBetweenPoints(double x1, double y1, double x2, double y2) {
+		return (x2 - x1) * (x2 - x1) + (y2 - y1) * (y2 - y1);
 	}
-	
-	//cout << "Debug: calculated distance to " << sqrt(euclidian) << endl;
-	
-	return euclidian;
 }
 
-bool isDistanceGloballyAccepted(const Point& from, const Point& to, double distance) {
-	double calculated_distance = distanceBetweenPoints(from, to);
-	distance *= distance;
-	double actual_difference = abs(calculated_distance - distance);
-	
-	return actual_difference < g_distanceAccuracy;
+double distanceBetweenPointsNoSqrt(double x1, double y1, double x2, double y2) {
+	return PrivateOperations::distanceBetweenPoints(x1, y1, x2, y2);
 }
 
-double getRadians(double degrees) {
-	return (degrees * PI) / 180.0;
+double toRadians(double degrees) {
+	return (degrees * PI) / 180;
 }
 
-// TODO: Improve this a lot by using angles and possible points on the sphere instead of brute-force
-vector<Point> getPointsOnCircle(const Point& point, double distance) {
-	vector<Point> possible_placements;
-	int num_iterations = g_maxDistance / g_pointAccuracy;
+bool sortOnZAxis(const Point& a, const Point& b) {
+	return abs(a.getZ()) < abs(b.getZ());
+}
+
+vector<Point> getSinglePossibles(Point& point, double actual_distance) {
+	vector<Point> possibles;
 	
-	distance *= distance;
-	
-	#pragma omp parallel
-	{
-		vector<Point> temp_placements;
-		
-		#pragma omp for
-		for (int i = -num_iterations; i < num_iterations; i++) {
-			double x = i * g_pointAccuracy;
+	for (int gamma = 0; gamma < 360; gamma++) {
+		for (int omega = 0; omega < 360; omega++) {
+			double x = point.getX() + actual_distance * cos(toRadians(gamma)) * sin(toRadians(omega));
+			double y = point.getY() + actual_distance * sin(toRadians(gamma)) * sin(toRadians(omega));
+			double z = point.getZ() + actual_distance * cos(omega);
 			
-			for (int j = -num_iterations; j < num_iterations; j++) {
-				double y = j * g_pointAccuracy;
-				
-				for (int k = -num_iterations; k < num_iterations; k++) {
-					double z = k * g_pointAccuracy;
-					
-					double calculated_distance = distanceBetweenPoints(point, Point({ x, y, z }));
-					double actual_difference = abs(calculated_distance - distance);
-					
-					if (actual_difference < g_distanceAccuracy)
-						temp_placements.push_back(Point({ x, y, z }));
-				}
-			}
-		}
-		
-		#pragma omp critical
-		{
-			possible_placements.insert(possible_placements.end(), temp_placements.begin(), temp_placements.end());
+			possibles.push_back(Point(x, y, z));
 		}
 	}
 	
-	//cout << "Debug: found " << possible_placements.size() << " placements on the circle\n";		
+	sort(possibles.begin(), possibles.end(), sortOnZAxis);
 	
-	return possible_placements;			
+	/*
+	for (int a = 0; a < 360; a++) {
+		double x = point.getX() + actual_distance * cos(toRadians(a));
+		double y = point.getY() + actual_distance * sin(toRadians(a));
+		double z = point.getZ() + actual_distance * 0; // TODO: FIX THIS
+
+		possibles.push_back(Point(x, y, z));
+	}
+	*/
+	
+	return possibles;
 }
 
 template<class T>
 void removeDuplicates(vector<T>& data) {
 	set<T> s;
 	size_t size = data.size();
-	
-	for (size_t i = 0; i < size; i++)
-		s.insert(data[i]);
-		
-	data.assign(s.begin(), s.end());
+	for( size_t i = 0; i < size; ++i ) s.insert( data[i] );
+	data.assign( s.begin(), s.end() );
 }
 
-vector<Point> getPossiblePlacements(const vector<Point>& constraints, size_t current) {
-	vector<Point> possible_placements;
-	vector<Point> actually_possible;
+vector<Point> getPossibles(vector<Point>& points, size_t i) {
+	vector<Point> possibles;
+	vector<Point> working;
 	
-	for (auto& point : constraints) {
-		double distance = point.getDistanceTo(current);
-		vector<Point> possibilites = getPointsOnCircle(point, distance);
+	#pragma omp parallel
+	{
+		vector<Point> parallel_possibles;
 		
-		possible_placements.insert(possible_placements.end(), possibilites.begin(), possibilites.end());
+		#pragma omp for
+		for (size_t j = 0; j < points.size(); j++) {
+			Point& master = points.at(j);
+			double distance = master.getDistance(i);
+			auto master_possibles = getSinglePossibles(master, distance);
+			
+			parallel_possibles.insert(parallel_possibles.end(), master_possibles.begin(), master_possibles.end());
+		}
+		
+		#pragma omp critical
+		{
+			possibles.insert(possibles.end(), parallel_possibles.begin(), parallel_possibles.end());
+		}
 	}
 	
-	removeDuplicates(possible_placements);
+	removeDuplicates(possibles);
 	
-	for (auto& point : possible_placements) {
-		bool working = true;
+	#pragma omp parallel
+	{
+		vector<Point> parallel_working;
 		
-		for (auto& constraint : constraints) {
-			double distance = constraint.getDistanceTo(current);
+		#pragma omp for
+		for (size_t j = 0; j < possibles.size(); j++) {
+			Point& point = possibles.at(j);
+			bool good = true;
 			
-			if (!isDistanceGloballyAccepted(point, constraint, distance)) {
-				working = false;
+			for (auto& origin : points) {
+				double distance = origin.getDistance(i);
+				distance *= distance;
+				if (abs(distance - distanceBetweenPointsNoSqrt(point.getX(), point.getY(), origin.getX(), origin.getY())) > g_distanceAccuracy) {
+					good = false;
+					
+					break;
+				}
+			}
 
-				break;
+			if (good) {
+				parallel_working.push_back(point);
 			}
 		}
 		
-		if (working)
-			actually_possible.push_back(point);
+		#pragma omp critical
+		{
+			working.insert(working.end(), parallel_working.begin(), parallel_working.end());
+		}
 	}
 	
-	return actually_possible;
+	return working;
 }
 
-vector<Point> solvePlacement(const vector<Point>& points, size_t current) {
-	//cout << "Debug: testing speaker " << current + 1 << " of " << points.size() << endl;
+vector<Point> getPlacement(vector<Point> points, size_t start) {
+	vector<Point> origins(points.begin(), points.begin() + start);
+	vector<Point> possibles = getPossibles(origins, start);
 	
-	vector<Point> constraints(points.begin(), points.begin() + current);
-	vector<Point> possible_placements = getPossiblePlacements(constraints, current);
-	
-	if (possible_placements.empty()) {
-		//cout << "Debug: no possible placements\n";
+	// Do we have any possibility?
+	if (possibles.empty()) {
+		//cout << "gave no possibles\n";
 		
 		return vector<Point>();
 	}
+	
+	// We do, let's see if this is the last point
+	if (points.size() == start + 1) {
+		points.at(start).setPosition(possibles.front().getFinalPosition());
+		//cout << "point: " << points.at(start) << endl;
+		//cout << "set position of end condition\n";
 		
-	if (points.size() == current + 1) {
-		//cout << "Debug: found possible placement!\n";
-		
-		vector<Point> correct_placement(points);
-		
-		correct_placement.at(current).setCoordinates(possible_placements.front().getCoordinates());
-		correct_placement.at(current).setPlacement(true);
-		
-		return correct_placement;
+		return points;
 	}
 	
-	for (size_t i = 0; i < possible_placements.size(); i++) {
-		Point& point = possible_placements.at(i);
+	// It's not the last point, let's try every possiblity
+	volatile bool flag = false;
+	vector<Point> final_result;
+	
+	#pragma omp parallel for shared(flag)
+	for (size_t i = 0; i < possibles.size(); i++) {
+		if (flag)
+			continue;
+			
+		auto& possible = possibles.at(i);
 		
-		/*
-		if (base) {
-			cout << "Trying possiblity " << i + 1 << " of " << possible_placements.size() << endl;
-			
-			int percentage = static_cast<int>(((i + 1) / static_cast<double>(possible_placements.size())) * 100.0);
-			
-			if (percentage != g_percentageDone) {
-				g_percentageDone = percentage;
+		points.at(start).setPosition(possible.getFinalPosition());
+		//cout << "testing position\n";
+		
+		vector<Point> result = getPlacement(points, start + 1);
+		
+		if (!result.empty()) {
+			#pragma omp critical
+			{
+				final_result = result;
+				flag = true;
 				
-				cout << percentage << " %\n";
+				//cout << "Debug: found solutions, trying to stop the other threads\n";
 			}
 		}
-		*/
-		
-		//cout << "Debug: trying placement " << point << endl;
-		
-		vector<Point> test_placement(points);
-		Point& test_point = test_placement.at(current);
-		
-		test_point.setCoordinates(point.getCoordinates());
-		test_point.setPlacement(true);
-		
-		vector<Point> result_placement = solvePlacement(test_placement, current + 1);
-		
-		if (!result_placement.empty())
-			return result_placement;
 	}
 	
-	//cout << "Debug: this path did not find any working solutions\n";
+	//cout << "SHOULD NOT BE HERE\n";
 	
-	return vector<Point>();
+	return final_result;
 }
 
-void parseInput(vector<Point>& points, const string& filename) {
-	ifstream file(filename);
+void printHelp() {
+	cout << "Usage: ./Localization <starting distance accuracy>\n";
+	cout << "Print this message with -h or --help\n";
+	cout << "\nReads input_structure from stdin and calculates distance between points, with accuracy starting at <starting distance accuracy> (default 0.6m)\n";
+}
+
+int main(int argc, char** argv) {
+	if (argc == 2) {
+		if (string(argv[1]) == "-h" || string(argv[1]) == "--help")
+			printHelp();
+			
+		return 0;
+	}
 	
-	if (!file.is_open())
-		ERROR("could not open file %s\n", filename.c_str());
-		
+	if (argc >= 2) {
+		g_distanceAccuracy = stod(argv[1]);
+	}
+	
+	PI = atan(1) * 4;
+	cout << "Setting PI to " << PI << endl;
+	
 	string tmp;
-	getline(file, tmp);
+	getline(cin, tmp);
 	
-	int num_points = stoi(tmp);
+	size_t num_points;
+	num_points = stoi(tmp);
 	
-	for (int i = 0; i < num_points; i++) {
+	vector<Point> points;
+	
+	for (size_t i = 0; i < num_points; i++) {
 		string ip;
-		getline(file, ip);
+		getline(cin, ip);
 		
-		vector<double> distances;
+		Point point(ip);
 		
-		for (int j = 0; j < num_points; j++) {
-			getline(file, tmp);
-			distances.push_back(stod(tmp));
+		for (size_t j = 0; j < num_points; j++) {
+			double distance;
+			getline(cin, tmp);
+			distance = stod(tmp);
+			//cin >> distance;
+			
+			point.addDistance(distance);
+			
+			printf("%zu -> %zu\t= %1.2f\n", i, j, distance);
 		}
 		
-		points.push_back(Point(ip, distances));
+		points.push_back(point);
 	}
 	
-	file.close();
-}
-
-void setMaxDistance(const vector<Point>& points) {
-	const Point& first = points.front();
+	points.front().setPosition({ 0, 0, 0 });
 	
-	for (size_t i = 0; i < points.size(); i++)
-		if (first.getDistanceTo(i) > g_maxDistance)
-			g_maxDistance = first.getDistanceTo(i);
+	while (g_distanceAccuracy > 0) {
+		cout << "Trying for accuracy " << g_distanceAccuracy << " m\n\n";
+		
+		vector<Point> basic_points(points);
+		auto results = getPlacement(basic_points, 1);
+		
+		if (results.empty()) {
+			cout << "No more possible results\n";
 			
-	g_maxDistance *= 1.2;		
-}
-
-void calculatePI() {
-	PI = atan(1) * 4;
-}
-
-int main() {
-	vector<Point> points;
-	parseInput(points, "live_localization.txt");
-	setMaxDistance(points);
-	calculatePI();
-	
-	points.front().setCoordinates({ 0.0, 0.0, 0.0 });
-	points.front().setPlacement(true);
-	
-	vector<Point> placements = solvePlacement(points, 1 /* first speaker has 0, 0, 0 */);
-	
-	for (auto& point : placements)
-		cout << point.getIP() << " " << point << endl;
+			break;
+		}
+		
+		for (auto& point : results) {
+			if (!point.isSet())
+				break;
+				
+			auto position = point.getFinalPosition();
+			
+			printf("%s: (%1.2f, %1.2f, %1.2f)\n", point.getIP().c_str(), position.front(), position.at(1), position.at(2));
+		}
+		
+		cout << endl;
+		
+		for (auto& point : results) {
+			if (!point.isSet())
+				break;
+				
+			auto position = point.getFinalPosition();
+			
+			printf("(%1.2f, %1.2f, %1.2f)\n", position.front(), position.at(1), position.at(2));	
+		}
+		
+		cout << endl;
+		
+		g_distanceAccuracy -= 0.01;
+	}
 	
 	return 0;
 }
