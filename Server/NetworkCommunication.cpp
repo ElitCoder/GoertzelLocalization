@@ -10,6 +10,12 @@
 
 using namespace std;
 
+static string getTimestamp() {
+	time_t current_time = chrono::system_clock::to_time_t(chrono::system_clock::now());
+	
+	return ctime(&current_time);
+}
+
 void receiveThread(NetworkCommunication &networkCommunication) {
     signal(SIGPIPE, SIG_IGN);
     
@@ -237,7 +243,7 @@ bool NetworkCommunication::runSelectReceive(fd_set &readSet, fd_set &errorSet, u
     }
     
     if(FD_ISSET(mPipe.getSocket(), &readSet)) {
-        cout << "INFO: pipe was activated\n";
+        //cout << "INFO: pipe was activated\n";
         
         mPipe.resetPipe();
         return true;
@@ -264,7 +270,8 @@ bool NetworkCommunication::runSelectReceive(fd_set &readSet, fd_set &errorSet, u
                 
                 if(received <= 0) {
                     if(received == 0) {
-                        cout << "INFO: connection disconnected\n";
+                        cout << "INFO: connection #" << connection.getId() << " disconnected\n";
+						cout << "#" << connection.getId() << " was disconnected at " << getTimestamp();
                         
                         removeConnection = true;
                     }
@@ -356,16 +363,21 @@ bool NetworkCommunication::runSelectAccept(fd_set &readSet, fd_set &errorSet) {
             
             return false;
         }
+		
+		size_t id;
         
         {
             lock_guard<mutex> guard(mConnectionsMutex);
             mConnections.push_back({new mutex, move(Connection(newSocket))});
             //mConnections.back().second.setPlayer(new Player("Bert", "", {150000, 171, 150000}, {1, 1, 1}, 0, true)); // REMOVE THIS LATER ON
+			
+			id = mConnections.back().second.getId();
         }
         
         mPipe.setPipe();
         
-        cout << "INFO: connection added\n";
+        cout << "INFO: connection #" << id << " added\n";
+		cout << "#" << id << " was added at " << getTimestamp();
     }
     
     return true;

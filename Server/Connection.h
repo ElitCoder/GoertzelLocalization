@@ -19,9 +19,11 @@ public:
     bool hasIncomingPacket() const;
     PartialPacket& getIncomingPacket();
     void processedPacket();
+	size_t getId();
     
 private:
     int m_socket;
+	size_t m_id;
     
     std::list<PartialPacket> m_inQueue;
 };

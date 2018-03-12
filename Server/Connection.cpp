@@ -17,6 +17,13 @@ Connection::Connection(const int socket) : m_socket(socket) {
     if(setsockopt(m_socket, IPPROTO_TCP, TCP_NODELAY, reinterpret_cast<char*>(&on), sizeof(on)) < 0) {
         cout << "WARNING: could not set TCP_NODELAY\n";
     }
+	
+	static size_t id;
+	m_id = id++;
+}
+
+size_t Connection::getId() {
+	return m_id;
 }
 
 bool Connection::operator==(const Connection &connection) {
