@@ -4,12 +4,20 @@
 
 using namespace std;
 
-void handle(Connection& connection, Packet& packet) {
-	if (connection.getSocket()) { }
-		
+void handle(NetworkCommunication& network, Connection& connection, Packet& packet) {
 	switch (packet.getByte()) {
-		case 0x01: {
-			cout << "Debug: got update packet!\n";
+		case 0x00: {
+			string name = packet.getString();
+			
+			cout << "Information: client name is " << name << endl;
+			
+			Packet returning_packet;
+			returning_packet.addHeader(0x00);
+			returning_packet.addBool(true);
+			returning_packet.finalize();
+			
+			network.addOutgoingPacket(connection.getSocket(), returning_packet);
+			cout << "Information: returned OKAY\n";
 			
 			break;
 		}
@@ -23,16 +31,7 @@ void handle(Connection& connection, Packet& packet) {
 void start(unsigned short port) {
 	NetworkCommunication network(port);
 	
-	Packet packet;
-	packet.addHeader(0x00);
-	packet.finalize();
-	
 	while (true) {
-		network.addOutgoingPacketToAllExcept(packet, {});
-				
-		this_thread::sleep_for(chrono::seconds(1));
-		
-		/*
 		auto* packet = network.waitForProcessingPackets();
 		
 		if (packet == nullptr)
@@ -48,11 +47,10 @@ void start(unsigned short port) {
 			
 		cout << "Got packet!\n";
 		
-		handle(connection_pair->second, packet->second);
+		handle(network, connection_pair->second, packet->second);
 		
 		network.unlockConnection(*connection_pair);
 		network.removeProcessingPacket();
-		*/
 	}
 }
 
