@@ -62,11 +62,11 @@ public:
 		return { x_, y_, z_ };
 	}
 	
-	double getX() {
+	double getX() const {
 		return x_;
 	}
 	
-	double getY() {
+	double getY() const {
 		return y_;
 	}
 	
@@ -154,8 +154,8 @@ bool sortOnZAxis(const Point& a, const Point& b) {
 vector<Point> getSinglePossibles(Point& point, double actual_distance) {
 	vector<Point> possibles;
 	
-	for (int gamma = 0; gamma < 360; gamma++) {
-		for (int omega = 0; omega < 360; omega++) {
+	for (int gamma = 0; gamma < 360; gamma += 1) {
+		for (int omega = 0; omega < 360; omega += 1) {
 			double x = point.getX() + actual_distance * cos(toRadians(gamma)) * sin(toRadians(omega));
 			double y = point.getY() + actual_distance * sin(toRadians(gamma)) * sin(toRadians(omega));
 			double z = point.getZ() + actual_distance * cos(omega);
@@ -164,7 +164,8 @@ vector<Point> getSinglePossibles(Point& point, double actual_distance) {
 		}
 	}
 	
-	sort(possibles.begin(), possibles.end(), sortOnZAxis);
+	// Try the solutions with lowest Z first
+	//sort(possibles.begin(), possibles.end(), sortOnZAxis);
 	
 	/*
 	for (int a = 0; a < 360; a++) {
@@ -241,6 +242,8 @@ vector<Point> getPossibles(vector<Point>& points, size_t i) {
 			working.insert(working.end(), parallel_working.begin(), parallel_working.end());
 		}
 	}
+	
+	sort(working.begin(), working.end(), sortOnZAxis);
 	
 	return working;
 }
