@@ -44,10 +44,6 @@ if [ $# -ne 0 ]; then
 	#./GoertzelLocalization 2 172.25.14.33 172.25.13.125 172.25.9.248 <-- våning 3 öppen yta
 	#./GoertzelLocalization 2 172.25.9.27 172.25.9.38 172.25.12.99 172.25.12.168 172.25.13.250 172.25.15.12 172.25.14.27 <-- just nu våning 3
 	
-	cd ../
-	cp bin/GoertzelLocalization SpeakerConfiguration/SpeakerConfiguration Server/Server Localization/Localization Localization3D/Localization3D Client/Client releases/
-	cd bin/
-	
 	cd ../bin/
 	until ./GoertzelLocalization 2 172.25.9.27 172.25.9.38 172.25.12.99 172.25.12.168 172.25.13.250 172.25.15.12 172.25.14.27; do echo "Running again"; sleep 1; done
 	cd ../
@@ -101,7 +97,3 @@ make -j 9
 if [ $? -ne 0 ]; then
 	exit 1
 fi
-
-cd ../
-cp bin/GoertzelLocalization SpeakerConfiguration/SpeakerConfiguration Server/Server Localization/Localization Localization3D/Localization3D Client/Client releases/
-cd bin/

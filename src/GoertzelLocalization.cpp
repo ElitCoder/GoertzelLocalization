@@ -279,7 +279,10 @@ vector<string> runSetup(int num_recordings, char** ips) {
 	int duration_seconds = duration / 48000;
 	
 	cout << "Connecting to speakers using SSH.. ";
-	ssh_master.connect(configs, "pass");
+	
+	if (!ssh_master.connect(configs, "pass"))
+		ERROR("ssh connection failed");
+		
 	cout << "done\n";
 	
 	if (!system(NULL))
@@ -330,7 +333,8 @@ vector<string> runSetup(int num_recordings, char** ips) {
 			to.push_back("/tmp/");
 		}
 		
-		ssh_master.transferRemote(configs, from, to);
+		if (!ssh_master.transferRemote(configs, from, to))
+			ERROR("error transferring scripts and test tones");
 	}
 	
 	cout << "done\n";
@@ -343,8 +347,9 @@ vector<string> runSetup(int num_recordings, char** ips) {
 		commands.push_back("chmod +x /tmp/script" + ip + ".sh; /tmp/script" + ip + ".sh");
 	
 	if (RUN_SCRIPTS)
-		ssh_master.command(configs, commands);
-	
+		if (!ssh_master.command(configs, commands))
+			ERROR("could not command ssh");
+
 	cout << "done, waiting for finish\n";
 	
 	if (RUN_SCRIPTS) {
@@ -365,7 +370,8 @@ vector<string> runSetup(int num_recordings, char** ips) {
 			to.push_back("recordings/");
 		}
 			
-		ssh_master.transferLocal(configs, from, to, true);
+		if (!ssh_master.transferLocal(configs, from, to, true))
+			ERROR("could not retrieve recordings");
 		
 		cout << "done\n";
 	}
