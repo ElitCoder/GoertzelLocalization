@@ -228,14 +228,17 @@ void printHelp() {
 
 int main(int argc, char** argv) {
 	if (argc == 2) {
-		if (string(argv[1]) == "-h" || string(argv[1]) == "--help")
+		if (string(argv[1]) == "-h" || string(argv[1]) == "--help") {
 			printHelp();
 			
-		return 0;
+			return 0;
+		}
 	}
 	
 	if (argc >= 2) {
 		g_distanceAccuracy = stod(argv[1]);
+		
+		cout << "Setting distance accuracy to " << g_distanceAccuracy << endl;
 	}
 	
 	PI = atan(1) * 4;

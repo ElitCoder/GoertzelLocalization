@@ -99,3 +99,28 @@ string Recording::getLastIP() const {
 	
 	return tokens.back();
 }
+
+void Recording::setFrameDistance(int id, int which, long long distance) {
+	switch (which) {
+		case FIRST: distances_first_.push_back({ id, distance });
+			break;
+			
+		case SECOND: distances_second_.push_back({ id, distance });
+			break;
+	}
+}
+
+long long Recording::getFrameDistance(int id, int which) {
+	vector<pair<int, double>>* distances = &distances_first_;
+	
+	if (which == SECOND)
+		distances = &distances_second_;
+		
+	for (size_t i = 0; i < distances->size(); i++)
+		if (distances->at(i).first == id)
+			return distances->at(i).second;
+			
+	ERROR("did not find frame distance, which: %d", which);
+			
+	return -1;		
+}

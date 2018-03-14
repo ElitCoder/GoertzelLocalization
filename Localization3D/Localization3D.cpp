@@ -388,6 +388,17 @@ int main(int argc, char** argv) {
 		
 		cout << endl;
 		
+		for (auto& point : results) {
+			if (!point.isSet())
+				break;
+				
+			auto position = point.getFinalPosition();
+			
+			printf("(%1.2f, %1.2f)\n", position.front(), position.at(1));	
+		}
+		
+		cout << endl;
+		
 		g_distanceAccuracy -= 0.01;
 	}
 	
