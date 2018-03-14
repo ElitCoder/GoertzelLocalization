@@ -16,6 +16,6 @@ How to run distance calculation:
 
 FIRST USE:
 1. Install build essentials using the command above
-2. Install libraries using the command above (do not run this if you're not sudo)
-3. Compile using ./create.sh
-4. Run using ./create.sh run, after adjusting IPs
+(1.1. Install libraries using the command above (probably is not needed if the computer is running x64 Linux which it should))
+2. Compile using ./create.sh
+3. Run using ./create.sh run, after adjusting IPs
