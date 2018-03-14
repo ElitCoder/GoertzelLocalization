@@ -3,6 +3,8 @@ OBJ_FILES := $(addprefix obj/,$(notdir $(CPP_FILES:.cpp=.o)))
 CC_FLAGS := -std=c++11
 CC_FLAGS +=	-Wall -Wextra -pedantic-errors -fopenmp
 CC_FLAGS += -O3
+CC_FLAGS += -I./dep/prebuilt/include/
+LD_FLAGS := -L./dep/prebuilt/lib/
 LD_LIBS := -lpthread -lssh -lssh_threads -fopenmp
 EXECUTABLE := GoertzelLocalization
 

@@ -1,5 +1,5 @@
 Build essentials:
-sudo apt-get install g++ sshpass unar cmake libssl-dev zlib1g-dev
+sudo apt-get install g++ unar cmake libssl-dev zlib1g-dev
 
 Install libraries:
 ./install.sh
@@ -16,6 +16,6 @@ How to run distance calculation:
 
 FIRST USE:
 1. Install build essentials using the command above
-2. Install libraries using the command above
+2. Install libraries using the command above (do not run this if you're not sudo)
 3. Compile using ./create.sh
 4. Run using ./create.sh run, after adjusting IPs
