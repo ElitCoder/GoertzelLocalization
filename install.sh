@@ -6,9 +6,9 @@ cd libssh-0.7.5/
 mkdir build
 cd build/
 cmake -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_BUILD_TYPE=Debug -DWITH_STATIC_LIB=ON ..
-#make -j 9
+make -j 9
 
-if [ $? -ne 1 ]; then
+if [ $? -ne 0 ]; then
 	echo "Building failed, copy the prebuilts instead and hope for the best"
 	
 	cd ../../prebuilt/
