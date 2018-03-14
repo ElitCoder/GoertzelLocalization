@@ -21,7 +21,7 @@ using namespace std;
 static const int FREQ_N = 16;
 static const int FREQ_FREQ = 4000;
 static const double FREQ_REDUCING = 0.001;
-static const double FREQ_THRESHOLD = 0.01;//0.01;
+static const double FREQ_THRESHOLD = 0.05;//0.01;
 
 static bool RUN_SCRIPTS = true;
 
@@ -55,7 +55,7 @@ double calculateDistance(Recording& master, Recording& recording) {
 	double Tp_sec = Tp / 48000;
 	
 	master.setFrameDistance(recording.getId(), FIRST, T12);
-	cout << "set id " << master.getId() << " to " << recording.getId() << endl;
+	//cout << "set id " << master.getId() << " to " << recording.getId() << endl;
 	master.setFrameDistance(recording.getId(), SECOND, T21);
 	
 	return abs(Tp_sec * 343);
@@ -534,6 +534,7 @@ int main(int argc, char** argv) {
 		}
 	}
 	
+	/*
 	for (size_t i = 0; i < recordings.size(); i++) {
 		auto& recording = recordings.at(i);
 		
@@ -546,8 +547,9 @@ int main(int argc, char** argv) {
 			cout << j << " to " << i << " takes " << recording.getFrameDistance(j, SECOND) / (double)48000 << " s\n";
 		}
 	}
+	*/
 	
-	cout << endl;	
+	//cout << endl;	
 	
 	auto deltas = calculateDeltas(recordings);
 	auto delta_differences = compareDeltaDifferences(deltas);
