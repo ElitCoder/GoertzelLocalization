@@ -6,7 +6,8 @@
 
 using namespace std;
 
-static double g_distanceAccuracy = 0.3;
+static double g_distanceAccuracy = 1;
+static int g_degree_accuracy = 1;
 static double PI;
 
 double RelDif(double a, double b) {
@@ -154,8 +155,8 @@ bool sortOnZAxis(const Point& a, const Point& b) {
 vector<Point> getSinglePossibles(Point& point, double actual_distance) {
 	vector<Point> possibles;
 	
-	for (int gamma = 0; gamma < 360; gamma += 1) {
-		for (int omega = 0; omega < 360; omega += 1) {
+	for (int gamma = 0; gamma < 360; gamma += g_degree_accuracy) {
+		for (int omega = 0; omega < 360; omega += g_degree_accuracy) {
 			double x = point.getX() + actual_distance * cos(toRadians(gamma)) * sin(toRadians(omega));
 			double y = point.getY() + actual_distance * sin(toRadians(gamma)) * sin(toRadians(omega));
 			double z = point.getZ() + actual_distance * cos(omega);
@@ -301,9 +302,10 @@ vector<Point> getPlacement(vector<Point> points, size_t start) {
 }
 
 void printHelp() {
-	cout << "Usage: ./Localization <starting distance accuracy>\n";
+	cout << "Usage: ./Localization3D <starting distance accuracy = 1m> <degree accuracy = 1 degree>\n";
 	cout << "Print this message with -h or --help\n";
-	cout << "\nReads input_structure from stdin and calculates distance between points, with accuracy starting at <starting distance accuracy> (default 0.6m)\n";
+	cout << "\nReads input_structure from stdin and calculates distance between points, with accuracy starting at <starting distance accuracy>\n";
+	cout << "Faster execution with higher distance accuracy and higher degree accuracy\n";
 }
 
 int main(int argc, char** argv) {
@@ -314,8 +316,9 @@ int main(int argc, char** argv) {
 		return 0;
 	}
 	
-	if (argc >= 2) {
+	if (argc >= 3) {
 		g_distanceAccuracy = stod(argv[1]);
+		g_degree_accuracy = stoi(argv[2]);
 	}
 	
 	PI = atan(1) * 4;
