@@ -12,7 +12,7 @@
 #include <sstream>
 #include <cmath>
 
-#define EPSILON	(0.001)
+#define EPSILON	(0.01)
 
 #define ERROR(...)	do { fprintf(stderr, "Error: "); fprintf(stderr, __VA_ARGS__); fprintf(stderr, "\n"); exit(1); } while(0)
 
@@ -49,51 +49,56 @@ double calculateDistance(Recording& master, Recording& recording) {
 	double correct_Tp12 = -1;
 	double correct_Tp21 = -1;
 	double min_difference = 1000000000;
+	double correct_dt = -1;
 	
 	vector<double> zeroes;
 	
-	for (double d12 = -1500; d12 < 1500; d12 += 1) {
-		bool found = false;
-		
-		//for (double d21 = -1500; d21 < 1500; d21 += 1) {
-			double Tp12 = sqrt((T12 * T12) + (T12 * d12) + (d12 * d12));
-			double Tp21 = sqrt((T21 * T21) - (T21 * d12) + (d12 * d12));
+	double Dt = -(static_cast<double>(T21) - static_cast<double>(T12)) / 2;
+	
+	cout << "Original Tp12: " << T12 - Dt << endl;
+	cout << "Original Tp21: " << T21 + Dt << endl;
+	
+	for (double d12 = -10000; d12 < 10000; d12 += 0.5) {
+		for (double d21 = -10000; d21 < 10000; d21 += 0.5) {
+			double Tp12 = sqrt((T12 * T12) - (T12 * d12) + (d12 * d12));
+			double Tp21 = sqrt((T21 * T21) - (T21 * d21) + (d21 * d21));
 			
-			if (isNaN(Tp12) || isNaN(Tp21))
+			//double Tp12 = T12 - d12;
+			//double Tp21 = T21 - d21;
+					
+			if (isNaN(Tp12) || isNaN(Tp21) || Tp12 < 0 || Tp21 < 0)
 				continue;
 				
 			double difference = abs(Tp12 - Tp21);
 			
+			//cout << "iteration distance: " << Tp12 / 48000 * 343 << endl;
+			
+			if (equal(difference, 0)) {
+				zeroes.push_back((Tp12 + Tp21) / 2);
+				
+				//cout << "Zero at: " << d12 << " " << d21 << endl;
+				//cout << "Tp12: " << Tp12 << " Tp21: " << Tp21 << endl;
+				
+				//cout << "deltas " << d12 / 48000 << " " << d12 / 48000 << endl;
+			}
+		
 			if (difference < min_difference) {
 				correct_Tp12 = Tp12;
 				correct_Tp21 = Tp21;
+				correct_dt = d12;
 				
 				//cout << master.getId() << " found minimal at " << d12 << " and " << d21 << endl;
 				//cout << master.getId() << " which is " << difference << endl;
 				
 				min_difference = difference;
-				
-				if (equal(difference, 0)) {
-					zeroes.push_back((Tp12 + Tp21) / 2);
-					
-					//cout << "deltas " << d12 / 48000 << " " << d12 / 48000 << endl;
-				}
-				
-				/*
-				if (equal(difference, 0.0)) {
-					found = true;
-					
-					break;
-				}
-				*/
 			}
-		//}
-		
-		if (found)
-			break;
+		}
 	}
 	
-	//cout << "Zeroes: " << zeroes.size() << endl;
+	cout << "Zeroes: " << zeroes.size() << endl;
+	cout << "Min diff: " << min_difference / 48000 << endl;
+	cout << "Original Dt: " << Dt << endl;
+	cout << "Calculated Dt: " << correct_dt << endl;
 	
 	correct_Tp12 /= 48000;
 	correct_Tp21 /= 48000;
@@ -102,19 +107,21 @@ double calculateDistance(Recording& master, Recording& recording) {
 	correct_Tp21 *= 343;
 	
 	for (size_t i = 0; i < zeroes.size(); i++) {
-		//cout << "Solution " << (i + 1) << " " << (zeroes.at(i) / 48000) * 343 << endl;
+		cout << "Solution " << (i + 1) << " " << (zeroes.at(i) / 48000) * 343 << endl;
 	}
 	
 	//cout << endl;
 	
-	double Dt = -(static_cast<double>(T21) - static_cast<double>(T12)) / 2;
+	master.setFrameDistance(recording.getId(), FIRST, T12);
+	//cout << "set id " << master.getId() << " to " << recording.getId() << endl;
+	master.setFrameDistance(recording.getId(), SECOND, T21);
+	
+	;
 
 	//cout << "Versus simple solution at " << (((T12 - Dt) + (T21 + Dt)) / 2) / 48000 * 343 << endl;
 	//cout << "With delta " << Dt / 48000 << endl;
 	
-	return (correct_Tp12 + correct_Tp21) / 2;
-	
-	/*
+	//return (correct_Tp12 + correct_Tp21) / 2;
 	
 	//T12 - Dt = Tp
 	//T21 + Dt = Tp
@@ -124,12 +131,9 @@ double calculateDistance(Recording& master, Recording& recording) {
 	double Tp = (Tp1 + Tp2) / 2;
 	double Tp_sec = Tp / 48000;
 	
-	master.setFrameDistance(recording.getId(), FIRST, T12);
-	//cout << "set id " << master.getId() << " to " << recording.getId() << endl;
-	master.setFrameDistance(recording.getId(), SECOND, T21);
+	
 	
 	return abs(Tp_sec * 343);
-	*/
 }
 
 double calculateDistance(Recording& master, Recording& recording, double delta) {
@@ -271,6 +275,7 @@ vector<string> createFilenames(vector<string>& configs) {
 	
 	for (auto& ip : configs) {
 		string filename = "recordings/cap";
+		//string filename = "../backups/level_3_distances/recordings/cap";
 		filename += ip;
 		filename += ".wav";
 		
@@ -575,8 +580,8 @@ int main(int argc, char** argv) {
 	int num_recordings = argc - 2;
 	
 	vector<string> ips(argv + 2, argv + 2 + num_recordings);
-	vector<string> filenames = runSetup(num_recordings, argv + 2);
-	//vector<string> filenames = createFilenames(ips);
+	//vector<string> filenames = runSetup(num_recordings, argv + 2);
+	vector<string> filenames = createFilenames(ips);
 	
 	if (!RUN_SCRIPTS)
 		return 1;
