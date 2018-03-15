@@ -9,6 +9,8 @@
 
 using namespace std;
 
+extern int g_playingLength;
+
 Recording::Recording(const string& ip) :
 	ip_(ip) {
 	static int id;
@@ -45,20 +47,27 @@ void Recording::setPosition(const std::pair<double, double>& position) {
 void Recording::findStartingTones(int num_recordings, const int N, double threshold, double reducing, int frequency) {
 	double dft;
 	double orig_threshold = threshold;
-	size_t current_i = 0;
+	size_t current_i = g_playingLength + 0.5 * (double)48000; // Should start at g_playingLength + 0.5 sec
+	size_t frame_ending = 48000 + (g_playingLength * (0 + 1)) + 1.5 * (double)48000;
+	
+	//cout << "Checking first tone at " << current_i / (double)48000 << " to " << frame_ending / (double)48000 << "\n";
 	
 	for (int i = 0; i < num_recordings; i++) {
 		threshold = orig_threshold;
 		
 		while (threshold > 0) {
+			size_t delta_current = current_i;
 			bool found = false;
 			
-			for (; current_i < data_.size(); current_i++) {
-				dft = goertzel(N, frequency, 48000, data_.data() + current_i) / static_cast<double>(SHRT_MAX);
+			for (; delta_current < frame_ending; delta_current++) {
+				dft = goertzel(N, frequency, 48000, data_.data() + delta_current) / static_cast<double>(SHRT_MAX);
 				
 				if (dft > threshold) {
-					starting_tones_.push_back(current_i);
-					current_i += 60000;
+					starting_tones_.push_back(delta_current);
+					current_i = (g_playingLength * (i + 2)) + 0.5 * (double)48000;
+					frame_ending = 48000 + (g_playingLength * (i + 2)) + 1.5 * (double)48000;
+					
+					//cout << "Found tone, checking " << current_i / (double)48000 << " to " << frame_ending / (double)48000 << " now\n";
 					
 					found = true;
 					break;

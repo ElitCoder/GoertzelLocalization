@@ -27,11 +27,13 @@ static bool RUN_SCRIPTS = true;
 
 int g_playingLength = 2e05;
 
-/*
 static bool equal(double a, double b) {
 	return abs(a - b) < EPSILON;
 }
-*/
+
+static bool isNaN(double a) {
+	return a != a;
+}
 
 double calculateDistance(Recording& master, Recording& recording) {
 	long long r12 = recording.getTonePlayingWhen(master.getId());
@@ -41,10 +43,78 @@ double calculateDistance(Recording& master, Recording& recording) {
 	
 	//T12 = Tp + Dt
 	//T21 = Tp - Dt
-	long long T12 = r12 - p1;
-	long long T21 = r21 - p2;
+	double T12 = r12 - p1;
+	double T21 = r21 - p2;
+	
+	double correct_Tp12 = -1;
+	double correct_Tp21 = -1;
+	double min_difference = 1000000000;
+	
+	vector<double> zeroes;
+	
+	for (double d12 = -1500; d12 < 1500; d12 += 1) {
+		bool found = false;
+		
+		//for (double d21 = -1500; d21 < 1500; d21 += 1) {
+			double Tp12 = sqrt((T12 * T12) + (T12 * d12) + (d12 * d12));
+			double Tp21 = sqrt((T21 * T21) - (T21 * d12) + (d12 * d12));
+			
+			if (isNaN(Tp12) || isNaN(Tp21))
+				continue;
+				
+			double difference = abs(Tp12 - Tp21);
+			
+			if (difference < min_difference) {
+				correct_Tp12 = Tp12;
+				correct_Tp21 = Tp21;
+				
+				//cout << master.getId() << " found minimal at " << d12 << " and " << d21 << endl;
+				//cout << master.getId() << " which is " << difference << endl;
+				
+				min_difference = difference;
+				
+				if (equal(difference, 0)) {
+					zeroes.push_back((Tp12 + Tp21) / 2);
+					
+					//cout << "deltas " << d12 / 48000 << " " << d12 / 48000 << endl;
+				}
+				
+				/*
+				if (equal(difference, 0.0)) {
+					found = true;
+					
+					break;
+				}
+				*/
+			}
+		//}
+		
+		if (found)
+			break;
+	}
+	
+	//cout << "Zeroes: " << zeroes.size() << endl;
+	
+	correct_Tp12 /= 48000;
+	correct_Tp21 /= 48000;
+	
+	correct_Tp12 *= 343;
+	correct_Tp21 *= 343;
+	
+	for (size_t i = 0; i < zeroes.size(); i++) {
+		//cout << "Solution " << (i + 1) << " " << (zeroes.at(i) / 48000) * 343 << endl;
+	}
+	
+	//cout << endl;
 	
 	double Dt = -(static_cast<double>(T21) - static_cast<double>(T12)) / 2;
+
+	//cout << "Versus simple solution at " << (((T12 - Dt) + (T21 + Dt)) / 2) / 48000 * 343 << endl;
+	//cout << "With delta " << Dt / 48000 << endl;
+	
+	return (correct_Tp12 + correct_Tp21) / 2;
+	
+	/*
 	
 	//T12 - Dt = Tp
 	//T21 + Dt = Tp
@@ -59,6 +129,7 @@ double calculateDistance(Recording& master, Recording& recording) {
 	master.setFrameDistance(recording.getId(), SECOND, T21);
 	
 	return abs(Tp_sec * 343);
+	*/
 }
 
 double calculateDistance(Recording& master, Recording& recording, double delta) {
@@ -540,7 +611,6 @@ int main(int argc, char** argv) {
 		}
 	}
 	
-	/*
 	for (size_t i = 0; i < recordings.size(); i++) {
 		auto& recording = recordings.at(i);
 		
@@ -550,10 +620,9 @@ int main(int argc, char** argv) {
 				
 			cout << i << " find " << j << " at " << recording.getTonePlayingWhen(j) / (double)48000 << " s\n";
 			cout << i << " to " << j << " takes " << to_string(recording.getFrameDistance(j, FIRST) / (double)48000) << " s\n";
-			cout << j << " to " << i << " takes " << recording.getFrameDistance(j, SECOND) / (double)48000 << " s\n";
+			//cout << j << " to " << i << " takes " << recording.getFrameDistance(j, SECOND) / (double)48000 << " s\n";
 		}
 	}
-	*/
 	
 	//cout << endl;	
 	
