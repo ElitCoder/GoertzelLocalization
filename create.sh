@@ -81,7 +81,7 @@ function run {
 	#./GoertzelLocalization 2 172.25.45.134 172.25.45.70 172.25.45.157 172.25.45.220 172.25.45.222 172.25.45.152 172.25.45.141 172.25.45.245 <-- j0
 	
 	cd bin/
-	until ./GoertzelLocalization 2 172.25.9.38 172.25.13.200; do echo "Running again"; sleep 1; done
+	until ./GoertzelLocalization -p 2 -er 0 -f ../speaker_ips; do echo "Running again"; sleep 1; done
 	cd ../
 }
 

@@ -4,6 +4,7 @@
 #include "Connections.h"
 #include "Matrix.h"
 #include "DeltaContainer.h"
+#include "Settings.h"
 
 #include <iostream>
 #include <algorithm>
@@ -24,6 +25,7 @@ static const double FREQ_REDUCING = 0.001;
 static const double FREQ_THRESHOLD = 0.05;//0.01;
 
 static bool RUN_SCRIPTS = true;
+static Settings g_settings;
 
 int g_playingLength = 2e05;
 
@@ -46,14 +48,24 @@ double calculateDistance(Recording& master, Recording& recording) {
 	double T12 = r12 - p1;
 	double T21 = r21 - p2;
 	
+	double Dt = -(static_cast<double>(T21) - static_cast<double>(T12)) / 2;
+	
+	double Tp1 = T12 - Dt;
+	double Tp2 = T21 + Dt;
+	
+	double Tp = (Tp1 + Tp2) / 2;
+	double Tp_sec = Tp / 48000;
+	
+	return abs(Tp_sec * 343);
+	
+	#if 0
+	
 	double correct_Tp12 = -1;
 	double correct_Tp21 = -1;
 	double min_difference = 1000000000;
 	double correct_dt = -1;
 	
 	vector<double> zeroes;
-	
-	double Dt = -(static_cast<double>(T21) - static_cast<double>(T12)) / 2;
 	
 	cout << "Original Tp12: " << T12 - Dt << endl;
 	cout << "Original Tp21: " << T21 + Dt << endl;
@@ -125,15 +137,8 @@ double calculateDistance(Recording& master, Recording& recording) {
 	
 	//T12 - Dt = Tp
 	//T21 + Dt = Tp
-	double Tp1 = T12 - Dt;
-	double Tp2 = T21 + Dt;
 	
-	double Tp = (Tp1 + Tp2) / 2;
-	double Tp_sec = Tp / 48000;
-	
-	
-	
-	return abs(Tp_sec * 343);
+	#endif
 }
 
 double calculateDistance(Recording& master, Recording& recording, double delta) {
@@ -254,10 +259,15 @@ void printHelp() {
 }
 
 string createConfig(string& ip, int number, int duration) {
+	int extra_record = 0;
+	
+	if (g_settings.has("-er"))
+		extra_record = g_settings.get<int>("-er");
+		
 	string config = "";
 	config += "systemctl stop audio*\n";
 	config += "arecord -Daudiosource -r 48000 -fS16_LE -c1 -d";
-	config += to_string(duration);
+	config += to_string(duration + extra_record);
 	config += " /tmp/cap";
 	config += ip;
 	config += ".wav &\n";
@@ -346,13 +356,19 @@ vector<double> calculateRealDifference(ifstream& real, ifstream& simulated) {
 	return calculateRealDifference(real_stream.str(), simulated_stream.str());
 }
 
-vector<string> runSetup(int num_recordings, char** ips) {
+vector<string> runSetup(const vector<string>& ips) {//int num_recordings, char** ips) {
 	Connections ssh_master;
 	
-	vector<string> configs(ips, ips + num_recordings);
+	vector<string> configs(ips);//ips, ips + num_recordings);
 	vector<string> files;
+	int num_recordings = ips.size();
+	int extra_record = 0;
+	
+	if (g_settings.has("-er"))
+		extra_record = g_settings.get<int>("-er");
+		
 	int duration = g_playingLength /* until first tone */ + num_recordings * g_playingLength + g_playingLength /* to make up for jitter */;
-	int duration_seconds = duration / 48000;
+	int duration_seconds = (duration / 48000);
 	
 	cout << "Connecting to speakers using SSH.. ";
 	
@@ -429,9 +445,9 @@ vector<string> runSetup(int num_recordings, char** ips) {
 	cout << "done, waiting for finish\n";
 	
 	if (RUN_SCRIPTS) {
-		for (int i = 0; i < duration_seconds + 1; i++) {
+		for (int i = 0; i < duration_seconds + 1 + extra_record; i++) {
 			sleep(1);
-			printf("%d/%d seconds elapsed (%1.0f%%)\n", (i + 1), duration_seconds + 1, (static_cast<double>(i + 1) / (duration_seconds + 1)) * 100.0);
+			printf("%d/%d seconds elapsed (%1.0f%%)\n", (i + 1), duration_seconds + extra_record + 1, (static_cast<double>(i + 1) / (duration_seconds + extra_record + 1)) * 100.0);
 		}
 	}
 	
@@ -536,7 +552,45 @@ void writeLocalization3D(vector<Recording>& recordings) {
 	file.close();
 }
 
+bool checkParameters(int argc, char** argv) {
+	argc--;
+	argv++;
+	
+	g_settings.set("-h", "0");
+	
+	for (int i = 0; i < argc; i += 2) {
+		string option = string(argv[i]);
+		
+		if (i + 1 >= argc)
+			return false;
+			
+		string value = argv[i + 1];
+		
+		g_settings.set(option, value);
+	}
+	
+	return true;
+}
+
+vector<string> readIps(const string& filename) {
+	ifstream file(filename);
+	
+	if (!file.is_open())
+		ERROR("could not open file %s", filename.c_str());
+		
+	vector<string> ips;
+	string ip;	
+		
+	while (getline(file, ip))
+		ips.push_back(ip);
+		
+	file.close();	
+		
+	return ips;	
+}
+
 int main(int argc, char** argv) {
+	#if 0
 	/*
 		0: program path
 		1: pause length in seconds
@@ -583,10 +637,25 @@ int main(int argc, char** argv) {
 	vector<string> filenames = runSetup(num_recordings, argv + 2);
 	//vector<string> filenames = createFilenames(ips);
 	
+	#endif
+	
+	if (!checkParameters(argc, argv) || g_settings.get<bool>("-h")) {
+		printHelp();
+		
+		return -1;
+	}
+	
+	g_playingLength = g_settings.get<int>("-p") * 48000;
+	
+	vector<Recording> recordings;
+	
+	vector<string> ips = readIps(g_settings.get<string>("-f"));
+	vector<string> filenames = runSetup(ips);
+	
 	if (!RUN_SCRIPTS)
 		return 1;
 	
-	for (int i = 0; i < num_recordings; i++) {
+	for (size_t i = 0; i < filenames.size(); i++) {
 		string filename = filenames.at(i);
 		
 		recordings.push_back(Recording(ips.at(i)));
@@ -594,15 +663,15 @@ int main(int argc, char** argv) {
 		Recording& recording = recordings.back();
 		WavReader::read(filename, recording.getData());
 		
-		recording.findStartingTones(num_recordings, FREQ_N, FREQ_THRESHOLD, FREQ_REDUCING, FREQ_FREQ);
+		recording.findStartingTones(filenames.size(), FREQ_N, FREQ_THRESHOLD, FREQ_REDUCING, FREQ_FREQ);
 	}
 	
 	cout << endl;
 	
-	for (int i = 0; i < num_recordings; i++) {
+	for (size_t i = 0; i < recordings.size(); i++) {
 		Recording& master = recordings.at(i);
 		
-		for (int j = 0; j < num_recordings; j++) {
+		for (size_t j = 0; j < recordings.size(); j++) {
 			if (j == i)
 				continue;
 			
@@ -616,6 +685,7 @@ int main(int argc, char** argv) {
 		}
 	}
 	
+	/*
 	for (size_t i = 0; i < recordings.size(); i++) {
 		auto& recording = recordings.at(i);
 		
@@ -628,6 +698,8 @@ int main(int argc, char** argv) {
 			//cout << j << " to " << i << " takes " << recording.getFrameDistance(j, SECOND) / (double)48000 << " s\n";
 		}
 	}
+	
+	*/
 	
 	//cout << endl;	
 	
