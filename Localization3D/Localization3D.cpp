@@ -6,7 +6,8 @@
 
 using namespace std;
 
-static double g_distanceAccuracy = 0.3;
+static double g_distanceAccuracy = 1;
+static int g_degree_accuracy = 1;
 static double PI;
 
 double RelDif(double a, double b) {
@@ -62,11 +63,11 @@ public:
 		return { x_, y_, z_ };
 	}
 	
-	double getX() {
+	double getX() const {
 		return x_;
 	}
 	
-	double getY() {
+	double getY() const {
 		return y_;
 	}
 	
@@ -154,8 +155,8 @@ bool sortOnZAxis(const Point& a, const Point& b) {
 vector<Point> getSinglePossibles(Point& point, double actual_distance) {
 	vector<Point> possibles;
 	
-	for (int gamma = 0; gamma < 360; gamma++) {
-		for (int omega = 0; omega < 360; omega++) {
+	for (int gamma = 0; gamma < 360; gamma += g_degree_accuracy) {
+		for (int omega = 0; omega < 360; omega += g_degree_accuracy) {
 			double x = point.getX() + actual_distance * cos(toRadians(gamma)) * sin(toRadians(omega));
 			double y = point.getY() + actual_distance * sin(toRadians(gamma)) * sin(toRadians(omega));
 			double z = point.getZ() + actual_distance * cos(omega);
@@ -164,7 +165,8 @@ vector<Point> getSinglePossibles(Point& point, double actual_distance) {
 		}
 	}
 	
-	sort(possibles.begin(), possibles.end(), sortOnZAxis);
+	// Try the solutions with lowest Z first
+	//sort(possibles.begin(), possibles.end(), sortOnZAxis);
 	
 	/*
 	for (int a = 0; a < 360; a++) {
@@ -242,6 +244,8 @@ vector<Point> getPossibles(vector<Point>& points, size_t i) {
 		}
 	}
 	
+	sort(working.begin(), working.end(), sortOnZAxis);
+	
 	return working;
 }
 
@@ -298,9 +302,10 @@ vector<Point> getPlacement(vector<Point> points, size_t start) {
 }
 
 void printHelp() {
-	cout << "Usage: ./Localization <starting distance accuracy>\n";
+	cout << "Usage: ./Localization3D <starting distance accuracy = 1m> <degree accuracy = 1 degree>\n";
 	cout << "Print this message with -h or --help\n";
-	cout << "\nReads input_structure from stdin and calculates distance between points, with accuracy starting at <starting distance accuracy> (default 0.6m)\n";
+	cout << "\nReads input_structure from stdin and calculates distance between points, with accuracy starting at <starting distance accuracy>\n";
+	cout << "Faster execution with higher distance accuracy and higher degree accuracy\n";
 }
 
 int main(int argc, char** argv) {
@@ -311,8 +316,9 @@ int main(int argc, char** argv) {
 		return 0;
 	}
 	
-	if (argc >= 2) {
+	if (argc >= 3) {
 		g_distanceAccuracy = stod(argv[1]);
+		g_degree_accuracy = stoi(argv[2]);
 	}
 	
 	PI = atan(1) * 4;
@@ -378,6 +384,17 @@ int main(int argc, char** argv) {
 			auto position = point.getFinalPosition();
 			
 			printf("(%1.2f, %1.2f, %1.2f)\n", position.front(), position.at(1), position.at(2));	
+		}
+		
+		cout << endl;
+		
+		for (auto& point : results) {
+			if (!point.isSet())
+				break;
+				
+			auto position = point.getFinalPosition();
+			
+			printf("(%1.2f, %1.2f)\n", position.front(), position.at(1));	
 		}
 		
 		cout << endl;

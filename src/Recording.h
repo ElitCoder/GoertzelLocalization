@@ -4,6 +4,11 @@
 #include <string>
 #include <vector>
 
+enum {
+	FIRST,
+	SECOND
+};
+
 class Recording {
 public:
 	Recording(const std::string& ip);
@@ -18,6 +23,8 @@ public:
 	int getId() const;
 	std::string getLastIP() const;
 	std::string getIP();
+	void setFrameDistance(int id, int which, long long distance);
+	long long getFrameDistance(int id, int which);
 	
 private:
 	std::string ip_;
@@ -25,6 +32,8 @@ private:
 	std::vector<short> data_;
 	std::vector<size_t> starting_tones_;
 	std::vector<std::pair<int, double>> distances_;
+	std::vector<std::pair<int, double>> distances_first_;
+	std::vector<std::pair<int, double>> distances_second_;
 	std::pair<double, double> position_;
 };
 
