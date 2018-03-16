@@ -18,7 +18,7 @@ pair<string, string>* Settings::find(const string& setting) {
 }
 
 void Settings::set(const string& setting, const string& value) {
-	cout << "Debug: setting option " << setting << " to " << value << endl;
+	//cout << "Debug: setting option " << setting << " to " << value << endl;
 	
 	auto* option = find(setting);
 	

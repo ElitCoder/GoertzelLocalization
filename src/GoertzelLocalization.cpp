@@ -254,8 +254,18 @@ vector<DeltaContainer> getDeltaValues(const Matrix<double>& deltas, const vector
 }
 
 void printHelp() {
+	/*
 	cout << "Usage: ./GoertzelLocalization <pause length in seconds> <speaker #1 IP> <speaker #2 IP>\n\n# of speakers is arbitrary\n\n1. Creates configuration files for every speaker based on IP, and sends"
 		 <<	" the files using scp\n2. Starts the scripts at the same time\n3. Wait until done\n4. Retrieve all recordings from the speakers\n5. Calculate distances using Goertzel\n\n";
+	*/
+	
+	cout << "Usage: GoertzelLocalization [-options]\n\n";
+	cout << "Runs the localization test using Goertzel algorithm to detect sound.\n\n";
+	cout << "Options:\n";
+	cout << "\t-p,\t\t specify pause length in seconds between beeps\n";
+	cout << "\t-er,\t\t specify extra recording length, will be added after the beeps\n";
+	cout << "\t-h,\t\t print this help text\n";
+	cout << "\t-f,\t\t specify file with IPs, with the format of one IP address per line\n";
 }
 
 string createConfig(string& ip, int number, int duration) {
@@ -569,6 +579,12 @@ bool checkParameters(int argc, char** argv) {
 		g_settings.set(option, value);
 	}
 	
+	if (!g_settings.has("-f")) {
+		cout << "Error: no file specified\n\n";
+		
+		return false;
+	}
+	
 	return true;
 }
 
@@ -645,7 +661,10 @@ int main(int argc, char** argv) {
 		return -1;
 	}
 	
-	g_playingLength = g_settings.get<int>("-p") * 48000;
+	if (g_settings.has("-p"))
+		g_playingLength = g_settings.get<int>("-p") * 48000;
+	else
+		g_playingLength = 2 * 48000;
 	
 	vector<Recording> recordings;
 	
