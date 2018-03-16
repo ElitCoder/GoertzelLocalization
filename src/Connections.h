@@ -6,6 +6,11 @@
 #include <vector>
 #include <mutex>
 
+enum {
+	SETTING_USE_ACTUAL_FILENAME,
+	SETTING_MAX
+};
+
 class Connections {
 public:
 	explicit Connections();
@@ -17,6 +22,9 @@ public:
 	bool transferLocal(std::vector<std::string>& ips, std::vector<std::string>& from, std::vector<std::string>& to, bool threading);
 	bool transferRemote(std::vector<std::string>& ips, std::vector<std::string>& from, std::vector<std::string>& to);
 	
+	void setSetting(int setting, bool value);
+	bool getSetting(int setting);
+	
 	void setThreadedConnectionStatus(bool status);
 	SSH& getSession(const std::string& ip, bool threading);
 	
@@ -25,6 +33,7 @@ private:
 	std::mutex threaded_connections_mutex_;
 	
 	std::vector<SSH> connections_;
+	std::vector<bool> settings_;
 };
 
 #endif

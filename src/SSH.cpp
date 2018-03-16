@@ -154,7 +154,7 @@ bool SSH::transferRemote(const string& from, const string& to) {
 	return true;
 }
 
-bool SSH::transferLocal(const string& from, const string& to) {
+bool SSH::transferLocal(const string& from, const string& to, const string& custom_filename) {
 	if (!connected_) {
 		cout << "Warning: can't read from SCP without an active SSH connection\n";
 		
@@ -185,12 +185,14 @@ bool SSH::transferLocal(const string& from, const string& to) {
 			case SSH_SCP_REQUEST_NEWFILE: {
 				size_t size = ssh_scp_request_get_size(scp);
 				string filename = ssh_scp_request_get_filename(scp);
+				string actual_filename = custom_filename == "" ? (to + "/" + filename) : custom_filename; 
 				const size_t FILE_BUFFER_SIZE = 16384;
 				char* file_buffer = new char[FILE_BUFFER_SIZE];
 				
 				//cout << "Downloading file: " << filename << " with size " << size << endl;
 				
-				ofstream file(to + "/" + filename);
+				//ofstream file(to + "/" + filename);
+				ofstream file(actual_filename);
 				
 				if (!file.is_open()) {
 					cout << "Warning: could not open file for writing local SCP\n";

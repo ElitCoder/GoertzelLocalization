@@ -10,13 +10,22 @@
 
 using namespace std;
 
-Connections::Connections() {
+Connections::Connections() :
+	settings_(SETTING_MAX, false) {
 	ssh_threads_set_callbacks(ssh_threads_get_pthread());
 	ssh_init();
 }
 
 Connections::~Connections() {
 	for_each(connections_.begin(), connections_.end(), [] (SSH& session) { session.disconnect(); });
+}
+
+void Connections::setSetting(int setting, bool value) {
+	settings_.at(setting) = value;
+}
+
+bool Connections::getSetting(int setting) {
+	return settings_.at(setting);
 }
 
 bool Connections::connect(const string& ip, const string& pass) {
@@ -59,7 +68,7 @@ SSH& Connections::getSession(const string& ip, bool threading) {
 
 void transferLocalThreaded(Connections& connections, const string& ip, const string& from, const string& to) {
 	auto& session = connections.getSession(ip, true);
-	bool result = session.transferLocal(from, to);
+	bool result = session.transferLocal(from, to, connections.getSetting(SETTING_USE_ACTUAL_FILENAME) ? to : "");
 	
 	if (result)
 		return;
@@ -86,6 +95,11 @@ bool Connections::transferLocal(vector<string>& ips, vector<string>& from, vecto
 		
 		return threaded_connections_result_;
 	} else {
+		// TODO: remove this condition
+		
+		ERROR("no threading specified in transferLocal, someone forgot to remote this");
+		
+		/*
 		for (size_t i = 0; i < ips.size(); i++) {
 			auto& session = getSession(ips.at(i), threading);
 			
@@ -94,6 +108,7 @@ bool Connections::transferLocal(vector<string>& ips, vector<string>& from, vecto
 		}
 		
 		return true;
+		*/
 	}
 }
 

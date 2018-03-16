@@ -41,6 +41,8 @@ public:
     bool isEmpty() const;
     
     void clear();
+	
+	friend std::ostream& operator<<(std::ostream& out, const Packet& packet);
     
 private:
     bool isFinalized() const;

@@ -443,7 +443,7 @@ vector<string> runSetup(int num_recordings, char** ips) {
 		
 		for (auto& ip : configs) {
 			from.push_back("/tmp/cap" + ip + ".wav");
-			to.push_back("recordings/");
+			to.push_back("recordings");
 		}
 			
 		if (!ssh_master.transferLocal(configs, from, to, true))
@@ -580,8 +580,8 @@ int main(int argc, char** argv) {
 	int num_recordings = argc - 2;
 	
 	vector<string> ips(argv + 2, argv + 2 + num_recordings);
-	//vector<string> filenames = runSetup(num_recordings, argv + 2);
-	vector<string> filenames = createFilenames(ips);
+	vector<string> filenames = runSetup(num_recordings, argv + 2);
+	//vector<string> filenames = createFilenames(ips);
 	
 	if (!RUN_SCRIPTS)
 		return 1;

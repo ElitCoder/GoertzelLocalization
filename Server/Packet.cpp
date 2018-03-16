@@ -249,3 +249,12 @@ void Packet::finalize() {
 bool Packet::isEmpty() const {
     return isFinalized() ? m_packet.size() <= 4 : m_packet.empty();
 }
+
+ostream& operator<<(ostream& out, const Packet& packet) {
+	for (size_t i = 0; i < packet.getSize(); i++)
+		printf("%02X ", packet.getData()[i]);
+		
+	cout << endl;
+	
+	return out;
+}

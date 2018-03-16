@@ -40,6 +40,8 @@ public:
     
     bool isEmpty() const;
     void finalize();
+	
+	friend std::ostream& operator<<(std::ostream& out, const Packet& packet);
     
 private:
     bool isFinalized() const;

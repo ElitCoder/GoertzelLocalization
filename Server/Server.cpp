@@ -1,13 +1,24 @@
 #include "NetworkCommunication.h"
+#include "Handle.h"
 
 #include <iostream>
 
 using namespace std;
 
-void handle(NetworkCommunication& network, Connection& connection, Packet& packet) {
-	switch (packet.getByte()) {
+enum {
+	PACKET_GET_SPEAKER_VOLUME_AND_CAPTURE = 1
+};
+
+static vector<string> g_ips = { "172.25.9.38", "172.25.13.200" };
+
+void handle(NetworkCommunication& network, Connection& connection, Packet& input_packet) {
+	auto header = input_packet.getByte();
+	
+	printf("Debug: got packet with header %02X\n", header);
+	
+	switch (header) {
 		case 0x00: {
-			string name = packet.getString();
+			string name = input_packet.getString();
 			
 			cout << "Information: client name is " << name << endl;
 			
@@ -18,6 +29,29 @@ void handle(NetworkCommunication& network, Connection& connection, Packet& packe
 			
 			network.addOutgoingPacket(connection.getSocket(), returning_packet);
 			cout << "Information: returned OKAY\n";
+			
+			break;
+		}
+		
+		case PACKET_GET_SPEAKER_VOLUME_AND_CAPTURE: {
+			auto volumes = Handle::handleGetSpeakerVolumeAndCapture(g_ips);
+			
+			Packet packet;
+			packet.addHeader(PACKET_GET_SPEAKER_VOLUME_AND_CAPTURE);
+			packet.addInt(volumes.size());
+						
+			for (size_t i = 0; i < g_ips.size(); i++) {
+				auto& values = volumes.at(i);
+				packet.addString(g_ips.at(i));
+				packet.addInt(values.size());
+				
+				for (auto& value : values)
+					packet.addFloat(value);
+			}
+				
+			packet.finalize();
+						
+			network.addOutgoingPacket(connection.getSocket(), packet);
 			
 			break;
 		}
@@ -44,8 +78,6 @@ void start(unsigned short port) {
 			
 			continue;
 		}
-			
-		cout << "Got packet!\n";
 		
 		handle(network, connection_pair->second, packet->second);
 		

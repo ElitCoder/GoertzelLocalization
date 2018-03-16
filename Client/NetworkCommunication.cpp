@@ -73,6 +73,16 @@ void NetworkCommunication::popOutgoingPacket() {
     mOutgoingPackets.pop_front();
 }
 
+Packet NetworkCommunication::waitForIncomingPacket() {
+	unique_lock<mutex> lock(mIncomingMutex);
+	mIncomingCV.wait(lock, [this] { return !mIncomingPackets.empty(); });
+	
+	Packet packet = mIncomingPackets.front();
+	mIncomingPackets.pop_front();
+	
+	return packet;
+}
+
 Packet* NetworkCommunication::getIncomingPacket() {
     unique_lock<mutex> lock(mIncomingMutex);
     

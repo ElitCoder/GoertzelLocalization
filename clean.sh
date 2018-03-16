@@ -13,6 +13,6 @@ cd ../Server/
 make clean
 cd ../Client/
 make clean
-cd ../speaker_scripts/
+cd ../Server/speaker_scripts/
 ./clean.sh
 exit

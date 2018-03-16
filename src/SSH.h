@@ -13,7 +13,7 @@ public:
 	bool connect();
 	void disconnect();
 	bool command(const std::string& command);
-	bool transferLocal(const std::string& from, const std::string& to);
+	bool transferLocal(const std::string& from, const std::string& to, const std::string& custom_filename);
 	bool transferRemote(const std::string& from, const std::string& to);
 	
 	bool operator==(const std::string& ip);

@@ -33,6 +33,7 @@ public:
     
     void moveCompletePartialPackets();
     
+	Packet waitForIncomingPacket();
     Packet* getIncomingPacket();
     void popIncomingPacket();
     

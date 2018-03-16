@@ -3,8 +3,6 @@ OBJ_FILES := $(addprefix ./,$(notdir $(CPP_FILES:.cpp=.o)))
 CC_FLAGS := -std=c++11
 CC_FLAGS +=	-Wall -Wextra -pedantic-errors
 CC_FLAGS += -O3 -I../src
-#CC_FLAGS += -I./dep/prebuilt/include/
-#LD_FLAGS := -L./dep/prebuilt/lib/
 LD_LIBS := -lpthread -lssh -lssh_threads
 EXECUTABLE := SpeakerConfiguration
 
