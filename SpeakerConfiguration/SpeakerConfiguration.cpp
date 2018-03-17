@@ -1,5 +1,4 @@
-#include "Connections.h"
-#include "SSH.h"
+#include <libnessh/SSHMaster.h>
 
 #include <iostream>
 
@@ -8,7 +7,7 @@
 using namespace std;
 
 int main(int argc, char** argv) {
-	Connections master;
+	SSHMaster master;
 	
 	cout << "Hello user, here we're adjusting the affordable speakers! ;)\n";
 	

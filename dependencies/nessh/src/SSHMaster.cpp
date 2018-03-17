@@ -1,4 +1,4 @@
-#include "Connections.h"
+#include "SSHMaster.h"
 
 #include <libssh/callbacks.h>
 
@@ -10,25 +10,25 @@
 
 using namespace std;
 
-Connections::Connections() :
+SSHMaster::SSHMaster() :
 	settings_(SETTING_MAX, false) {
 	ssh_threads_set_callbacks(ssh_threads_get_pthread());
 	ssh_init();
 }
 
-Connections::~Connections() {
+SSHMaster::~SSHMaster() {
 	for_each(connections_.begin(), connections_.end(), [] (SSH& session) { session.disconnect(); });
 }
 
-void Connections::setSetting(int setting, bool value) {
+void SSHMaster::setSetting(int setting, bool value) {
 	settings_.at(setting) = value;
 }
 
-bool Connections::getSetting(int setting) {
+bool SSHMaster::getSetting(int setting) {
 	return settings_.at(setting);
 }
 
-bool Connections::connect(const string& ip, const string& pass) {
+bool SSHMaster::connect(const string& ip, const string& pass) {
 	{
 		lock_guard<mutex> guard(threaded_connections_mutex_);
 		
@@ -51,7 +51,7 @@ bool Connections::connect(const string& ip, const string& pass) {
 	}
 }
 
-SSH& Connections::getSession(const string& ip, bool threading) {
+SSH& SSHMaster::getSession(const string& ip, bool threading) {
 	if (threading)
 		threaded_connections_mutex_.lock();
 		
@@ -66,7 +66,7 @@ SSH& Connections::getSession(const string& ip, bool threading) {
 	return *iterator;
 }
 
-void transferLocalThreaded(Connections& connections, const string& ip, const string& from, const string& to) {
+static void transferLocalThreaded(SSHMaster& connections, const string& ip, const string& from, const string& to) {
 	auto& session = connections.getSession(ip, true);
 	bool result = session.transferLocal(from, to, connections.getSetting(SETTING_USE_ACTUAL_FILENAME) ? to : "");
 	
@@ -76,7 +76,7 @@ void transferLocalThreaded(Connections& connections, const string& ip, const str
 	connections.setThreadedConnectionStatus(false);
 }
 
-bool Connections::transferLocal(vector<string>& ips, vector<string>& from, vector<string>& to, bool threading) {
+bool SSHMaster::transferLocal(vector<string>& ips, vector<string>& from, vector<string>& to, bool threading) {
 	if (ips.empty())
 		return false;
 		
@@ -112,7 +112,7 @@ bool Connections::transferLocal(vector<string>& ips, vector<string>& from, vecto
 	}
 }
 
-void transferRemoteThreaded(Connections& connections, const string& ip, const string& from, const string& to) {
+static void transferRemoteThreaded(SSHMaster& connections, const string& ip, const string& from, const string& to) {
 	auto& session = connections.getSession(ip, true);
 	bool result = session.transferRemote(from, to);
 	
@@ -122,7 +122,7 @@ void transferRemoteThreaded(Connections& connections, const string& ip, const st
 	connections.setThreadedConnectionStatus(false);
 }
 
-bool Connections::transferRemote(vector<string>& ips, vector<string>& from, vector<string>& to) {
+bool SSHMaster::transferRemote(vector<string>& ips, vector<string>& from, vector<string>& to) {
 	if (ips.empty())
 		return false;
 		
@@ -141,12 +141,12 @@ bool Connections::transferRemote(vector<string>& ips, vector<string>& from, vect
 	return threaded_connections_result_;	
 }
 
-void Connections::setThreadedConnectionStatus(bool status) {
+void SSHMaster::setThreadedConnectionStatus(bool status) {
 	lock_guard<mutex> guard(threaded_connections_mutex_);
 	threaded_connections_result_ = status;
 }
 
-void connectThreaded(Connections& connections, const string& ip, const string& pass) {
+static void connectThreaded(SSHMaster& connections, const string& ip, const string& pass) {
 	bool result = connections.connect(ip, pass);
 	
 	if (result)
@@ -155,7 +155,7 @@ void connectThreaded(Connections& connections, const string& ip, const string& p
 	connections.setThreadedConnectionStatus(false);
 }
 
-bool Connections::connect(const vector<string>& ips, const string& pass) {
+bool SSHMaster::connect(const vector<string>& ips, const string& pass) {
 	if (ips.empty())
 		return false;
 		
@@ -176,7 +176,7 @@ bool Connections::connect(const vector<string>& ips, const string& pass) {
 	return threaded_connections_result_;
 }
 
-void commandThreaded(Connections& connections, const string& ip, const string& command) {
+static void commandThreaded(SSHMaster& connections, const string& ip, const string& command) {
 	auto& session = connections.getSession(ip, true);
 	bool result = session.command(command);
 	
@@ -186,7 +186,7 @@ void commandThreaded(Connections& connections, const string& ip, const string& c
 	connections.setThreadedConnectionStatus(false);	
 }
 
-bool Connections::command(vector<string>& ips, vector<string>& commands) {
+bool SSHMaster::command(vector<string>& ips, vector<string>& commands) {
 	if (ips.empty())
 		return false;
 		

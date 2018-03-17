@@ -1,5 +1,5 @@
-#ifndef CONNECTIONS_H
-#define CONNECTIONS_H
+#ifndef SSHMASTER_H
+#define SSHMASTER_H
 
 #include "SSH.h"
 
@@ -11,10 +11,10 @@ enum {
 	SETTING_MAX
 };
 
-class Connections {
+class SSHMaster {
 public:
-	explicit Connections();
-	~Connections();
+	SSHMaster();
+	~SSHMaster();
 	
 	bool connect(const std::string& ip, const std::string& pass);
 	bool connect(const std::vector<std::string>& ips, const std::string& pass);

@@ -1,10 +1,11 @@
 #include "WavReader.h"
 #include "Goertzel.h"
 #include "Recording.h"
-#include "Connections.h"
 #include "Matrix.h"
 #include "DeltaContainer.h"
 #include "Settings.h"
+
+#include <libnessh/SSHMaster.h>
 
 #include <iostream>
 #include <algorithm>
@@ -29,6 +30,7 @@ static Settings g_settings;
 
 int g_playingLength = 2e05;
 
+/* Not currently used
 static bool equal(double a, double b) {
 	return abs(a - b) < EPSILON;
 }
@@ -36,6 +38,7 @@ static bool equal(double a, double b) {
 static bool isNaN(double a) {
 	return a != a;
 }
+*/
 
 double calculateDistance(Recording& master, Recording& recording) {
 	long long r12 = recording.getTonePlayingWhen(master.getId());
@@ -367,7 +370,7 @@ vector<double> calculateRealDifference(ifstream& real, ifstream& simulated) {
 }
 
 vector<string> runSetup(const vector<string>& ips) {//int num_recordings, char** ips) {
-	Connections ssh_master;
+	SSHMaster ssh_master;
 	
 	vector<string> configs(ips);//ips, ips + num_recordings);
 	vector<string> files;

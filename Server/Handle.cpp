@@ -1,5 +1,6 @@
 #include "Handle.h"
-#include "Connections.h"
+
+#include <libnessh/SSHMaster.h>
 
 #include <sstream>
 #include <iostream>
@@ -70,7 +71,7 @@ vector<vector<double>> Handle::handleGetSpeakerVolumeAndCapture(vector<string>& 
 	if (!system("mkdir speaker_results && wait"))
 		cout << "Warning: could not create folder speaker_results, already existing?\n";
 	
-	Connections ssh_master;
+	SSHMaster ssh_master;
 	
 	if (!ssh_master.connect(ips, "pass"))
 		return {};
