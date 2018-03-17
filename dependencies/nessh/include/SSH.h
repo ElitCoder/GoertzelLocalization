@@ -9,6 +9,7 @@
 class SSH {
 public:
 	SSH(const std::string& ip, const std::string& pass);
+	SSH(const std::string& ip, const std::string& user, const std::string& pass);
 	
 	bool connect();
 	void disconnect();
@@ -20,6 +21,7 @@ public:
 	
 private:
 	std::string ip_;
+	std::string user_;
 	std::string pass_;
 	
 	bool connected_;

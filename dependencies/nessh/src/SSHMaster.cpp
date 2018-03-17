@@ -51,6 +51,29 @@ bool SSHMaster::connect(const string& ip, const string& pass) {
 	}
 }
 
+bool SSHMaster::connect(const string& ip, const string& user, const string& pass) {
+	{
+		lock_guard<mutex> guard(threaded_connections_mutex_);
+		
+		if (find(connections_.begin(), connections_.end(), ip) != connections_.end()) {
+			cout << ip << " is already connected!\n";
+			
+			return false;
+		}
+	}
+	
+	SSH session(ip, user, pass);
+	
+	if (session.connect()) {
+		lock_guard<mutex> guard(threaded_connections_mutex_);
+		connections_.push_back(session);
+		
+		return true;
+	} else {
+		return false;
+	}
+}
+
 SSH& SSHMaster::getSession(const string& ip, bool threading) {
 	if (threading)
 		threaded_connections_mutex_.lock();
@@ -155,6 +178,15 @@ static void connectThreaded(SSHMaster& connections, const string& ip, const stri
 	connections.setThreadedConnectionStatus(false);
 }
 
+static void connectThreadedUser(SSHMaster& connections, const string& ip, const string& user, const string& pass) {
+	bool result = connections.connect(ip, user, pass);
+	
+	if (result)
+		return;
+		
+	connections.setThreadedConnectionStatus(false);
+}
+
 bool SSHMaster::connect(const vector<string>& ips, const string& pass) {
 	if (ips.empty())
 		return false;
@@ -174,6 +206,27 @@ bool SSHMaster::connect(const vector<string>& ips, const string& pass) {
 	delete[] threads;
 	
 	return threaded_connections_result_;
+}
+
+bool SSHMaster::connect(const vector<string>& ips, const vector<string>& users, const vector<string>& passwords) {
+	if (ips.empty() || users.empty() || passwords.empty())
+		return false;
+		
+	threaded_connections_result_ = true;
+		
+	thread* threads = new thread[ips.size()];
+		
+	for (size_t i = 0; i < ips.size(); i++) {
+		threads[i] = thread(connectThreadedUser, ref(*this), ref(ips.at(i)), ref(users.at(i)), ref(passwords.at(i)));
+	}
+	
+	for (size_t i = 0; i < ips.size(); i++) {
+		threads[i].join();
+	}
+	
+	delete[] threads;
+	
+	return threaded_connections_result_;	
 }
 
 static void commandThreaded(SSHMaster& connections, const string& ip, const string& command) {

@@ -12,6 +12,16 @@ using namespace std;
 
 SSH::SSH(const string& ip, const string& pass) :
 	ip_(ip), pass_(pass) {
+	user_ = "";
+	
+	connected_ = false;
+}
+
+SSH::SSH(const string& ip, const string& user, const string& pass) {
+	ip_ = ip;
+	user_ = user;
+	pass_ = pass;
+	
 	connected_ = false;
 }
 
@@ -271,8 +281,10 @@ bool SSH::connect() {
 		return false;
 	}
 	
+	string real_user = user_.length() == 0 ? "root" : user_;
+	
 	ssh_options_set(session_, SSH_OPTIONS_HOST, ip_.c_str());
-	ssh_options_set(session_, SSH_OPTIONS_USER, "root");
+	ssh_options_set(session_, SSH_OPTIONS_USER, real_user.c_str());
 	ssh_options_set(session_, SSH_OPTIONS_STRICTHOSTKEYCHECK, 0 /* Do not ask for fingerprint approval */);
 	
 	if (ssh_connect(session_) != SSH_OK) {

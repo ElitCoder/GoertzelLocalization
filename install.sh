@@ -13,3 +13,6 @@ cd ../../
 cd nessh/
 make -j 9
 sudo make install
+cd cli/
+make -j 9
+sudo make install
