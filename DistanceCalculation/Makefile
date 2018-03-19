@@ -1,5 +1,6 @@
 CPP_FILES	:= $(wildcard src/*.cpp)
 OBJ_FILES	:= $(addprefix obj/,$(notdir $(CPP_FILES:.cpp=.o)))
+
 CC_FLAGS	:= -std=c++11 -Wall -Wextra -pedantic-errors -fopenmp
 CC_FLAGS	+= -O3
 LD_LIBS		:= -lnessh -fopenmp

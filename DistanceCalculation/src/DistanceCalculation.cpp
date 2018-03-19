@@ -1,9 +1,10 @@
 #include "WavReader.h"
-#include "Goertzel.h"
+//#include "Goertzel.h"
 #include "Recording.h"
 #include "Matrix.h"
 #include "DeltaContainer.h"
 #include "Settings.h"
+#include "Run.h"
 
 #include <libnessh/SSHMaster.h>
 
@@ -20,12 +21,13 @@
 
 using namespace std;
 
-static const int FREQ_N = 16;
-static const int FREQ_FREQ = 4000;
-static const double FREQ_REDUCING = 0.001;
-static const double FREQ_THRESHOLD = 0.05;//0.01;
+enum RUN_TYPES {
+	RUN_GOERTZEL,
+	RUN_NOTHING,
+	JUST_RUN_FULL,
+	JUST_RUN_SIMPLE
+};
 
-static bool RUN_SCRIPTS = true;
 static Settings g_settings;
 
 int g_playingLength = 2e05;
@@ -144,6 +146,7 @@ double calculateDistance(Recording& master, Recording& recording) {
 	#endif
 }
 
+/*
 double calculateDistance(Recording& master, Recording& recording, double delta) {
 	long long r12 = recording.getTonePlayingWhen(master.getId());
 	long long p1 = master.getTonePlayingWhen(master.getId());
@@ -255,6 +258,7 @@ vector<DeltaContainer> getDeltaValues(const Matrix<double>& deltas, const vector
 	
 	return containers;
 }
+*/
 
 void printHelp() {
 	/*
@@ -269,6 +273,9 @@ void printHelp() {
 	cout << "\t-er,\t\t specify extra recording length, will be added after the beeps\n";
 	cout << "\t-h,\t\t print this help text\n";
 	cout << "\t-f,\t\t specify file with IPs, with the format of one IP address per line\n";
+	cout << "\t-t,\t\t specify which mode to run, default is GOERTZEL, other modes are NOTHING (just collects the sound samples)\n";
+	cout << "\t-tf,\t\t specify the test file to run (place it in data/, should be 1 s 48 kHZ, default is testTone.wav)\n";
+	cout << "\t-jr,\t\t don't run the full script, just read the values from recordings/ directly (default is FALSE)\n";
 }
 
 string createConfig(string& ip, int number, int duration) {
@@ -288,7 +295,10 @@ string createConfig(string& ip, int number, int duration) {
 	config += "sleep ";
 	config += to_string(1 + (g_playingLength / 48000 * (number + 1)));
 	config += "\n";
-	config += "aplay -Dlocalhw_0 -r 48000 -fS16_LE /tmp/testTone.wav\n\nexit;\n";
+	//config += "aplay -Dlocalhw_0 -r 48000 -fS16_LE /tmp/testTone.wav\n\nexit;\n";
+	config += "aplay -Dlocalhw_0 -r 48000 -f S16_LE /tmp/";
+	config += g_settings.has("-tf") ? g_settings.get<string>("-tf") : "testTone.wav";
+	config += "\n\nexit;\n";
 	
 	return config;
 }
@@ -310,6 +320,7 @@ vector<string> createFilenames(vector<string>& configs) {
 	return filenames;
 }
 
+/*
 static vector<string> splitString(const string& input, char split) {
 	vector<string> splitted;
 	size_t last_split = 0;
@@ -328,7 +339,9 @@ static vector<string> splitString(const string& input, char split) {
 	
 	return splitted;
 }
+*/
 
+/*
 vector<double> calculateRealDifference(const string& real, const string& simulated) {
 	vector<double> differences;
 	
@@ -368,6 +381,7 @@ vector<double> calculateRealDifference(ifstream& real, ifstream& simulated) {
 	
 	return calculateRealDifference(real_stream.str(), simulated_stream.str());
 }
+*/
 
 vector<string> runSetup(const vector<string>& ips) {//int num_recordings, char** ips) {
 	SSHMaster ssh_master;
@@ -383,6 +397,7 @@ vector<string> runSetup(const vector<string>& ips) {//int num_recordings, char**
 	int duration = g_playingLength /* until first tone */ + num_recordings * g_playingLength + g_playingLength /* to make up for jitter */;
 	int duration_seconds = (duration / 48000);
 	
+	cout << "Using " << (g_settings.has("-tf") ? g_settings.get<string>("-tf") : "testTone.wav") << " as test file\n";
 	cout << "Connecting to speakers using SSH.. ";
 	
 	if (!ssh_master.connect(configs, "pass"))
@@ -427,20 +442,22 @@ vector<string> runSetup(const vector<string>& ips) {//int num_recordings, char**
 	
 	cout << "Transferring scripts and test files.. ";
 	
-	if (RUN_SCRIPTS) {
-		vector<string> from;
-		vector<string> to;
+	vector<string> from;
+	vector<string> to;
+	
+	for (size_t i = 0; i < files.size(); i++) {
+		//string file = "data/testTone.wav " + files.at(i);
+		string file = "data/";
+		file += g_settings.has("-tf") ? g_settings.get<string>("-tf") : "testTone.wav";
+		file += " ";
+		file += files.at(i);
 		
-		for (size_t i = 0; i < files.size(); i++) {
-			string file = "data/testTone.wav " + files.at(i);
-			
-			from.push_back(file);
-			to.push_back("/tmp/");
-		}
-		
-		if (!ssh_master.transferRemote(configs, from, to))
-			ERROR("error transferring scripts and test tones");
+		from.push_back(file);
+		to.push_back("/tmp/");
 	}
+	
+	if (!ssh_master.transferRemote(configs, from, to))
+		ERROR("error transferring scripts and test tones");
 	
 	cout << "done\n";
 	
@@ -451,118 +468,38 @@ vector<string> runSetup(const vector<string>& ips) {//int num_recordings, char**
 	for (auto& ip : configs)
 		commands.push_back("chmod +x /tmp/script" + ip + ".sh; /tmp/script" + ip + ".sh");
 	
-	if (RUN_SCRIPTS)
-		if (!ssh_master.command(configs, commands))
-			ERROR("could not command ssh");
+	if (!ssh_master.command(configs, commands))
+		ERROR("could not command ssh");
 
 	cout << "done, waiting for finish\n";
 	
-	if (RUN_SCRIPTS) {
-		for (int i = 0; i < duration_seconds + 1 + extra_record; i++) {
-			sleep(1);
-			printf("%d/%d seconds elapsed (%1.0f%%)\n", (i + 1), duration_seconds + extra_record + 1, (static_cast<double>(i + 1) / (duration_seconds + extra_record + 1)) * 100.0);
-		}
+	for (int i = 0; i < duration_seconds + 1 + extra_record; i++) {
+		sleep(1);
+		printf("%d/%d seconds elapsed (%1.0f%%)\n", (i + 1), duration_seconds + extra_record + 1, (static_cast<double>(i + 1) / (duration_seconds + extra_record + 1)) * 100.0);
 	}
 	
-	if (RUN_SCRIPTS) {
-		cout << "Downloading recordings.. ";
-		
-		vector<string> from;
-		vector<string> to;
-		
-		for (auto& ip : configs) {
-			from.push_back("/tmp/cap" + ip + ".wav");
-			to.push_back("recordings");
-		}
-			
-		if (!ssh_master.transferLocal(configs, from, to, true))
-			ERROR("could not retrieve recordings");
-		
-		cout << "done\n";
+	cout << "Downloading recordings.. ";
+	
+	//vector<string> from;
+	//vector<string> to;
+	from.clear();
+	to.clear();
+	
+	for (auto& ip : configs) {
+		from.push_back("/tmp/cap" + ip + ".wav");
+		to.push_back("recordings");
 	}
+		
+	if (!ssh_master.transferLocal(configs, from, to, true))
+		ERROR("could not retrieve recordings");
+	
+	cout << "done\n";
 	
 	cout << "Creating filenames.. ";
 	auto filenames = createFilenames(configs);
 	cout << "done\n\n";
 	
 	return filenames;
-}
-
-void writeResults(vector<Recording>& recordings) {
-	ofstream file("../Calculated level 3");
-	
-	if (!file.is_open()) {
-		cout << "Warning: could not open file for writing results\n";
-		
-		return;
-	}
-	
-	for (size_t i = 0; i < recordings.size(); i++) {
-		Recording& master = recordings.at(i);
-		
-		for (size_t j = i + 1; j < recordings.size(); j++) {
-			Recording& slave = recordings.at(j);
-			
-			file << master.getLastIP() << " -> " << slave.getLastIP() << "\t= " << master.getDistance(j) << endl;
-		}
-	}
-	
-	file.close();
-}
-
-void writeLocalization(vector<Recording>& recordings) {
-	ofstream file("../Localization/live_localization.txt");
-	
-	if (!file.is_open()) {
-		cout << "Warning: could not open file for writing results\n";
-		
-		return;
-	}
-	
-	file << to_string(recordings.size()) << endl;
-	
-	for (auto& recording : recordings)
-		file << recording.getIP() << endl;
-	
-	for (size_t i = 0; i < recordings.size(); i++) {
-		Recording& master = recordings.at(i);
-		
-		for (size_t j = 0; j < recordings.size(); j++) {
-			if (i == j)
-				file << to_string(0) << endl;
-			else
-			 	file << to_string(master.getDistance(j)) << endl;
-		}
-	}
-	
-	file.close();
-}
-
-void writeLocalization3D(vector<Recording>& recordings) {
-	ofstream file("../Localization3D/live_localization.txt");
-	
-	if (!file.is_open()) {
-		cout << "Warning: could not open file for writing results\n";
-		
-		return;
-	}
-	
-	file << to_string(recordings.size()) << endl;
-	
-	for (size_t i = 0; i < recordings.size(); i++) {
-		Recording& master = recordings.at(i);
-		
-		file << master.getIP() << endl;
-		
-		for (size_t j = 0; j < recordings.size(); j++) {
-			if (i == j)
-				file << to_string(0) << endl;
-			else
-			 	file << to_string(master.getDistance(j)) << endl;
-		}
-	}
-	
-	file.close();
 }
 
 bool checkParameters(int argc, char** argv) {
@@ -609,7 +546,6 @@ vector<string> readIps(const string& filename) {
 }
 
 int main(int argc, char** argv) {
-	#if 0
 	/*
 		0: program path
 		1: pause length in seconds
@@ -620,43 +556,6 @@ int main(int argc, char** argv) {
 	/*
 		script runs test tone at 4000 hz and 1 sec, 60000 samples
 	*/	
-	
-	vector<Recording> recordings;
-	
-	if (argc < 2) {
-		printHelp();
-		ERROR("specify pause length");
-	}
-	
-	if (string(argv[1]) == "-X") {
-		if (argc < 4)
-			ERROR("specify input files as ./program -X <real> <simulated>");
-			
-		string real_file = argv[2];
-		string simulated_file = argv[3];
-		
-		ifstream real(real_file);
-		ifstream simulated(simulated_file);
-		
-		auto differences = calculateRealDifference(real, simulated);
-		
-		return 0;
-	}
-	
-	g_playingLength = static_cast<int>((stod(argv[1]) * 48000 /* read this from file later */));
-		
-	if (argc <= 2) {
-		printHelp();
-		ERROR("specify input IP:s");
-	}
-		
-	int num_recordings = argc - 2;
-	
-	vector<string> ips(argv + 2, argv + 2 + num_recordings);
-	vector<string> filenames = runSetup(num_recordings, argv + 2);
-	//vector<string> filenames = createFilenames(ips);
-	
-	#endif
 	
 	if (!checkParameters(argc, argv) || g_settings.get<bool>("-h")) {
 		printHelp();
@@ -672,89 +571,35 @@ int main(int argc, char** argv) {
 	vector<Recording> recordings;
 	
 	vector<string> ips = readIps(g_settings.get<string>("-f"));
-	vector<string> filenames = runSetup(ips);
 	
-	if (!RUN_SCRIPTS)
-		return 1;
+	int setting_js = JUST_RUN_FULL;
 	
-	for (size_t i = 0; i < filenames.size(); i++) {
-		string filename = filenames.at(i);
+	if (g_settings.has("-js"))
+		if (g_settings.get<string>("-js") == "TRUE")
+			setting_js = JUST_RUN_SIMPLE;
 		
-		recordings.push_back(Recording(ips.at(i)));
+	vector<string> filenames = setting_js == JUST_RUN_FULL ? runSetup(ips) : createFilenames(ips);
 		
-		Recording& recording = recordings.back();
-		WavReader::read(filename, recording.getData());
+	int run_type = RUN_GOERTZEL;
 		
-		recording.findStartingTones(filenames.size(), FREQ_N, FREQ_THRESHOLD, FREQ_REDUCING, FREQ_FREQ);
+	if (g_settings.has("-t")) {
+		string type = g_settings.get<string>("-t");
+		
+		// Add more run types here
+		if (type == "NOTHING")
+			run_type = RUN_NOTHING;
 	}
 	
-	cout << endl;
-	
-	for (size_t i = 0; i < recordings.size(); i++) {
-		Recording& master = recordings.at(i);
-		
-		for (size_t j = 0; j < recordings.size(); j++) {
-			if (j == i)
-				continue;
+	switch (run_type) {
+		case RUN_GOERTZEL: Run::runGoertzel(filenames, ips);
+			break;
 			
-			Recording& recording = recordings.at(j);
-			double distance = calculateDistance(master, recording);
-			master.addDistance(j, distance);
-				
-			if (j > i) {
-				cout << "Distance from " << master.getLastIP() << " -> " << recording.getLastIP() << " is "  << distance << " m\n";	
-			}
-		}
-	}
-	
-	/*
-	for (size_t i = 0; i < recordings.size(); i++) {
-		auto& recording = recordings.at(i);
-		
-		for (size_t j = 0; j < recordings.size(); j++) {
-			if (i == j)
-				continue;
-				
-			cout << i << " find " << j << " at " << recording.getTonePlayingWhen(j) / (double)48000 << " s\n";
-			cout << i << " to " << j << " takes " << to_string(recording.getFrameDistance(j, FIRST) / (double)48000) << " s\n";
-			//cout << j << " to " << i << " takes " << recording.getFrameDistance(j, SECOND) / (double)48000 << " s\n";
-		}
-	}
-	
-	*/
-	
-	//cout << endl;	
-	
-	auto deltas = calculateDeltas(recordings);
-	auto delta_differences = compareDeltaDifferences(deltas);
-	auto delta_values = getDeltaValues(deltas, delta_differences);
-	
-	//cout << "Delta containers:\n";
-	
-	//for (size_t i = 0; i < delta_values.size(); i++)
-	//	cout << delta_values.at(i) << endl;
-	
-	/*
-	for (int i = 0; i < num_recordings; i++) {
-		Recording& master = recordings.at(i);
-		
-		for (int j = 0; j < num_recordings; j++) {
-			if (j == i)
-				continue;
+		case RUN_NOTHING:
+			break;
 			
-			Recording& recording = recordings.at(j);
-			double mean = (*find(delta_values.begin(), delta_values.end(), DeltaContainer(i, j))).mean();
-			double distance = calculateDistance(master, recording, mean);
-				
-			if (j > i) {
-				cout << "Distance from " << master.getLastIP() << " -> " << recording.getLastIP() << " is "  << distance << " m (old: " << master.getDistance(j) << " m)\n";	
-			}
-		}
-	}	*/
-	
-	writeResults(recordings);
-	writeLocalization(recordings);
-	writeLocalization3D(recordings);
+		default: ERROR("no running mode specified");
+			break;
+	}
 		
 	return 0;
 }

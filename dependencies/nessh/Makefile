@@ -2,8 +2,8 @@ CXX			:= g++
 
 CPP_FILES	:= $(wildcard src/*.cpp)
 OBJ_FILES	:= $(addprefix src/,$(notdir $(CPP_FILES:.cpp=.o)))
-CC_FLAGS	:= -std=c++11
-CC_FLAGS	+= -Wall -Wextra -pedantic-errors
+
+CC_FLAGS	:= -std=c++11 -Wall -Wextra -pedantic-errors
 CC_FLAGS	+= -O3
 CC_FLAGS	+= -fPIC
 CC_FLAGS	+= -I./include/
