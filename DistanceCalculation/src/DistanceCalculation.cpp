@@ -297,7 +297,7 @@ string createConfig(string& ip, int number, int duration) {
 	config += "\n";
 	//config += "aplay -Dlocalhw_0 -r 48000 -fS16_LE /tmp/testTone.wav\n\nexit;\n";
 	config += "aplay -Dlocalhw_0 -r 48000 -f S16_LE /tmp/";
-	config += g_settings.has("-tf") ? g_settings.get<string>("-tf") : "testTone.wav";
+	config += (g_settings.has("-tf") ? g_settings.get<string>("-tf") : "testTone.wav");
 	config += "\n\nexit;\n";
 	
 	return config;
@@ -448,7 +448,7 @@ vector<string> runSetup(const vector<string>& ips) {//int num_recordings, char**
 	for (size_t i = 0; i < files.size(); i++) {
 		//string file = "data/testTone.wav " + files.at(i);
 		string file = "data/";
-		file += g_settings.has("-tf") ? g_settings.get<string>("-tf") : "testTone.wav";
+		file += (g_settings.has("-tf") ? g_settings.get<string>("-tf") : "testTone.wav");
 		file += " ";
 		file += files.at(i);
 		

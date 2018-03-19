@@ -4,15 +4,10 @@ sudo apt-get install g++ unar cmake libssl-dev zlib1g-dev
 Install libraries:
 ./install.sh
 
-How to calculate differences:
-Usage: ./GoertzelLocalization -X <path to real data> <path to simulated data>
-Example: make clean && make -j 9 && ./bin/GoertzelLocalization -X Distances\ level\ 3 Test\ level\ 3
-
-How to build all:
-./create.sh
-
-How to run distance calculation:
-./create.sh run
+./create.sh commands:
+	./create clean	- cleans everying and re-build
+	./create run	- builds new code and runs the program
+	./create		- just build the new code
 
 FIRST USE:
 1. Install build essentials using the command above
