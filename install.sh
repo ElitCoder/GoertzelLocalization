@@ -1,6 +1,37 @@
 #!/bin/bash
 
+function build_nessh {
+	cd nessh/
+	make clean
+	make -j 9
+	
+	if [ $? -ne 0 ]; then
+		exit 1
+	fi
+	
+	sudo make install
+	
+	cd cli/
+	make clean
+	make -j 9
+	
+	if [ $? -ne 0 ]; then
+		exit 1
+	fi
+	
+	sudo make install
+}
+
 cd dependencies/
+
+if [ $# -ne 0 ]; then
+	if [ $1 = "nessh" ]; then
+		build_nessh
+	fi
+	
+	exit 0
+fi 		
+
 unar libssh-0.7.5.tar.xz
 cd libssh-0.7.5/
 mkdir build
@@ -10,9 +41,4 @@ make -j 9
 sudo make install
 cd ../../
 
-cd nessh/
-make -j 9
-sudo make install
-cd cli/
-make -j 9
-sudo make install
+build_nessh

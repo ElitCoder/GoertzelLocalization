@@ -3,6 +3,7 @@
 #include <iostream>
 #include <fstream>
 #include <vector>
+#include <chrono>
 
 #include <sys/stat.h>
 
@@ -308,7 +309,13 @@ bool SSH::connect() {
 	return true;
 }
 
-bool SSH::command(const string& command) {
+static string getTimestamp() {
+	time_t current_time = chrono::system_clock::to_time_t(chrono::system_clock::now());
+	
+	return ctime(&current_time);
+}
+
+bool SSH::command(const string& command, bool output_file) {
 	if (!connected_) {
 		cout << "Error: could not execute command, we're not connected\n";
 		
@@ -318,13 +325,13 @@ bool SSH::command(const string& command) {
 	ssh_channel channel = ssh_channel_new(session_);
 	
 	if (channel == NULL) {
-		cout << "Error: could not open channel\n";
+		cout << "Error: could not create channel\n";
 		
 		return false;
 	}
 	
 	if (ssh_channel_open_session(channel) != SSH_OK) {
-		cout << "Error: could not open channel (2)\n";
+		cout << "Error: could not open channel\n";
 		
 		ssh_channel_free(channel);
 		return false;
@@ -338,6 +345,40 @@ bool SSH::command(const string& command) {
 		return false;
 	}
 	
+	if (output_file) {
+		string filename = "stdout_" + ip_;
+		ofstream file(filename, ios_base::app);
+		
+		if (!file.is_open())
+			goto end;
+			
+		cout << "Debug: writing to log\n";
+		
+		string current_time = getTimestamp();	
+		
+		file.write("[", 1);
+		file.write(current_time.c_str(), current_time.length() - 1);
+		file.write("]\n", 2);
+			
+		char buffer[256];
+		
+		for (size_t i = 0; i <= 1; i++) {
+			do {
+				int bytes_received = ssh_channel_read(channel, buffer, sizeof(buffer), i);
+				
+				cout << "Debug: read " << bytes_received << " bytes from remote\n";
+				
+				if (bytes_received <= 0)
+					break;
+
+				file.write(buffer, bytes_received);
+			} while (true);
+		}
+		
+		file.close();
+	}
+	
+end:
 	ssh_channel_send_eof(channel);
 	ssh_channel_close(channel);
 	ssh_channel_free(channel);

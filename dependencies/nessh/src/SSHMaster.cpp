@@ -231,7 +231,7 @@ bool SSHMaster::connect(const vector<string>& ips, const vector<string>& users, 
 
 static void commandThreaded(SSHMaster& connections, const string& ip, const string& command) {
 	auto& session = connections.getSession(ip, true);
-	bool result = session.command(command);
+	bool result = session.command(command, connections.getSetting(SETTING_ENABLE_SSH_OUTPUT));
 	
 	if (result)
 		return;

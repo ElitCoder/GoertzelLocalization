@@ -266,7 +266,7 @@ void printHelp() {
 		 <<	" the files using scp\n2. Starts the scripts at the same time\n3. Wait until done\n4. Retrieve all recordings from the speakers\n5. Calculate distances using Goertzel\n\n";
 	*/
 	
-	cout << "Usage: GoertzelLocalization [-options]\n\n";
+	cout << "Usage: DistanceCalculation [-options]\n\n";
 	cout << "Runs the localization test using Goertzel algorithm to detect sound.\n\n";
 	cout << "Options:\n";
 	cout << "\t-p,\t\t specify pause length in seconds between beeps\n";

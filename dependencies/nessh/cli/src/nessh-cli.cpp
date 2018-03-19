@@ -4,6 +4,7 @@
 
 #include <iostream>
 #include <fstream>
+#include <algorithm>
 
 #define ERROR(...)	do { fprintf(stderr, "Error: "); fprintf(stderr, __VA_ARGS__); fprintf(stderr, "\n"); exit(1); } while(0)
 
@@ -18,9 +19,9 @@ void help() {
 	cout << "Usage: nessh-cli [-options]\n\n";
 	cout << "Parallel SSH for running synchronized commands.\n\n";
 	cout << "Options:\n";
-	cout << "\t-a,\t\twhich file to read addresses from\n";
-	cout << "\t-c,\t\twhich file to read commands from\n";
-	cout << "\t-p,\t\twhile file to read users & passwords from\n";
+	cout << "\t-a,\t\twhich file to read addresses from (default addresses)\n";
+	cout << "\t-c,\t\twhich file to read commands from (default commands)\n";
+	cout << "\t-p,\t\twhile file to read users & passwords from (default passwords)\n";
 }
 
 vector<string> read(const string& filename) {
@@ -74,6 +75,37 @@ vector<string> getPasswords(const vector<string>& users_passwords) {
 	return getUsers(users_passwords, GET_PASSWORDS);
 }
 
+ostream& operator<<(ostream& out, const vector<string>& elements) {
+	for_each(elements.begin(), elements.end(), [] (const string& line) { cout << line << endl; });
+	
+	return out;
+}
+
+int execute(SSHMaster& master, vector<string>& ips, vector<string>& commands) {
+	master.setSetting(SETTING_ENABLE_SSH_OUTPUT, true);
+	
+	for (auto command : commands) {
+		while (command.back() == ';' || command.back() == ' ')
+			command.pop_back();
+			
+		command += "; wait";
+		
+		cout << "Information: running command " << command << endl;
+		
+		vector<string> current_commands(commands.size(), command);
+		
+		if (!master.command(ips, current_commands)) {
+			master.setSetting(SETTING_ENABLE_SSH_OUTPUT, false);
+			
+			return -1;
+		}
+	}
+	
+	master.setSetting(SETTING_ENABLE_SSH_OUTPUT, false);
+	
+	return 0;
+}
+
 void run(const string& filename_addresses, const string& filename_commands, const string& filename_passwords) {
 	vector<string> ips = read(filename_addresses);
 	vector<string> commands = read(filename_commands);
@@ -84,24 +116,34 @@ void run(const string& filename_addresses, const string& filename_commands, cons
 	
 	SSHMaster master;
 	
+	cout << ips << endl;
+	cout << users << endl;
+	cout << passwords << endl;
+	
 	if (!master.connect(ips, users, passwords))
-		exit(1);
+		ERROR("could not connect");
 		
-	cout << "Info: connected to devices\n";
+	cout << "Information: connected to all devices without any problems\n";
+	cout << "Information: running commands synchronized one-by-one..\n";
+	
+	if (execute(master, ips, commands) < 0)
+		cout << "Warning: not all commands were executed due to some errors\n";
+	else
+		cout << "Information: all commands were executed\n";
 }
 
 int main(int argc, char** argv) {
 	Settings settings;
 	
-	if (!settings.readParameters(argc, argv) || !settings.has("-a") || !settings.has("-c") || !settings.has("-p")) {
+	if (!settings.readParameters(argc, argv) || settings.get<bool>("-h")) {
 		help();
 		
 		return 0;
 	}
 	
-	string addresses = settings.get<string>("-a");
-	string commands = settings.get<string>("-c");
-	string passwords = settings.get<string>("-p");
+	string addresses = (settings.has("-a") ? settings.get<string>("-a") : "addresses");
+	string commands = (settings.has("-c") ? settings.get<string>("-c") : "commands");
+	string passwords = (settings.has("-p") ? settings.get<string>("-p") : "passwords");
 	
 	cout << "Debug: got addresses file " << addresses << endl;
 	cout << "Debug: got commands file " << commands << endl;

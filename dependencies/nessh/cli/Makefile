@@ -2,6 +2,7 @@ CXX			:= g++
 
 CPP_FILES	:= $(wildcard src/*.cpp)
 OBJ_FILES	:= $(addprefix src/,$(notdir $(CPP_FILES:.cpp=.o)))
+
 CC_FLAGS	:= -std=c++11
 CC_FLAGS	+= -Wall -Wextra -pedantic-errors
 CC_FLAGS	+= -O3
@@ -16,7 +17,7 @@ install:
 	cp bin/nessh-cli /usr/bin/
 	
 clean:
-	rm -f src/*.o src/*.d bin/$(EXECUTABLE)
+	rm -f src/*.o src/*.d bin/$(EXECUTABLE) bin/stdout*
 
 build: $(OBJ_FILES)
 	$(CXX) $(LD_FLAGS) $^ -o bin/$(EXECUTABLE) $(LD_LIBS)
