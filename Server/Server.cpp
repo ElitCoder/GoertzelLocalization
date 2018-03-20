@@ -6,10 +6,9 @@
 using namespace std;
 
 enum {
-	PACKET_GET_SPEAKER_VOLUME_AND_CAPTURE = 1
+	PACKET_GET_SPEAKER_VOLUME_AND_CAPTURE = 1,
+	PACKET_SET_SPEAKER_VOLUME_AND_CAPTURE
 };
-
-static vector<string> g_ips = { "172.25.9.38", "172.25.13.200" };
 
 static void handle(NetworkCommunication& network, Connection& connection, Packet& input_packet) {
 	auto header = input_packet.getByte();
@@ -34,25 +33,68 @@ static void handle(NetworkCommunication& network, Connection& connection, Packet
 		}
 		
 		case PACKET_GET_SPEAKER_VOLUME_AND_CAPTURE: {
-			auto volumes = Handle::handleGetSpeakerVolumeAndCapture(g_ips);
+			vector<string> ips;
+			int num_ips = input_packet.getInt();
+			
+			for (int i = 0; i < num_ips; i++)
+				ips.push_back(input_packet.getString());
+				
+			auto finished = Handle::handleGetSpeakerVolumeAndCapture(ips);
 			
 			Packet packet;
-			packet.addHeader(PACKET_GET_SPEAKER_VOLUME_AND_CAPTURE);
-			packet.addInt(volumes.size());
-						
-			for (size_t i = 0; i < g_ips.size(); i++) {
-				auto& values = volumes.at(i);
-				packet.addString(g_ips.at(i));
-				packet.addInt(values.size());
-				
-				for (auto& value : values)
-					packet.addFloat(value);
-			}
-				
-			packet.finalize();
-						
-			network.addOutgoingPacket(connection.getSocket(), packet);
+			packet.addHeader(PACKET_SET_SPEAKER_VOLUME_AND_CAPTURE);
+			packet.addInt(finished.size());
 			
+			for (size_t i = 0; i < finished.size(); i++) {
+				auto& ip = finished.at(i).first;
+				auto& lines = finished.at(i).second;
+				
+				packet.addString(ip);
+				packet.addInt(lines.size());
+				
+				for (auto& line : lines)
+					packet.addString(line);
+			}
+			
+			packet.finalize();
+			
+			network.addOutgoingPacket(connection.getSocket(), packet);
+			break;
+		}
+		
+		case PACKET_SET_SPEAKER_VOLUME_AND_CAPTURE: {
+			vector<string> ips;
+			vector<double> volumes;
+			vector<double> captures;
+			
+			int num_ips = input_packet.getInt();
+			
+			for (int i = 0; i < num_ips; i++) {
+				ips.push_back(input_packet.getString());
+				volumes.push_back(input_packet.getFloat());
+				captures.push_back(input_packet.getFloat());
+			}
+			
+			auto finished = Handle::handleSetSpeakerVolumeAndCapture(ips, volumes, captures);
+			
+			Packet packet;
+			packet.addHeader(PACKET_SET_SPEAKER_VOLUME_AND_CAPTURE);
+			packet.addInt(finished.size());
+			
+			for (size_t i = 0; i < finished.size(); i++) {
+				auto& ip = finished.at(i).first;
+				auto& lines = finished.at(i).second;
+				
+				packet.addString(ip);
+				packet.addInt(lines.size());
+				
+				for (auto& line : lines)
+					packet.addString(line);
+			}
+			
+			packet.finalize();
+			
+			network.addOutgoingPacket(connection.getSocket(), packet);
 			break;
 		}
 		

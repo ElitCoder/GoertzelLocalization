@@ -2,6 +2,7 @@
 #define SSH_H
 
 #include <string>
+#include <vector>
 
 // Fuck the C++ wrapper
 #include <libssh/libssh.h>
@@ -13,9 +14,12 @@ public:
 	
 	bool connect();
 	void disconnect();
-	bool command(const std::string& command, bool output_file = false);
+	bool command(const std::string& command, bool output_file = false, bool output_vector = false);
 	bool transferLocal(const std::string& from, const std::string& to, const std::string& custom_filename);
 	bool transferRemote(const std::string& from, const std::string& to);
+	
+	void clearOutput();
+	std::vector<std::string> getOutput();
 	
 	bool operator==(const std::string& ip);
 	
@@ -26,6 +30,8 @@ private:
 	
 	bool connected_;
 	ssh_session session_;
+	
+	std::vector<std::string> output_;
 };
 
 #endif

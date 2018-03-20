@@ -1,2 +1,4 @@
 - Localization3D kind of sucks
 - Use Dt for different speakers
+- Server nonblocking requests (start thread for e.g. SSH)
+- Server more try catch

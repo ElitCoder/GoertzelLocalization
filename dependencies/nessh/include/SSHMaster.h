@@ -9,6 +9,7 @@
 enum {
 	SETTING_USE_ACTUAL_FILENAME,
 	SETTING_ENABLE_SSH_OUTPUT,
+	SETTING_ENABLE_SSH_OUTPUT_VECTOR_STYLE,
 	SETTING_MAX
 };
 
@@ -22,6 +23,7 @@ public:
 	bool connect(const std::vector<std::string>& ips, const std::string& pass);
 	bool connect(const std::vector<std::string>& ips, const std::vector<std::string>& users, const std::vector<std::string>& passwords);
 	bool command(std::vector<std::string>& ips, std::vector<std::string>& commands);
+	std::vector<std::pair<std::string, std::vector<std::string>>> command(const std::vector<std::string>& ips, const std::vector<std::string>& commands);
 	bool transferLocal(std::vector<std::string>& ips, std::vector<std::string>& from, std::vector<std::string>& to, bool threading);
 	bool transferRemote(std::vector<std::string>& ips, std::vector<std::string>& from, std::vector<std::string>& to);
 	

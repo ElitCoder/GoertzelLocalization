@@ -5,9 +5,11 @@
 #include <sstream>
 #include <iostream>
 #include <fstream>
+#include <cmath>
 
 using namespace std;
 
+/*
 static vector<string> getTokens(string input, char delimiter) {
 	istringstream stream(input);
 	vector<string> tokens;
@@ -56,7 +58,7 @@ static vector<vector<double>> readSpeakerSettingsFromFile(vector<string>& ips) {
 	return returning_values;
 }
 
-vector<vector<double>> Handle::handleGetSpeakerVolumeAndCapture(vector<string>& ips) {
+vector<vector<string>> Handle::handleGetSpeakerVolumeAndCapture(vector<string>& ips) {
 	// SSH to speakers
 	// Send script to speakers
 	// Get resulting speakersettings
@@ -110,31 +112,73 @@ vector<vector<double>> Handle::handleGetSpeakerVolumeAndCapture(vector<string>& 
 		
 	ssh_master.setSetting(SETTING_USE_ACTUAL_FILENAME, false);	
 		
-	return readSpeakerSettingsFromFile(ips);	
-		
-	/*
-	vector<vector<double>> returning_values;
+	return readSpeakerSettingsFromFile(ips);
+}
+*/
+
+static SSHOutput runSSHScript(const vector<string>& ips, const vector<string>& commands) {
+	SSHMaster master;
 	
-	for (auto& ip : ips) {
-		vector<double> values;
-		string tmp;
+	if (!master.connect(ips, "pass"))
+		return SSHOutput();
 		
-		ifstream file("speaker_results/speakersettings" + ip);
+	master.setSetting(SETTING_ENABLE_SSH_OUTPUT_VECTOR_STYLE, true);
+	auto outputs = master.command(ips, commands);
+	master.setSetting(SETTING_ENABLE_SSH_OUTPUT_VECTOR_STYLE, false);
+	
+	return outputs;	
+}
+
+SSHOutput Handle::handleGetSpeakerVolumeAndCapture(const vector<string>& ips) {
+	string command = "amixer -c1 sget 'Headphone' && amixer -c1 sget 'Capture'; wait";
+	vector<string> commands(ips.size(), command);
+	
+	return runSSHScript(ips, commands);
+}
+
+// TODO: this should be done async later on (if necessary)
+SSHOutput Handle::handleSetSpeakerVolumeAndCapture(const vector<string>& ips, const vector<double>& volumes, const vector<double>& captures) {
+	vector<string> commands;
+	
+	for (size_t i = 0; i < volumes.size(); i++) {
+		string volume = to_string(static_cast<int>(round(volumes.at(i))));
+		string capture = to_string(static_cast<int>(round(captures.at(i))));
 		
-		if (!file.is_open()) {
-			cout << "Warning: could not open file " << "speaker_results/speakersettings" << ip << endl;
-			
-			break;
-		}
+		string command = "amixer -c1 sset 'Headphone' " + volume + " && ";
+		command += "amixer -c1 sset 'Capture' " + capture + "; wait";
 		
-		while (getline(file, tmp))
-			values.push_back(stod(getTokens(tmp, ' ').back()));
-			
-		file.close();
-			
-		returning_values.push_back(values);	
+		cout << "Debug: sending command " << command << " to " << ips.at(i) << endl;
+		
+		commands.push_back(command);
 	}
 	
-	return returning_values;
+	return runSSHScript(ips, commands);
+	
+	/*
+	SSHMaster master;
+	
+	if (!master.connect(ips, "pass"))
+		return vector<vector<string>>();
+		
+	// Create commands to adjust volume and capture volume
+	vector<string> commands;
+	
+	for (size_t i = 0; i < volumes.size(); i++) {
+		string volume = to_string(static_cast<int>(round(volumes.at(i))));
+		string capture = to_string(static_cast<int>(round(captures.at(i))));
+		
+		string command = "amixer -c1 sset 'Headphone' " + volume + " && ";
+		command += "amixer -c1 sset 'Capture' " + capture + "; wait";
+		
+		cout << "Debug: sending command " << command << " to " << ips.at(i) << endl;
+		
+		commands.push_back(command);
+	}
+	
+	master.setSetting(SETTING_ENABLE_SSH_OUTPUT_VECTOR_STYLE, true);
+	auto outputs = master.command(ips, commands);
+	master.setSetting(SETTING_ENABLE_SSH_OUTPUT_VECTOR_STYLE, false);
+	
+	return outputs;
 	*/
 }

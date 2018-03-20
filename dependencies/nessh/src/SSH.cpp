@@ -26,6 +26,14 @@ SSH::SSH(const string& ip, const string& user, const string& pass) {
 	connected_ = false;
 }
 
+void SSH::clearOutput() {
+	output_.clear();
+}
+
+vector<string> SSH::getOutput() {
+	return output_;
+}
+
 void SSH::disconnect() {
 	if (!connected_)
 		return;
@@ -315,7 +323,7 @@ static string getTimestamp() {
 	return ctime(&current_time);
 }
 
-bool SSH::command(const string& command, bool output_file) {
+bool SSH::command(const string& command, bool output_file, bool output_vector) {
 	if (!connected_) {
 		cout << "Error: could not execute command, we're not connected\n";
 		
@@ -345,37 +353,53 @@ bool SSH::command(const string& command, bool output_file) {
 		return false;
 	}
 	
-	if (output_file) {
-		string filename = "stdout_" + ip_;
-		ofstream file(filename, ios_base::app);
+	if (output_file || output_vector) {
+		ofstream* file = nullptr;
 		
-		if (!file.is_open())
-			goto end;
+		if (output_file) {
+			string filename = "stdout_" + ip_;
+			file = new ofstream(filename, ios_base::app);
 			
-		cout << "Debug: writing to log\n";
-		
-		string current_time = getTimestamp();	
-		
-		file.write("[", 1);
-		file.write(current_time.c_str(), current_time.length() - 1);
-		file.write("]\n", 2);
+			if (!file->is_open()) {
+				delete file;
+				
+				goto end;
+			}
 			
+			cout << "Debug: writing to log\n";
+			
+			string current_time = getTimestamp();
+			
+			file->write("[", 1);
+			file->write(current_time.c_str(), current_time.length() - 1);
+			file->write("]\n", 2);
+		} else {
+			cout << "Debug: writing to vector\n";
+			output_.clear();
+		}
+
 		char buffer[256];
 		
 		for (size_t i = 0; i <= 1; i++) {
 			do {
 				int bytes_received = ssh_channel_read(channel, buffer, sizeof(buffer), i);
 				
-				cout << "Debug: read " << bytes_received << " bytes from remote\n";
-				
 				if (bytes_received <= 0)
 					break;
-
-				file.write(buffer, bytes_received);
+					
+				cout << "Debug: read " << bytes_received << " bytes from remote\n";
+				
+				if (output_file)
+					file->write(buffer, bytes_received);
+				else
+					output_.push_back(string(buffer, bytes_received));
 			} while (true);
 		}
 		
-		file.close();
+		if (output_file) {
+			file->close();
+			delete file;
+		}
 	}
 	
 end:

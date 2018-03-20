@@ -231,12 +231,40 @@ bool SSHMaster::connect(const vector<string>& ips, const vector<string>& users, 
 
 static void commandThreaded(SSHMaster& connections, const string& ip, const string& command) {
 	auto& session = connections.getSession(ip, true);
-	bool result = session.command(command, connections.getSetting(SETTING_ENABLE_SSH_OUTPUT));
+	bool result = session.command(command, connections.getSetting(SETTING_ENABLE_SSH_OUTPUT), connections.getSetting(SETTING_ENABLE_SSH_OUTPUT_VECTOR_STYLE));
 	
 	if (result)
 		return;
 		
 	connections.setThreadedConnectionStatus(false);	
+}
+
+vector<pair<string, vector<string>>> SSHMaster::command(const vector<string>& ips, const vector<string>& commands) {
+	if (ips.empty())
+		return vector<pair<string, vector<string>>>();
+		
+	// Clean current outputs
+	for_each(ips.begin(), ips.end(), [this] (const string& ip) { getSession(ip, false).clearOutput(); });	
+	
+	threaded_connections_result_ = true;
+	thread* threads = new thread[ips.size()];
+			
+	for (size_t i = 0; i < ips.size(); i++)
+		threads[i] = thread(commandThreaded, ref(*this), ref(ips.at(i)), ref(commands.at(i)));
+		
+	for (size_t i = 0; i < ips.size(); i++)
+		threads[i].join();
+		
+	delete[] threads;
+	
+	if (!threaded_connections_result_)
+		return vector<pair<string, vector<string>>>();
+		
+	// Collect all outputs
+	vector<pair<string, vector<string>>> outputs;
+	for_each(ips.begin(), ips.end(), [this, &outputs] (const string& ip) { outputs.push_back({ ip, getSession(ip, false).getOutput() }); });
+	
+	return outputs;
 }
 
 bool SSHMaster::command(vector<string>& ips, vector<string>& commands) {
@@ -255,19 +283,5 @@ bool SSHMaster::command(vector<string>& ips, vector<string>& commands) {
 		
 	delete[] threads;
 	
-	return threaded_connections_result_;	
-			
-			/*
-	auto iterator = find(connections_.begin(), connections_.end(), ip);
-	
-	if (iterator == connections_.end()) {
-		cout << ip << " is not connected\n";
-		
-		return false;
-	}
-	
-	SSH& session = *iterator;
-	
-	return session.command(command);
-	*/
+	return threaded_connections_result_;
 }
