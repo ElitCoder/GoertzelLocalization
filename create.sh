@@ -83,7 +83,7 @@ function run {
 	#./GoertzelLocalization 2 172.25.45.134 172.25.45.70 172.25.45.157 172.25.45.220 172.25.45.222 172.25.45.152 172.25.45.141 172.25.45.245 <-- j0
 	
 	cd DistanceCalculation/bin/
-	until ./DistanceCalculation -p 2 -er 0 -f data/speaker_ips -tf white_noise.wav -t NOTHING; do echo "Running again"; sleep 1; done
+	until ./DistanceCalculation -p 4 -er 0 -f data/speaker_ips -tf white_noise.wav -t NOTHING; do echo "Running again"; sleep 1; done
 	cd ../../
 }
 
