@@ -11,7 +11,7 @@ enum {
 
 static vector<string> g_ips = { "172.25.9.38", "172.25.13.200" };
 
-void handle(NetworkCommunication& network, Connection& connection, Packet& input_packet) {
+static void handle(NetworkCommunication& network, Connection& connection, Packet& input_packet) {
 	auto header = input_packet.getByte();
 	
 	printf("Debug: got packet with header %02X\n", header);
@@ -62,7 +62,7 @@ void handle(NetworkCommunication& network, Connection& connection, Packet& input
 	}
 }
 
-void start(unsigned short port) {
+static void start(unsigned short port) {
 	NetworkCommunication network(port);
 	
 	while (true) {

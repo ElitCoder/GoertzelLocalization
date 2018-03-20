@@ -6,8 +6,9 @@ Install libraries:
 
 ./create.sh commands:
 	./create clean	- cleans everying and re-build
-	./create run	- builds new code and runs the program
-	./create		- just build the new code
+	./create run	- builds new code and runs the program DistanceCalculation
+	./create <1>	- builds program 1
+	./create		- just build the new code for all programs
 
 FIRST USE:
 1. Install build essentials using the command above
