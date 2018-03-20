@@ -27,3 +27,17 @@ out:
 		string:	<ip>
 		int:	<num of output lines>
 			string:	<line>
+			
+0x03 (PACKET_START_LOCALIZATION)
+in:
+	int:	<num of ips>
+		string:	<ip>
+		
+out:
+	int:	<num of speakers>
+		string:	<ip>
+		int:	<num dimensions>
+			float:	<coordinate>
+		int:	<num distances>
+			string:	<ip>
+			float:	<distance>

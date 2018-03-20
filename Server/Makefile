@@ -15,6 +15,7 @@ $(EXECUTABLE): $(OBJ_FILES)
 clean:
 	rm -rf *.o *.d $(EXECUTABLE)
 	rm -rf speaker_results
+	rm -f speaker_ips
 
 CC_FLAGS += -MMD
 -include $(OBJFILES:.o=.d)

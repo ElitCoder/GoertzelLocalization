@@ -18,6 +18,7 @@ clean:
 	rm -rf bin/scripts/
 	rm -rf bin/recordings/
 	rm -rf Calculated\ level\ 3
+	rm -f bin/server_results.txt
 	
 CC_FLAGS += -MMD
 -include $(OBJFILES:.o=.d)

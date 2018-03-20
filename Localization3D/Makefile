@@ -15,7 +15,7 @@ $(EXECUTABLE): $(OBJ_FILES)
 	g++ $(CC_FLAGS) -c -o $@ $<
 	
 clean:
-	rm -rf *.o *.d $(EXECUTABLE)
+	rm -rf *.o *.d $(EXECUTABLE) server_placements_results.txt
 
 CC_FLAGS += -MMD
 -include $(OBJFILES:.o=.d)	

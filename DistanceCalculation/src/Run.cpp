@@ -1,6 +1,7 @@
 #include "Run.h"
 #include "Recording.h"
 #include "WavReader.h"
+#include "Settings.h"
 
 #include <iostream>
 #include <cmath>
@@ -12,6 +13,8 @@ static const int FREQ_N = 16;
 static const int FREQ_FREQ = 4000;
 static const double FREQ_REDUCING = 0.001;
 static const double FREQ_THRESHOLD = 0.05;
+
+extern Settings g_settings;
 
 static double calculateDistance(Recording& master, Recording& recording) {
 	long long r12 = recording.getTonePlayingWhen(master.getId());
@@ -37,7 +40,7 @@ static double calculateDistance(Recording& master, Recording& recording) {
 }
 
 void writeLocalization(vector<Recording>& recordings) {
-	ofstream file("../Localization/live_localization.txt");
+	ofstream file("../../Localization/live_localization.txt");
 	
 	if (!file.is_open()) {
 		cout << "Warning: could not open file for writing results\n";
@@ -65,7 +68,7 @@ void writeLocalization(vector<Recording>& recordings) {
 }
 
 void writeLocalization3D(vector<Recording>& recordings) {
-	ofstream file("../Localization3D/live_localization.txt");
+	ofstream file("../../Localization3D/live_localization.txt");
 	
 	if (!file.is_open()) {
 		cout << "Warning: could not open file for writing results\n";
@@ -91,6 +94,28 @@ void writeLocalization3D(vector<Recording>& recordings) {
 	file.close();
 }
 
+static void writeServerResults(vector<Recording>& recordings) {
+	ofstream file("server_results.txt");
+	
+	if (!file.is_open()) {
+		cout << "Warning: could not open file for writing server results\n";
+		
+		return;
+	}
+	
+	file << to_string(recordings.size()) << endl;
+	
+	for (size_t i = 0; i < recordings.size(); i++) {
+		Recording& master = recordings.at(i);
+		
+		for (size_t j = 0; j < recordings.size(); j++) {
+			file << master.getIP() << " " << recordings.at(j).getIP() << " " << to_string(master.getDistance(j)) << endl;
+		}
+	}
+	
+	file.close();
+}
+
 namespace Run {
 	void runGoertzel(const vector<string>& filenames, const vector<string>& ips) {
 		vector<Recording> recordings;
@@ -110,6 +135,8 @@ namespace Run {
 		
 		for (size_t i = 0; i < recordings.size(); i++) {
 			Recording& master = recordings.at(i);
+			
+			master.addDistance(i, 0);
 			
 			for (size_t j = 0; j < recordings.size(); j++) {
 				if (j == i)
@@ -175,5 +202,8 @@ namespace Run {
 		//writeResults(recordings);
 		writeLocalization(recordings);
 		writeLocalization3D(recordings);
+		
+		if (g_settings.has("-ws"))
+			writeServerResults(recordings);
 	}
 }

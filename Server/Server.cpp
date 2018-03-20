@@ -1,13 +1,16 @@
 #include "NetworkCommunication.h"
 #include "Handle.h"
+#include "SpeakerPlacement.h"
 
 #include <iostream>
+#include <algorithm>
 
 using namespace std;
 
 enum {
 	PACKET_GET_SPEAKER_VOLUME_AND_CAPTURE = 1,
-	PACKET_SET_SPEAKER_VOLUME_AND_CAPTURE
+	PACKET_SET_SPEAKER_VOLUME_AND_CAPTURE,
+	PACKET_START_LOCALIZATION
 };
 
 static void handle(NetworkCommunication& network, Connection& connection, Packet& input_packet) {
@@ -90,6 +93,40 @@ static void handle(NetworkCommunication& network, Connection& connection, Packet
 				
 				for (auto& line : lines)
 					packet.addString(line);
+			}
+			
+			packet.finalize();
+			
+			network.addOutgoingPacket(connection.getSocket(), packet);
+			break;
+		}
+		
+		case PACKET_START_LOCALIZATION: {
+			vector<string> ips;
+			int num_ips = input_packet.getInt();
+			
+			for (int i = 0; i < num_ips; i++)
+				ips.push_back(input_packet.getString());
+				
+			vector<SpeakerPlacement> placements = Handle::handleRunLocalization(ips);
+			
+			Packet packet;
+			packet.addHeader(PACKET_START_LOCALIZATION);
+			packet.addInt(placements.size());
+			
+			for (auto& speaker : placements) {
+				packet.addString(speaker.getIp());
+				
+				auto& coordinates = speaker.getCoordinates();
+				packet.addInt(coordinates.size());
+				for_each(coordinates.begin(), coordinates.end(), [&packet] (double c) { packet.addFloat(c); });
+				
+				auto& distances = speaker.getDistances();
+				packet.addInt(distances.size());
+				for_each(distances.begin(), distances.end(), [&packet] (const pair<string, double>& peer) {
+					packet.addString(peer.first);
+					packet.addFloat(peer.second);
+				});
 			}
 			
 			packet.finalize();

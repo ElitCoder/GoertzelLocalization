@@ -3,6 +3,7 @@
 #include <cmath>
 #include <algorithm>
 #include <set>
+#include <fstream>
 
 using namespace std;
 
@@ -135,14 +136,20 @@ public:
 };
 
 namespace PrivateOperations {
-	double distanceBetweenPoints(double x1, double y1, double x2, double y2) {
-		return (x2 - x1) * (x2 - x1) + (y2 - y1) * (y2 - y1);
+	double distanceBetweenPoints(double x1, double y1, double z1, double x2, double y2, double z2) {
+		return (x2 - x1) * (x2 - x1) + (y2 - y1) * (y2 - y1) + (z2 - z1) * (z2 - z1);
 	}
 }
 
+double distanceBetweenPointsSqrt(double x1, double y1, double z1, double x2, double y2, double z2) {
+	return sqrt(PrivateOperations::distanceBetweenPoints(x1, y1, z1, x2, y2, z2));
+}
+
+/*
 double distanceBetweenPointsNoSqrt(double x1, double y1, double x2, double y2) {
 	return PrivateOperations::distanceBetweenPoints(x1, y1, x2, y2);
 }
+*/
 
 double toRadians(double degrees) {
 	return (degrees * PI) / 180;
@@ -225,8 +232,12 @@ vector<Point> getPossibles(vector<Point>& points, size_t i) {
 			
 			for (auto& origin : points) {
 				double distance = origin.getDistance(i);
-				distance *= distance;
-				if (abs(distance - distanceBetweenPointsNoSqrt(point.getX(), point.getY(), origin.getX(), origin.getY())) > g_distanceAccuracy) {
+				double test_distance = distanceBetweenPointsSqrt(point.getX(), point.getY(), point.getZ(), origin.getX(), origin.getY(), origin.getZ());
+				
+				//distance *= distance;
+				//if (abs(distance - distanceBetweenPointsNoSqrt(point.getX(), point.getY(), origin.getX(), origin.getY())) > g_distanceAccuracy) {
+				
+				if (abs(distance - test_distance) > g_distanceAccuracy) {
 					good = false;
 					
 					break;
@@ -306,6 +317,29 @@ void printHelp() {
 	cout << "Print this message with -h or --help\n";
 	cout << "\nReads input_structure from stdin and calculates distance between points, with accuracy starting at <starting distance accuracy>\n";
 	cout << "Faster execution with higher distance accuracy and higher degree accuracy\n";
+}
+
+void writeResultsToServer(vector<Point>& results) {
+	ofstream file("server_placements_results.txt");
+	
+	if (!file.is_open()) {
+		cout << "Warning: could not open file for writing results to server\n";
+		
+		return;
+	}
+	
+	file << results.size() << endl;
+	
+	for (auto& point : results) {
+		if (!point.isSet())
+			break;
+			
+		auto position = point.getFinalPosition();
+		
+		file << point.getIP() << " " << position.front() << " " << position.at(1) << " " << position.at(2) << endl;
+	}
+	
+	file.close();
 }
 
 int main(int argc, char** argv) {
@@ -398,6 +432,8 @@ int main(int argc, char** argv) {
 		}
 		
 		cout << endl;
+		
+		writeResultsToServer(results);
 		
 		g_distanceAccuracy -= 0.01;
 	}

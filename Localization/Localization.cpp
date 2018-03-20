@@ -3,10 +3,11 @@
 #include <cmath>
 #include <algorithm>
 #include <set>
+#include <fstream>
 
 using namespace std;
 
-static double g_distanceAccuracy = 1;
+static double g_distanceAccuracy = 10;
 static double PI;
 
 double RelDif(double a, double b) {
@@ -94,8 +95,8 @@ namespace PrivateOperations {
 	}
 }
 
-double distanceBetweenPointsNoSqrt(double x1, double y1, double x2, double y2) {
-	return PrivateOperations::distanceBetweenPoints(x1, y1, x2, y2);
+double distanceBetweenPointsSqrt(double x1, double y1, double x2, double y2) {
+	return sqrt(PrivateOperations::distanceBetweenPoints(x1, y1, x2, y2));
 }
 
 double toRadians(double degrees) {
@@ -159,8 +160,10 @@ vector<Point> getPossibles(vector<Point>& points, size_t i) {
 			
 			for (auto& origin : points) {
 				double distance = origin.getDistance(i);
-				distance *= distance;
-				if (abs(distance - distanceBetweenPointsNoSqrt(point.getX(), point.getY(), origin.getX(), origin.getY())) > g_distanceAccuracy) {
+				double test_distance = distanceBetweenPointsSqrt(point.getX(), point.getY(), origin.getX(), origin.getY());
+				//distance *= distance;
+				//if (abs(distance - distanceBetweenPointsNoSqrt(point.getX(), point.getY(), origin.getX(), origin.getY())) > g_distanceAccuracy) {
+				if (abs(distance - test_distance) > g_distanceAccuracy) {
 					good = false;
 					
 					break;
@@ -182,6 +185,9 @@ vector<Point> getPossibles(vector<Point>& points, size_t i) {
 }
 
 vector<Point> getPlacement(vector<Point> points, size_t start) {
+	if (start >= points.size())
+		return points;
+		
 	vector<Point> origins(points.begin(), points.begin() + start);
 	vector<Point> possibles = getPossibles(origins, start);
 	
@@ -224,6 +230,24 @@ void printHelp() {
 	cout << "Usage: ./Localization <starting distance accuracy>\n";
 	cout << "Print this message with -h or --help\n";
 	cout << "\nReads input_structure from stdin and calculates distance between points, with accuracy starting at <starting distance accuracy> (default 0.6m)\n";
+}
+
+void writeResultsToServer(vector<Point>& results) {
+	ofstream file("server_placements_results.txt");
+	
+	if (!file.is_open()) {
+		cout << "Warning: could not open file for writing results to server\n";
+		
+		return;
+	}
+	
+	file << results.size() << endl;
+	
+	for (auto& point : results) {
+		file << point.getIP() << " " << point.getX() << " " << point.getY() << endl;
+	}
+	
+	file.close();
 }
 
 int main(int argc, char** argv) {
@@ -311,6 +335,8 @@ int main(int argc, char** argv) {
 		}
 		
 		cout << endl;
+		
+		writeResultsToServer(results);
 		
 		g_distanceAccuracy -= 0.01;
 	}

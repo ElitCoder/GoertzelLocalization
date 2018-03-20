@@ -12,7 +12,8 @@ rm -rf live_localization.txt
 make clean
 cd ../Server/
 make clean
+cd results/
+rm -f *.txt
+cd ../
 cd ../Client/
 make clean
-cd ../Server/speaker_scripts/
-./clean.sh

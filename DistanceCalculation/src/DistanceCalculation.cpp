@@ -28,7 +28,7 @@ enum RUN_TYPES {
 	JUST_RUN_SIMPLE
 };
 
-static Settings g_settings;
+Settings g_settings;
 
 int g_playingLength = 2e05;
 
@@ -276,6 +276,7 @@ void printHelp() {
 	cout << "\t-t,\t\t specify which mode to run, default is GOERTZEL, other modes are NOTHING (just collects the sound samples)\n";
 	cout << "\t-tf,\t\t specify the test file to run (place it in data/, should be 1 s 48 kHZ, default is testTone.wav)\n";
 	cout << "\t-jr,\t\t don't run the full script, just read the values from recordings/ directly (default is FALSE)\n";
+	cout << "\t-ws,\t\t write server output (default is FALSE)\n";
 }
 
 string createConfig(string& ip, int number, int duration) {
