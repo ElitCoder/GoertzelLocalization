@@ -50,25 +50,6 @@ SSHOutput Handle::handleSetSpeakerVolumeAndCapture(const vector<string>& ips, co
 	return runSSHScript(ips, commands);
 }
 
-static string executeLocalCommand(const string& command) {
-    string result;
-	array<char, 2> buffer;
-    shared_ptr<FILE> pipe(popen(command.c_str(), "r"), pclose);
-	
-    if (!pipe)
-		return "";
-		
-    while (!feof(pipe.get())) {
-        if (fgets(buffer.data(), 2, pipe.get()) != nullptr) {
-			cout << buffer.data() << flush;
-			
-			result += buffer.data();
-		}
-    }
-	
-    return result;
-}
-
 static void writeDistanceSpeakerIps(const vector<string>& ips) {
 	string filename = "speaker_ips";
 	ofstream file(filename);

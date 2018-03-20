@@ -261,6 +261,9 @@ vector<Point> getPossibles(vector<Point>& points, size_t i) {
 }
 
 vector<Point> getPlacement(vector<Point> points, size_t start) {
+	if (start >= points.size())
+		return points;
+		
 	vector<Point> origins(points.begin(), points.begin() + start);
 	vector<Point> possibles = getPossibles(origins, start);
 	
