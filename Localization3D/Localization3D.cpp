@@ -7,8 +7,8 @@
 
 using namespace std;
 
-static double g_distanceAccuracy = 1;
-static int g_degree_accuracy = 1;
+static double g_distanceAccuracy = 2;
+static int g_degree_accuracy = 10;
 static double PI;
 
 double RelDif(double a, double b) {
@@ -351,11 +351,6 @@ int main(int argc, char** argv) {
 		return 0;
 	}
 	
-	if (argc >= 3) {
-		g_distanceAccuracy = stod(argv[1]);
-		g_degree_accuracy = stoi(argv[2]);
-	}
-	
 	PI = atan(1) * 4;
 	cout << "Setting PI to " << PI << endl;
 	
@@ -389,55 +384,89 @@ int main(int argc, char** argv) {
 	
 	points.front().setPosition({ 0, 0, 0 });
 	
-	while (g_distanceAccuracy > 0) {
-		cout << "Trying for accuracy " << g_distanceAccuracy << " m\n\n";
+	vector<Point> best_points;
+	double z_diff = 10000000;
+	bool set = false;
+	
+	double distance_accuracy_original = g_distanceAccuracy;
+
+	while (g_degree_accuracy > 0) {
+		g_distanceAccuracy = distance_accuracy_original;
 		
-		vector<Point> basic_points(points);
-		auto results = getPlacement(basic_points, 1);
-		
-		if (results.empty()) {
-			cout << "No more possible results\n";
-			
+		if (set)
 			break;
-		}
 		
-		for (auto& point : results) {
-			if (!point.isSet())
-				break;
-				
-			auto position = point.getFinalPosition();
+		while (g_distanceAccuracy > 0) {
+			cout << "Trying for accuracy " << g_distanceAccuracy << " m\n\n";
 			
-			printf("%s: (%1.2f, %1.2f, %1.2f)\n", point.getIP().c_str(), position.front(), position.at(1), position.at(2));
-		}
-		
-		cout << endl;
-		
-		for (auto& point : results) {
-			if (!point.isSet())
-				break;
-				
-			auto position = point.getFinalPosition();
+			vector<Point> basic_points(points);
+			auto results = getPlacement(basic_points, 1);
 			
-			printf("(%1.2f, %1.2f, %1.2f)\n", position.front(), position.at(1), position.at(2));	
-		}
-		
-		cout << endl;
-		
-		for (auto& point : results) {
-			if (!point.isSet())
-				break;
+			if (results.empty()) {
+				cout << "No more possible results\n";
 				
-			auto position = point.getFinalPosition();
+				break;
+			}
 			
-			printf("(%1.2f, %1.2f)\n", position.front(), position.at(1));	
+			for (auto& point : results) {
+				if (!point.isSet())
+					break;
+					
+				auto position = point.getFinalPosition();
+				
+				printf("%s: (%1.2f, %1.2f, %1.2f)\n", point.getIP().c_str(), position.front(), position.at(1), position.at(2));
+			}
+			
+			cout << endl;
+			
+			for (auto& point : results) {
+				if (!point.isSet())
+					break;
+					
+				auto position = point.getFinalPosition();
+				
+				printf("(%1.2f, %1.2f, %1.2f)\n", position.front(), position.at(1), position.at(2));	
+			}
+			
+			cout << endl;
+			
+			if (g_distanceAccuracy < 0.1) {
+				double current_z_diff = 0;
+				
+				for (size_t i = 0; i < results.size(); i++) {
+					current_z_diff += (results.at(i).getZ() * results.at(i).getZ());
+				}
+				
+				current_z_diff = sqrt(current_z_diff);
+				
+				if (z_diff > current_z_diff) {
+					best_points = results;
+					z_diff = current_z_diff;
+					set = true;
+				}
+			}
+			
+			g_distanceAccuracy -= 0.01;
 		}
 		
-		cout << endl;
-		
-		writeResultsToServer(results);
-		
-		g_distanceAccuracy -= 0.01;
+		g_degree_accuracy -= 1;
 	}
+	
+	if (!set)
+		return 0;
+
+	cout << "Best Z diff = " << z_diff << endl;
+	
+	for (auto& point : best_points) {
+		if (!point.isSet())
+			break;
+			
+		auto position = point.getFinalPosition();
+		
+		printf("(%1.2f, %1.2f, %1.2f)\n", position.front(), position.at(1), position.at(2));	
+	}
+	
+	writeResultsToServer(best_points);
 	
 	return 0;
 }

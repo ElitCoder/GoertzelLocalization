@@ -173,7 +173,7 @@ void startSpeakerLocalization() {
 	int type_localization;
 	
 	cout << "0. Goertzel localization\n";
-	cout << "1. White noise localization\n";
+	cout << "1. White noise localization\n\n";
 	cout << "What type of localization do you want?: ";
 	cin >> type_localization;
 	
