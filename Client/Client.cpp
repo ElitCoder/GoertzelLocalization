@@ -11,10 +11,13 @@ enum {
 };
 
 enum {
-	SPEAKER_MIN_VOLUME = 0,
-	SPEAKER_MAX_VOLUME = 0, //57, // TODO: remove this, just for testing
-	SPEAKER_MIN_CAPTURE = 0,
-	SPEAKER_MAX_CAPTURE = 63
+	SPEAKER_MIN_VOLUME = 0,				// 0 = -57 dB
+	SPEAKER_MAX_VOLUME = 57,			// 57 = 0 dB
+	SPEAKER_MIN_CAPTURE = 0,			// 0 = -12 dB
+	SPEAKER_MAX_CAPTURE = 63,			// 63 = 35.25 dB
+	SPEAKER_CAPTURE_BOOST_MUTE = 0,		// -inf dB
+	SPEAKER_CAPTURE_BOOST_NORMAL = 1,	// 0 dB
+	SPEAKER_CAPTURE_BOOST_ENABLED = 2	// +20 dB
 };
 
 enum {
@@ -23,7 +26,13 @@ enum {
 };
 
 static NetworkCommunication* g_network;
-static vector<string> g_ips = { "172.25.11.186" }; /*"172.25.45.152",
+
+// Våning 3
+static vector<string> g_ips = { "172.25.9.38",
+								"172.25.13.200" };
+// J0
+/*
+static vector<string> g_ips = { "172.25.45.152",
  								"172.25.45.141",
 								"172.25.45.245",
 								"172.25.45.220",
@@ -84,7 +93,7 @@ void getSpeakerSettings() {
 	}
 }
 
-Packet createSetSpeakerSettings(const vector<string>& ips, const vector<double>& volumes, const vector<double>& captures) {
+Packet createSetSpeakerSettings(const vector<string>& ips, const vector<double>& volumes, const vector<double>& captures, const vector<double>& boosts) {
 	Packet packet;
 	packet.addHeader(PACKET_SET_SPEAKER_VOLUME_AND_CAPTURE);
 	packet.addInt(ips.size());
@@ -93,6 +102,7 @@ Packet createSetSpeakerSettings(const vector<string>& ips, const vector<double>&
 		packet.addString(ips.at(i));
 		packet.addFloat(volumes.at(i));
 		packet.addFloat(captures.at(i));
+		packet.addInt(boosts.at(i));
 	}
 	
 	packet.finalize();
@@ -102,22 +112,26 @@ Packet createSetSpeakerSettings(const vector<string>& ips, const vector<double>&
 void setSpeakerSettings() {
 	vector<double> volumes;
 	vector<double> captures;
+	vector<double> boosts;
 	
 	for (auto& ip : g_ips) {
 		double tmp;
+		int tmp_int;
 		
-		cout << ip << " - volume: ";
+		cout << ip << " - volume (" << SPEAKER_MIN_VOLUME << " - " << SPEAKER_MAX_VOLUME << "): ";
 		cin >> tmp;
-		
 		volumes.push_back(tmp);
 		
-		cout << ip << " - capture volume: ";
+		cout << ip << " - capture volume (" << SPEAKER_MIN_CAPTURE << " - " << SPEAKER_MAX_CAPTURE << "): ";
 		cin >> tmp;
-		
 		captures.push_back(tmp);
+		
+		cout << ip << " - boost (" << SPEAKER_CAPTURE_BOOST_MUTE << " - " << SPEAKER_CAPTURE_BOOST_ENABLED << "): ";
+		cin >> tmp_int;
+		boosts.push_back(tmp_int);
 	}
 	
-	g_network->pushOutgoingPacket(createSetSpeakerSettings(g_ips, volumes, captures));
+	g_network->pushOutgoingPacket(createSetSpeakerSettings(g_ips, volumes, captures, boosts));
 	
 	cout << endl;
 	
@@ -163,7 +177,7 @@ void startSpeakerLocalization() {
 	
 	// Set speakers to same volume
 	cout << "\nSetting all speakers to same volume and capture volume.. " << flush;
-	g_network->pushOutgoingPacket(createSetSpeakerSettings(g_ips, vector<double>(g_ips.size(), SPEAKER_MAX_VOLUME), vector<double>(g_ips.size(), SPEAKER_MAX_CAPTURE)));
+	g_network->pushOutgoingPacket(createSetSpeakerSettings(g_ips, vector<double>(g_ips.size(), SPEAKER_MAX_VOLUME), vector<double>(g_ips.size(), SPEAKER_MAX_CAPTURE), vector<double>(g_ips.size(), SPEAKER_CAPTURE_BOOST_ENABLED)));
 	g_network->waitForIncomingPacket();
 	cout << "done\n";
 	
@@ -206,6 +220,21 @@ void startSpeakerLocalization() {
 	}
 }
 
+void setMaxSpeakerSettings() {
+	cout << "Running script.. " << flush;
+	g_network->pushOutgoingPacket(createSetSpeakerSettings(g_ips, vector<double>(g_ips.size(), SPEAKER_MAX_VOLUME), vector<double>(g_ips.size(), SPEAKER_MAX_CAPTURE), vector<double>(g_ips.size(), SPEAKER_CAPTURE_BOOST_ENABLED)));
+	g_network->waitForIncomingPacket();
+	cout << "done!\n\n";
+}
+
+void printIPs() {
+	for (auto& ip : g_ips) {
+		cout << ip << endl;
+	}
+	
+	cout << endl;
+}
+
 void run(const string& host, unsigned short port) {
 	cout << "Connecting to server.. ";
 	NetworkCommunication network(host, port);
@@ -217,6 +246,8 @@ void run(const string& host, unsigned short port) {
 		cout << "1. Get speaker settings\n";
 		cout << "2. Set speaker settings\n";
 		cout << "3. Start speaker localization script\n";
+		cout << "4. Set max volume & capture + boost for all speakers\n";
+		cout << "5. See current IPs\n";
 		cout << "\n: ";
 		
 		int input;
@@ -232,6 +263,12 @@ void run(const string& host, unsigned short port) {
 				break;
 				
 			case 3: startSpeakerLocalization();
+				break;
+				
+			case 4: setMaxSpeakerSettings();
+				break;
+				
+			case 5: printIPs();
 				break;
 				
 			default: cout << "Invalid input\n";

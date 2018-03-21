@@ -30,22 +30,24 @@ static SSHOutput runSSHScript(const vector<string>& ips, const vector<string>& c
 }
 
 SSHOutput Handle::handleGetSpeakerVolumeAndCapture(const vector<string>& ips) {
-	string command = "amixer -c1 sget 'Headphone' && amixer -c1 sget 'Capture'; wait";
+	string command = "amixer -c1 sget 'Headphone' && amixer -c1 sget 'Capture' && amixer -c1 sget 'PGA Boost'; wait";
 	vector<string> commands(ips.size(), command);
 	
 	return runSSHScript(ips, commands);
 }
 
 // TODO: this should be done async later on (if necessary)
-SSHOutput Handle::handleSetSpeakerVolumeAndCapture(const vector<string>& ips, const vector<double>& volumes, const vector<double>& captures) {
+SSHOutput Handle::handleSetSpeakerVolumeAndCapture(const vector<string>& ips, const vector<double>& volumes, const vector<double>& captures, const vector<int>& boosts) {
 	vector<string> commands;
 	
 	for (size_t i = 0; i < volumes.size(); i++) {
 		string volume = to_string(static_cast<int>(round(volumes.at(i))));
 		string capture = to_string(static_cast<int>(round(captures.at(i))));
+		string boost = to_string(boosts.at(i));
 		
 		string command = "amixer -c1 sset 'Headphone' " + volume + " && ";
-		command += "amixer -c1 sset 'Capture' " + capture + "; wait";
+		command += "amixer -c1 sset 'Capture' " + capture + " && ";
+		command += "amixer -c1 sset 'PGA Boost' " + boost + "; wait";
 		
 		cout << "Debug: sending command " << command << " to " << ips.at(i) << endl;
 		

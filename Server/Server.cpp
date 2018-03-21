@@ -69,6 +69,7 @@ static void handle(NetworkCommunication& network, Connection& connection, Packet
 			vector<string> ips;
 			vector<double> volumes;
 			vector<double> captures;
+			vector<int> boosts;
 			
 			int num_ips = input_packet.getInt();
 			
@@ -76,9 +77,10 @@ static void handle(NetworkCommunication& network, Connection& connection, Packet
 				ips.push_back(input_packet.getString());
 				volumes.push_back(input_packet.getFloat());
 				captures.push_back(input_packet.getFloat());
+				boosts.push_back(input_packet.getInt());
 			}
 			
-			auto finished = Handle::handleSetSpeakerVolumeAndCapture(ips, volumes, captures);
+			auto finished = Handle::handleSetSpeakerVolumeAndCapture(ips, volumes, captures, boosts);
 			
 			Packet packet;
 			packet.addHeader(PACKET_SET_SPEAKER_VOLUME_AND_CAPTURE);
