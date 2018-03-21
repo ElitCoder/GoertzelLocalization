@@ -5,7 +5,7 @@
 #include <vector>
 
 enum {
-	NUM_DIMENSIONS = 2
+	NUM_DIMENSIONS = 3
 };
 
 class SpeakerPlacement {

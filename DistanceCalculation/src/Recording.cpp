@@ -105,18 +105,22 @@ void Recording::findStartingTonesAmplitude(int num_recordings) {
 			bool found = false;
 			
 			for (; starting_frame < frame_stop; starting_frame++) {
-				double value = data_.at(starting_frame); // TODO: to some kind of amplitude check here (impulse?)
+				//double value = data_.at(starting_frame); // TODO: to some kind of amplitude check here (impulse?)
 				
 				// Normalize threshold
 				//double normalized_threshold = SHRT_MAX / window_max;
 				//value *= normalized_threshold;
 				
-				if (value > threshold) {
+				//if (value > threshold) {
 					// Is it possible this is the start? Make sure the average starting here makes sense
 					double actual_avg = getAverage(data_, ((double)(current_frame + 0.7 * 48000)), ((double)(current_frame + 0.7 * 48000)) + (48000 / 2));
-					double avg = getAverage(data_, starting_frame, starting_frame + (48000 / 2));
+					double avg = getAverage(data_, starting_frame, starting_frame + 1024);
 					
-					if (actual_avg > avg * 1.01)
+					// We've gone too far
+					if (avg > actual_avg)
+						continue;
+						
+					if (avg < actual_avg * 0.7)
 						continue;
 						
 					cout << "Debug: testing " << id_ << " find " << i << " at " << (double)starting_frame / 48000 << " s\n";
@@ -129,7 +133,7 @@ void Recording::findStartingTonesAmplitude(int num_recordings) {
 					
 					found = true;
 					break;
-				}
+				//}
 			}
 			
 			if (found)

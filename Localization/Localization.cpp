@@ -241,8 +241,6 @@ void writeResultsToServer(vector<Point>& results) {
 		return;
 	}
 	
-	file << results.size() << endl;
-	
 	for (auto& point : results) {
 		file << point.getIP() << " " << point.getX() << " " << point.getY() << endl;
 	}

@@ -30,7 +30,8 @@ static NetworkCommunication* g_network;
 
 // Våning 3
 static vector<string> g_ips = { "172.25.9.38",
-								"172.25.13.200" };
+								"172.25.13.200",
+							 	"172.25.14.27" };
 // J0
 /*
 static vector<string> g_ips = { "172.25.45.152",
@@ -178,7 +179,7 @@ void startSpeakerLocalization() {
 	
 	// Set speakers to same volume
 	cout << "\nSetting all speakers to same volume and capture volume.. " << flush;
-	g_network->pushOutgoingPacket(createSetSpeakerSettings(g_ips, vector<double>(g_ips.size(), SPEAKER_MAX_VOLUME_SAFE), vector<double>(g_ips.size(), SPEAKER_MAX_CAPTURE), vector<double>(g_ips.size(), SPEAKER_CAPTURE_BOOST_ENABLED)));
+	g_network->pushOutgoingPacket(createSetSpeakerSettings(g_ips, vector<double>(g_ips.size(), SPEAKER_MAX_VOLUME), vector<double>(g_ips.size(), SPEAKER_MAX_CAPTURE), vector<double>(g_ips.size(), SPEAKER_CAPTURE_BOOST_ENABLED)));
 	g_network->waitForIncomingPacket();
 	cout << "done\n";
 	
@@ -223,7 +224,7 @@ void startSpeakerLocalization() {
 
 void setMaxSpeakerSettings() {
 	cout << "Running script.. " << flush;
-	g_network->pushOutgoingPacket(createSetSpeakerSettings(g_ips, vector<double>(g_ips.size(), SPEAKER_MAX_VOLUME_SAFE), vector<double>(g_ips.size(), SPEAKER_MAX_CAPTURE), vector<double>(g_ips.size(), SPEAKER_CAPTURE_BOOST_ENABLED)));
+	g_network->pushOutgoingPacket(createSetSpeakerSettings(g_ips, vector<double>(g_ips.size(), SPEAKER_MAX_VOLUME), vector<double>(g_ips.size(), SPEAKER_MAX_CAPTURE), vector<double>(g_ips.size(), SPEAKER_CAPTURE_BOOST_ENABLED)));
 	g_network->waitForIncomingPacket();
 	cout << "done!\n\n";
 }

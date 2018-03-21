@@ -104,8 +104,6 @@ static void writeServerResults(vector<Recording>& recordings) {
 		return;
 	}
 	
-	file << to_string(recordings.size()) << endl;
-	
 	for (size_t i = 0; i < recordings.size(); i++) {
 		Recording& master = recordings.at(i);
 		

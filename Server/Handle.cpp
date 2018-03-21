@@ -73,6 +73,19 @@ static void writeDistanceSpeakerIps(const vector<string>& ips) {
 	file.close();
 }
 
+static vector<string> splitString(const string& input, char delimiter) {
+	istringstream stream(input);
+	vector<string> tokens;
+	string token;
+	
+	while (getline(stream, token, delimiter)) {
+		if (!token.empty())
+			tokens.push_back(token);
+	}
+	
+	return tokens;
+}
+
 // TODO: system() calls are bad and should be replaced, writing to relative path is horrible as well
 // * Introduce some kind of path handler and maybe run this script from Server, in other words move all functionality to Server instead of these modules 
 vector<SpeakerPlacement> Handle::handleRunLocalization(const vector<string>& ips, int type_localization) {
@@ -105,6 +118,29 @@ vector<SpeakerPlacement> Handle::handleRunLocalization(const vector<string>& ips
 		return speakers;
 	}
 	
+	string line;
+	
+	while (getline(file, line)) {
+		auto tokens = splitString(line, ' ');
+		
+		string from = tokens.front();
+		string to = tokens.at(1);
+		double distance = stod(tokens.back());
+		
+		auto iterator = find_if(speakers.begin(), speakers.end(), [&from] (SpeakerPlacement& speaker) { return speaker.getIp() == from; });
+		
+		if (iterator == speakers.end()) {
+			SpeakerPlacement speaker(from);
+			speaker.addDistance(to, distance);
+			
+			speakers.push_back(speaker);
+		} else {
+			SpeakerPlacement& speaker = (*iterator);
+			speaker.addDistance(to, distance);
+		}
+	}
+	
+	/*
 	int num_speakers;
 	file >> num_speakers;
 	
@@ -132,6 +168,7 @@ vector<SpeakerPlacement> Handle::handleRunLocalization(const vector<string>& ips
 			}
 		}
 	}
+	*/
 	
 	file.close();
 	
@@ -143,6 +180,27 @@ vector<SpeakerPlacement> Handle::handleRunLocalization(const vector<string>& ips
 		return speakers;
 	}
 	
+	while (getline(file_placements, line)) {
+		auto tokens = splitString(line, ' ');
+		
+		string ip = tokens.front();
+		double x = stod(tokens.at(1));
+		double y = stod(tokens.at(2));
+		double z = stod(tokens.at(3));
+		
+		cout << "Debug: trying to find IP " << ip << endl;
+		
+		auto iterator = find_if(speakers.begin(), speakers.end(), [&ip] (SpeakerPlacement& speaker) { return speaker.getIp() == ip; });
+		
+		if (iterator == speakers.end())
+			continue;
+			
+		(*iterator).setCoordinates({ x, y, z });	
+		
+		cout << "Debug: setting coordinates (" << x << ", " << y << ", " << z << ") for " << ip << endl;
+	}
+	
+	/*
 	file_placements >> num_speakers;
 	
 	for (int i = 0; i < num_speakers; i++) {
@@ -166,6 +224,7 @@ vector<SpeakerPlacement> Handle::handleRunLocalization(const vector<string>& ips
 		
 		cout << "Debug: setting coordinates (" << x << ", " << y << ") for " << ip << endl;
 	}
+	*/
 	
 	file_placements.close();
 	

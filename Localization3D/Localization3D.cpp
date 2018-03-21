@@ -331,8 +331,6 @@ void writeResultsToServer(vector<Point>& results) {
 		return;
 	}
 	
-	file << results.size() << endl;
-	
 	for (auto& point : results) {
 		if (!point.isSet())
 			break;
