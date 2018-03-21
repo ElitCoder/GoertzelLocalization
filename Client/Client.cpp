@@ -13,6 +13,7 @@ enum {
 enum {
 	SPEAKER_MIN_VOLUME = 0,				// 0 = -57 dB
 	SPEAKER_MAX_VOLUME = 57,			// 57 = 0 dB
+	SPEAKER_MAX_VOLUME_SAFE = 51,		// 51 = -6 dB
 	SPEAKER_MIN_CAPTURE = 0,			// 0 = -12 dB
 	SPEAKER_MAX_CAPTURE = 63,			// 63 = 35.25 dB
 	SPEAKER_CAPTURE_BOOST_MUTE = 0,		// -inf dB
@@ -118,7 +119,7 @@ void setSpeakerSettings() {
 		double tmp;
 		int tmp_int;
 		
-		cout << ip << " - volume (" << SPEAKER_MIN_VOLUME << " - " << SPEAKER_MAX_VOLUME << "): ";
+		cout << ip << " - volume (" << SPEAKER_MIN_VOLUME << " - " << SPEAKER_MAX_VOLUME << ", SAFE MAX = " << SPEAKER_MAX_VOLUME_SAFE << "): ";
 		cin >> tmp;
 		volumes.push_back(tmp);
 		
@@ -177,7 +178,7 @@ void startSpeakerLocalization() {
 	
 	// Set speakers to same volume
 	cout << "\nSetting all speakers to same volume and capture volume.. " << flush;
-	g_network->pushOutgoingPacket(createSetSpeakerSettings(g_ips, vector<double>(g_ips.size(), SPEAKER_MAX_VOLUME), vector<double>(g_ips.size(), SPEAKER_MAX_CAPTURE), vector<double>(g_ips.size(), SPEAKER_CAPTURE_BOOST_ENABLED)));
+	g_network->pushOutgoingPacket(createSetSpeakerSettings(g_ips, vector<double>(g_ips.size(), SPEAKER_MAX_VOLUME_SAFE), vector<double>(g_ips.size(), SPEAKER_MAX_CAPTURE), vector<double>(g_ips.size(), SPEAKER_CAPTURE_BOOST_ENABLED)));
 	g_network->waitForIncomingPacket();
 	cout << "done\n";
 	
@@ -222,7 +223,7 @@ void startSpeakerLocalization() {
 
 void setMaxSpeakerSettings() {
 	cout << "Running script.. " << flush;
-	g_network->pushOutgoingPacket(createSetSpeakerSettings(g_ips, vector<double>(g_ips.size(), SPEAKER_MAX_VOLUME), vector<double>(g_ips.size(), SPEAKER_MAX_CAPTURE), vector<double>(g_ips.size(), SPEAKER_CAPTURE_BOOST_ENABLED)));
+	g_network->pushOutgoingPacket(createSetSpeakerSettings(g_ips, vector<double>(g_ips.size(), SPEAKER_MAX_VOLUME_SAFE), vector<double>(g_ips.size(), SPEAKER_MAX_CAPTURE), vector<double>(g_ips.size(), SPEAKER_CAPTURE_BOOST_ENABLED)));
 	g_network->waitForIncomingPacket();
 	cout << "done!\n\n";
 }
@@ -246,7 +247,7 @@ void run(const string& host, unsigned short port) {
 		cout << "1. Get speaker settings\n";
 		cout << "2. Set speaker settings\n";
 		cout << "3. Start speaker localization script\n";
-		cout << "4. Set max volume & capture + boost for all speakers\n";
+		cout << "4. Set max safe volume & capture + boost for all speakers\n";
 		cout << "5. See current IPs\n";
 		cout << "\n: ";
 		
