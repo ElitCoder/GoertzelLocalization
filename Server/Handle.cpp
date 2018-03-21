@@ -11,6 +11,11 @@
 
 using namespace std;
 
+enum {
+	RUN_LOCALIZATION_GOERTZEL,
+	RUN_LOCALIZATION_WHITE_NOISE
+};
+
 static SSHOutput runSSHScript(const vector<string>& ips, const vector<string>& commands) {
 	SSHMaster master;
 	
@@ -67,20 +72,9 @@ static void writeDistanceSpeakerIps(const vector<string>& ips) {
 }
 
 // TODO: system() calls are bad and should be replaced, writing to relative path is horrible as well
-vector<SpeakerPlacement> Handle::handleRunLocalization(const vector<string>& ips) {
+// * Introduce some kind of path handler and maybe run this script from Server, in other words move all functionality to Server instead of these modules 
+vector<SpeakerPlacement> Handle::handleRunLocalization(const vector<string>& ips, int type_localization) {
 	writeDistanceSpeakerIps(ips);
-	
-	/*
-	// TODO: remove this, make sure everything is built
-	executeLocalCommand("cd ../ && ./create.sh && cd Server/; wait");
-	executeLocalCommand("mv speaker_ips ../DistanceCalculation/bin/data/");
-	
-	string distances = executeLocalCommand("cd ../DistanceCalculation/bin/ && ./DistanceCalculation -p 4 -er 0 -f data/speaker_ips -tf testTone.wav -t GOERTZEL -ws TRUE && cd ../../Server/; wait");
-	string placements = executeLocalCommand("cd ../Localization/ && ./Localization < live_localization.txt && cd ../Server/; wait");
-	
-	executeLocalCommand("mv ../DistanceCalculation/bin/server_results.txt results/; wait");
-	executeLocalCommand("mv ../Localization/server_placements_results.txt results/; wait");
-	*/
 	
 	vector<SpeakerPlacement> speakers;
 	
@@ -90,7 +84,16 @@ vector<SpeakerPlacement> Handle::handleRunLocalization(const vector<string>& ips
 		return speakers;
 	}
 	
-	system("./run_localization.sh; wait");
+	switch (type_localization) {
+		case RUN_LOCALIZATION_GOERTZEL: system("./run_localization.sh; wait");
+			break;
+			
+		case RUN_LOCALIZATION_WHITE_NOISE: system("./run_localization_white_noise.sh; wait");
+			break;
+			
+		default: cout << "Warning: client trying to run unknown speaker localization type: " << type_localization << endl;
+			return speakers;
+	}
 	
 	ifstream file("results/server_results.txt");
 	
@@ -126,16 +129,6 @@ vector<SpeakerPlacement> Handle::handleRunLocalization(const vector<string>& ips
 				speaker.addDistance(to, distance);
 			}
 		}
-		
-		/*
-		SpeakerPlacement speaker(from);
-		speaker.setCoordinates({ 0, 0 });
-		speaker.addDistance(to, distance);
-		
-		cout << "Debug: adding speaker " << from << endl;
-		
-		speakers.push_back(speaker);
-		*/
 	}
 	
 	file.close();

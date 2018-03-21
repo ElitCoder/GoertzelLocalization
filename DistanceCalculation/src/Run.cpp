@@ -6,6 +6,7 @@
 #include <iostream>
 #include <cmath>
 #include <fstream>
+#include <climits>
 
 using namespace std;
 
@@ -116,8 +117,73 @@ static void writeServerResults(vector<Recording>& recordings) {
 	file.close();
 }
 
+static vector<Recording> analyzeSound(const vector<string>& filenames, const vector<string>& ips, int type_localization) {
+	vector<Recording> recordings;
+	
+	for (size_t i = 0; i < filenames.size(); i++) {
+		string filename = filenames.at(i);
+		
+		recordings.push_back(Recording(ips.at(i)));
+		
+		Recording& recording = recordings.back();
+		WavReader::read(filename, recording.getData());
+		
+		switch (type_localization) {
+			case RUN_GOERTZEL: recording.findStartingTones(filenames.size(), FREQ_N, FREQ_THRESHOLD, FREQ_REDUCING, FREQ_FREQ);
+				break;
+				
+			case RUN_WHITE_NOISE: recording.findStartingTonesAmplitude(filenames.size());
+				break;
+		}
+	}
+	
+	return recordings;
+}
+
+static void runDistanceCalculation(vector<Recording>& recordings) {
+	cout << endl;
+	
+	for (size_t i = 0; i < recordings.size(); i++) {
+		Recording& master = recordings.at(i);
+		
+		master.addDistance(i, 0);
+		
+		for (size_t j = 0; j < recordings.size(); j++) {
+			if (j == i)
+				continue;
+			
+			Recording& recording = recordings.at(j);
+			double distance = calculateDistance(master, recording);
+			master.addDistance(j, distance);
+				
+			//if (j > i) {
+				cout << "Distance from " << master.getLastIP() << " -> " << recording.getLastIP() << " is "  << distance << " m\n";	
+			//}
+		}
+	}
+	
+	writeLocalization(recordings);
+	writeLocalization3D(recordings);
+	
+	if (g_settings.has("-ws"))
+		writeServerResults(recordings);
+}
+
 namespace Run {
+	void runWhiteNoise(const vector<string>& filenames, const vector<string>& ips) {
+		cout << "Debug: running white noise localization\n";
+		
+		auto recordings = analyzeSound(filenames, ips, RUN_WHITE_NOISE);
+		runDistanceCalculation(recordings);
+	}
+	
 	void runGoertzel(const vector<string>& filenames, const vector<string>& ips) {
+		cout << "Debug: running goertzel localization\n";
+		
+		auto recordings = analyzeSound(filenames, ips, RUN_GOERTZEL);
+		runDistanceCalculation(recordings);
+		
+		/*
 		vector<Recording> recordings;
 		
 		for (size_t i = 0; i < filenames.size(); i++) {
@@ -130,7 +196,9 @@ namespace Run {
 			
 			recording.findStartingTones(filenames.size(), FREQ_N, FREQ_THRESHOLD, FREQ_REDUCING, FREQ_FREQ);
 		}
+		*/
 		
+		/*
 		cout << endl;
 		
 		for (size_t i = 0; i < recordings.size(); i++) {
@@ -151,6 +219,7 @@ namespace Run {
 				}
 			}
 		}
+		*/
 		
 		/*
 		for (size_t i = 0; i < recordings.size(); i++) {
@@ -199,11 +268,13 @@ namespace Run {
 			}
 		}	*/
 		
+		/*
 		//writeResults(recordings);
 		writeLocalization(recordings);
 		writeLocalization3D(recordings);
 		
 		if (g_settings.has("-ws"))
 			writeServerResults(recordings);
+			*/
 	}
 }

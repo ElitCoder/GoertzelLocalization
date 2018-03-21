@@ -19,6 +19,7 @@ public:
 	double getDistance(int id);
 	void setPosition(const std::pair<double, double>& position);
 	void findStartingTones(int num_recordings, const int N, double threshold, double reducing, int frequency);
+	void findStartingTonesAmplitude(int num_recordings);
 	size_t getTonePlayingWhen(int id) const;
 	int getId() const;
 	std::string getLastIP() const;
@@ -27,6 +28,8 @@ public:
 	long long getFrameDistance(int id, int which);
 	
 private:
+	short getNoiseLevel(int num_recordings);
+	
 	std::string ip_;
 	int id_;
 	std::vector<short> data_;

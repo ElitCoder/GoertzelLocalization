@@ -108,7 +108,9 @@ static void handle(NetworkCommunication& network, Connection& connection, Packet
 			for (int i = 0; i < num_ips; i++)
 				ips.push_back(input_packet.getString());
 				
-			vector<SpeakerPlacement> placements = Handle::handleRunLocalization(ips);
+			int type_localization = input_packet.getInt();	
+				
+			vector<SpeakerPlacement> placements = Handle::handleRunLocalization(ips, type_localization);
 			
 			Packet packet;
 			packet.addHeader(PACKET_START_LOCALIZATION);

@@ -12,7 +12,7 @@ class Handle {
 public:
 	static SSHOutput handleGetSpeakerVolumeAndCapture(const std::vector<std::string>& ips);
 	static SSHOutput handleSetSpeakerVolumeAndCapture(const std::vector<std::string>& ips, const std::vector<double>& volumes, const std::vector<double>& captures);
-	static std::vector<SpeakerPlacement> handleRunLocalization(const std::vector<std::string>& ips);
+	static std::vector<SpeakerPlacement> handleRunLocalization(const std::vector<std::string>& ips, int type_localization);
 };
 
 #endif

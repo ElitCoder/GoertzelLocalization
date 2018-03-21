@@ -12,19 +12,25 @@ enum {
 
 enum {
 	SPEAKER_MIN_VOLUME = 0,
-	SPEAKER_MAX_VOLUME = 57,
+	SPEAKER_MAX_VOLUME = 0, //57, // TODO: remove this, just for testing
 	SPEAKER_MIN_CAPTURE = 0,
 	SPEAKER_MAX_CAPTURE = 63
 };
 
+enum {
+	RUN_LOCALIZATION_GOERTZEL,
+	RUN_LOCALIZATION_WHITE_NOISE
+};
+
 static NetworkCommunication* g_network;
-static vector<string> g_ips = { "172.25.45.152",
+static vector<string> g_ips = { "172.25.11.186" }; /*"172.25.45.152",
  								"172.25.45.141",
 								"172.25.45.245",
 								"172.25.45.220",
 								"172.25.45.109",
 								"172.25.45.70",
 								"172.25.45.188" };
+								*/
 
 using SSHOutput = vector<pair<string, vector<string>>>;
 
@@ -133,7 +139,7 @@ void setSpeakerSettings() {
 	}
 }
 
-Packet createStartSpeakerLocalization(const vector<string>& ips) {
+Packet createStartSpeakerLocalization(const vector<string>& ips, int type_localization) {
 	Packet packet;
 	packet.addHeader(PACKET_START_LOCALIZATION);
 	packet.addInt(ips.size());
@@ -141,19 +147,28 @@ Packet createStartSpeakerLocalization(const vector<string>& ips) {
 	for (auto& ip : ips)
 		packet.addString(ip);
 		
+	packet.addInt(type_localization);	
+		
 	packet.finalize();
 	return packet;
 }
 
 void startSpeakerLocalization() {
+	int type_localization;
+	
+	cout << "0. Goertzel localization\n";
+	cout << "1. White noise localization\n";
+	cout << "What type of localization do you want?: ";
+	cin >> type_localization;
+	
 	// Set speakers to same volume
-	cout << "Setting all speakers to same volume and capture volume.. " << flush;
+	cout << "\nSetting all speakers to same volume and capture volume.. " << flush;
 	g_network->pushOutgoingPacket(createSetSpeakerSettings(g_ips, vector<double>(g_ips.size(), SPEAKER_MAX_VOLUME), vector<double>(g_ips.size(), SPEAKER_MAX_CAPTURE)));
 	g_network->waitForIncomingPacket();
 	cout << "done\n";
 	
 	cout << "Running speaker localization script.. " << flush;
-	g_network->pushOutgoingPacket(createStartSpeakerLocalization(g_ips));
+	g_network->pushOutgoingPacket(createStartSpeakerLocalization(g_ips, type_localization));
 	
 	auto answer = g_network->waitForIncomingPacket();
 	answer.getByte();

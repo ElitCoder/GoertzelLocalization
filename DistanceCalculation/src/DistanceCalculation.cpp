@@ -21,13 +21,6 @@
 
 using namespace std;
 
-enum RUN_TYPES {
-	RUN_GOERTZEL,
-	RUN_NOTHING,
-	JUST_RUN_FULL,
-	JUST_RUN_SIMPLE
-};
-
 Settings g_settings;
 
 int g_playingLength = 2e05;
@@ -273,7 +266,7 @@ void printHelp() {
 	cout << "\t-er,\t\t specify extra recording length, will be added after the beeps\n";
 	cout << "\t-h,\t\t print this help text\n";
 	cout << "\t-f,\t\t specify file with IPs, with the format of one IP address per line\n";
-	cout << "\t-t,\t\t specify which mode to run, default is GOERTZEL, other modes are NOTHING (just collects the sound samples)\n";
+	cout << "\t-t,\t\t specify which mode to run, default is GOERTZEL, other modes are NOTHING, WHITE_NOISE (just collects the sound samples)\n";
 	cout << "\t-tf,\t\t specify the test file to run (place it in data/, should be 1 s 48 kHZ, default is testTone.wav)\n";
 	cout << "\t-jr,\t\t don't run the full script, just read the values from recordings/ directly (default is FALSE)\n";
 	cout << "\t-ws,\t\t write server output (default is FALSE)\n";
@@ -575,8 +568,8 @@ int main(int argc, char** argv) {
 	
 	int setting_js = JUST_RUN_FULL;
 	
-	if (g_settings.has("-js"))
-		if (g_settings.get<string>("-js") == "TRUE")
+	if (g_settings.has("-jr"))
+		if (g_settings.get<string>("-jr") == "TRUE")
 			setting_js = JUST_RUN_SIMPLE;
 		
 	vector<string> filenames = setting_js == JUST_RUN_FULL ? runSetup(ips) : createFilenames(ips);
@@ -589,10 +582,15 @@ int main(int argc, char** argv) {
 		// Add more run types here
 		if (type == "NOTHING")
 			run_type = RUN_NOTHING;
+		else if (type == "WHITE_NOISE")
+			run_type = RUN_WHITE_NOISE;
 	}
 	
 	switch (run_type) {
 		case RUN_GOERTZEL: Run::runGoertzel(filenames, ips);
+			break;
+			
+		case RUN_WHITE_NOISE: Run::runWhiteNoise(filenames, ips);
 			break;
 			
 		case RUN_NOTHING:

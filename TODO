@@ -2,3 +2,4 @@
 - Use Dt for different speakers
 - Server nonblocking requests (start thread for e.g. SSH)
 - Server more try catch
+- Combine shared code into "misc"/libs
