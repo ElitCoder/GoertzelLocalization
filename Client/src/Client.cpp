@@ -27,8 +27,9 @@ static NetworkCommunication* g_network;
 
 // Våning 3
 static vector<string> g_ips = { "172.25.9.38",
-								"172.25.13.200",
-							 	"172.25.14.27" };
+								"172.25.13.200" };
+							 	//"172.25.11.98" };
+							 	//"172.25.14.27" };
 // J0
 /*
 static vector<string> g_ips = { "172.25.45.152",
@@ -39,6 +40,9 @@ static vector<string> g_ips = { "172.25.45.152",
 								"172.25.45.70",
 								"172.25.45.188" };
 								*/
+								
+// External microphones
+static vector<string> g_external_microphones = {};								
 
 using SSHOutput = vector<pair<string, vector<string>>>;
 
@@ -92,12 +96,16 @@ void getSpeakerSettings() {
 	}
 }
 
+// TODO: remove horn IP
 Packet createSetSpeakerSettings(const vector<string>& ips, const vector<double>& volumes, const vector<double>& captures, const vector<double>& boosts) {
 	Packet packet;
 	packet.addHeader(PACKET_SET_SPEAKER_VOLUME_AND_CAPTURE);
 	packet.addInt(ips.size());
 	
 	for (size_t i = 0; i < ips.size(); i++) {
+		//if (ips.at(i) == "172.25.11.98")
+		//	continue;
+			
 		packet.addString(ips.at(i));
 		packet.addFloat(volumes.at(i));
 		packet.addFloat(captures.at(i));
@@ -225,7 +233,7 @@ void printIPs() {
 	cout << endl;
 }
 
-Packet createSpeakerdB(vector<string>& ips) {
+Packet createSpeakerdB(vector<string>& ips, vector<string>& external_ips) {
 	Packet packet;
 	packet.addHeader(PACKET_TEST_SPEAKER_DBS);
 	packet.addInt(ips.size());
@@ -235,6 +243,10 @@ Packet createSpeakerdB(vector<string>& ips) {
 		
 	packet.addInt(1);	// Play time
 	packet.addInt(2);	// Idle time
+	packet.addInt(external_ips.size());
+	
+	for (auto& ip : external_ips)
+		packet.addString(ip);
 		
 	packet.finalize();
 	return packet;
@@ -247,7 +259,7 @@ void speakerdB() {
 	cout << "done!\n";
 	
 	cout << "Running remote scripts and collecting data.. " << flush;
-	g_network->pushOutgoingPacket(createSpeakerdB(g_ips));
+	g_network->pushOutgoingPacket(createSpeakerdB(g_ips, g_external_microphones));
 	Packet answer = g_network->waitForIncomingPacket();
 	cout << "done!\n\n";
 	answer.getByte();

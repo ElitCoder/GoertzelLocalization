@@ -12,13 +12,21 @@ void WavReader::read(const string &filename, vector<short>& output) {
 	int			header_size;
 	FILE*		file = fopen(filename.c_str(), "r");
 	
-	if (file == NULL)
-		ERROR("unable to open file %s", filename.c_str());
+	if (file == NULL) {
+		cout << "Warning: WavReader could not open file\n";
+		
+		return;
+	}
+	//ERROR("unable to open file %s", filename.c_str());
 		
 	header_size = fread(&header, sizeof(WavHeader), 1, file);
 	
-	if (header_size <= 0)
-		ERROR("could not read header");
+	if (header_size <= 0) {
+		cout << "Warning: could not read header from WAV\n";
+		
+		return;
+		//ERROR("could not read header");
+	}
 	
 	short			tmp;
 	

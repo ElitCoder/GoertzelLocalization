@@ -6,7 +6,7 @@ white_noise: white_noise_2.wav
 goertzel: testTone.wav
 
 # Testing
-no_scripts: 1
+no_scripts: 0
 
 # Script settings
 speaker_play_length: 1

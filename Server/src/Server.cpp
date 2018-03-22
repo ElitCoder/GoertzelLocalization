@@ -148,9 +148,13 @@ static void handle(NetworkCommunication& network, Connection& connection, Packet
 				ips.push_back(input_packet.getString());
 				
 			int play_time = input_packet.getInt();
-			int idle_time = input_packet.getInt();	
+			int idle_time = input_packet.getInt();
+			int num_external = input_packet.getInt();
+			
+			for (int i = 0; i < num_external; i++)
+				ips.push_back(input_packet.getString());
 				
-			auto results = Handle::handleTestSpeakerdBs(ips, play_time, idle_time, Config::get<bool>("no_scripts"));
+			auto results = Handle::handleTestSpeakerdBs(ips, play_time, idle_time, num_external, Config::get<bool>("no_scripts"));
 			
 			Packet packet;
 			packet.addHeader(PACKET_TEST_SPEAKER_DBS);

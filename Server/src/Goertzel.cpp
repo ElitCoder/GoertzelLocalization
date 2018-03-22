@@ -47,6 +47,9 @@ static vector<Recording> analyzeSound(const vector<string>& filenames, const vec
 		Recording& recording = recordings.back();
 		WavReader::read(filename, recording.getData());
 		
+		if (recording.getData().empty())
+			return vector<Recording>();
+		
 		cout << "Playing length: " << (Config::get<int>("speaker_play_length") + 1) * 48000 << endl;
 		
 		recording.findStartingTones(filenames.size(), FREQ_N, FREQ_THRESHOLD, FREQ_REDUCING, FREQ_FREQ, (Config::get<int>("speaker_play_length") + 1) * 48000, Config::get<int>("idle_time"));
@@ -116,6 +119,9 @@ namespace Goertzel {
 		}
 		
 		auto recordings = analyzeSound(filenames, ips);
+		
+		if (recordings.empty())
+			return Localization3DInput();
 		
 		return runDistanceCalculation(ips, recordings);
 	}
