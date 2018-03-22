@@ -1,5 +1,5 @@
-CPP_FILES	:= $(wildcard ./*.cpp)
-OBJ_FILES	:= $(addprefix ./,$(notdir $(CPP_FILES:.cpp=.o)))
+CPP_FILES	:= $(wildcard src/*.cpp)
+OBJ_FILES	:= $(addprefix obj/,$(notdir $(CPP_FILES:.cpp=.o)))
 CC_FLAGS	:= -std=c++11 -Wall -Wextra -pedantic-errors
 CC_FLAGS	+= -O3
 LD_LIBS		:= -lnessh -lpthread
@@ -9,12 +9,12 @@ EXECUTABLE	:= Server
 $(EXECUTABLE): $(OBJ_FILES)
 	g++ $(LD_FLAGS) -o $@ $^ $(LD_LIBS)
 
-%.o: %.cpp
+obj/%.o: src/%.cpp
 	g++ $(CC_FLAGS) -c -o $@ $<
 	
 clean:
-	rm -rf *.o *.d $(EXECUTABLE)
-	rm -rf speaker_results
+	rm -f obj/* $(EXECUTABLE)
+	rm -f results/*
 	rm -f speaker_ips
 
 CC_FLAGS += -MMD

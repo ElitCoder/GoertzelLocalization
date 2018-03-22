@@ -1,7 +1,7 @@
 CXX			:= g++
 
 CPP_FILES	:= $(wildcard src/*.cpp)
-OBJ_FILES	:= $(addprefix src/,$(notdir $(CPP_FILES:.cpp=.o)))
+OBJ_FILES	:= $(addprefix obj/,$(notdir $(CPP_FILES:.cpp=.o)))
 
 CC_FLAGS	:= -std=c++11
 CC_FLAGS	+= -Wall -Wextra -pedantic-errors
@@ -13,16 +13,16 @@ EXECUTABLE	:= nessh-cli
 all: build
 
 install:
-	chmod 755 bin/nessh-cli
-	cp bin/nessh-cli /usr/bin/
+	chmod 755 nessh-cli
+	cp nessh-cli /usr/bin/
 	
 clean:
-	rm -f src/*.o src/*.d bin/$(EXECUTABLE) bin/stdout*
+	rm -f obj/* $(EXECUTABLE) stdout*
 
 build: $(OBJ_FILES)
-	$(CXX) $(LD_FLAGS) $^ -o bin/$(EXECUTABLE) $(LD_LIBS)
+	$(CXX) $(LD_FLAGS) $^ -o $(EXECUTABLE) $(LD_LIBS)
 
-src/%.o: src/%.cpp
+obj/%.o: src/%.cpp
 	$(CXX) $(CC_FLAGS) -c -o $@ $<
 	
 CC_FLAGS += -MMD

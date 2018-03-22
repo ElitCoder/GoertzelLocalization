@@ -7,7 +7,9 @@ using namespace std;
 enum {
 	PACKET_GET_SPEAKER_VOLUME_AND_CAPTURE = 1,
 	PACKET_SET_SPEAKER_VOLUME_AND_CAPTURE,
-	PACKET_START_LOCALIZATION
+	PACKET_START_LOCALIZATION,
+	PACKET_TEST_SPEAKER_DBS,
+	PACKET_PARSE_SERVER_CONFIG
 };
 
 enum {
@@ -237,6 +239,71 @@ void printIPs() {
 	cout << endl;
 }
 
+Packet createSpeakerdB(vector<string>& ips) {
+	Packet packet;
+	packet.addHeader(PACKET_TEST_SPEAKER_DBS);
+	packet.addInt(ips.size());
+	
+	for (auto& ip : ips)
+		packet.addString(ip);
+		
+	packet.addInt(1);	// Play time
+	packet.addInt(2);	// Idle time
+		
+	packet.finalize();
+	return packet;
+}
+
+void speakerdB() {
+	cout << "Setting all speakers to -10 dB.. " << flush;
+	g_network->pushOutgoingPacket(createSetSpeakerSettings(g_ips, vector<double>(g_ips.size(), SPEAKER_MAX_VOLUME - 10), vector<double>(g_ips.size(), SPEAKER_MAX_CAPTURE), vector<double>(g_ips.size(), SPEAKER_CAPTURE_BOOST_ENABLED)));
+	g_network->waitForIncomingPacket();
+	cout << "done!\n";
+	
+	cout << "Running remote scripts and collecting data.. " << flush;
+	g_network->pushOutgoingPacket(createSpeakerdB(g_ips));
+	Packet answer = g_network->waitForIncomingPacket();
+	cout << "done!\n\n";
+	answer.getByte();
+	
+	int num_speakers = answer.getInt();
+	
+	for (int i = 0; i < num_speakers; i++) {
+		string ip = answer.getString();
+		int num_db = answer.getInt();
+		
+		for (int j = 0; j < num_db; j++) {
+			string playing_ip = answer.getString();
+			double db = answer.getFloat();
+			
+			cout << ip << " <- " << playing_ip << "\t: " << db << " dB\n";
+		}
+	}
+	
+	cout << endl;
+}
+
+void firstInstall() {
+	cout << "Not yet implemented." << endl;
+	
+	// TODO: implement this
+}
+
+Packet createParseServerConfig() {
+	Packet packet;
+	packet.addHeader(PACKET_PARSE_SERVER_CONFIG);
+	packet.finalize();
+	
+	return packet;
+}
+
+void parseServerConfig() {
+	cout << "Rebuild config files.. ";
+	g_network->pushOutgoingPacket(createParseServerConfig());
+	g_network->waitForIncomingPacket();
+	cout << "done!\n\n";
+}
+
 void run(const string& host, unsigned short port) {
 	cout << "Connecting to server.. ";
 	NetworkCommunication network(host, port);
@@ -250,6 +317,9 @@ void run(const string& host, unsigned short port) {
 		cout << "3. Start speaker localization script\n";
 		cout << "4. Set max safe volume & capture + boost for all speakers\n";
 		cout << "5. See current IPs\n";
+		cout << "6. See how speakers affect eachother dB\n";
+		cout << "7. First install, enable SSH & factory reset & flash latest alpha\n";
+		cout << "8. Parse Server config again\n";
 		cout << "\n: ";
 		
 		int input;
@@ -271,6 +341,15 @@ void run(const string& host, unsigned short port) {
 				break;
 				
 			case 5: printIPs();
+				break;
+				
+			case 6: speakerdB();
+				break;
+				
+			case 7: firstInstall();
+				break;
+				
+			case 8: parseServerConfig();
 				break;
 				
 			default: cout << "Invalid input\n";

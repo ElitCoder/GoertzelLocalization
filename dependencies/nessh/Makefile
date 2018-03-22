@@ -1,7 +1,7 @@
 CXX			:= g++
 
 CPP_FILES	:= $(wildcard src/*.cpp)
-OBJ_FILES	:= $(addprefix src/,$(notdir $(CPP_FILES:.cpp=.o)))
+OBJ_FILES	:= $(addprefix obj/,$(notdir $(CPP_FILES:.cpp=.o)))
 
 CC_FLAGS	:= -std=c++11 -Wall -Wextra -pedantic-errors
 CC_FLAGS	+= -O3
@@ -15,7 +15,7 @@ TARGET		:= libnessh.so
 all: build
 
 clean:
-	rm -f lib/* src/*.o src/*.d
+	rm -f lib/* obj/*
 
 install:
 	chmod 644 lib/$(TARGET)
@@ -26,7 +26,7 @@ install:
 build: $(OBJ_FILES)
 	$(CXX) $(FLAGS) $^ -o lib/$(TARGET) $(LD_LIBS) $(LIB_TYPE)
 
-src/%.o: src/%.cpp
+obj/%.o: src/%.cpp
 	g++ $(CC_FLAGS) -c -o $@ $<
 	
 CC_FLAGS += -MMD

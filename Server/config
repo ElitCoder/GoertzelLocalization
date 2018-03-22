@@ -1,0 +1,9 @@
+# Connection settings
+port: 10200
+
+# Files
+white_noise: white_noise_2.wav
+goertzel: testTone.wav
+
+# Test
+no_scripts: 1

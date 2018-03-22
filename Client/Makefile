@@ -1,5 +1,5 @@
-CPP_FILES	:= $(wildcard ./*.cpp)
-OBJ_FILES	:= $(addprefix ./,$(notdir $(CPP_FILES:.cpp=.o)))
+CPP_FILES	:= $(wildcard src/*.cpp)
+OBJ_FILES	:= $(addprefix obj/,$(notdir $(CPP_FILES:.cpp=.o)))
 
 CC_FLAGS	:= -std=c++11 -Wall -Wextra -pedantic-errors
 CC_FLAGS	+= -O3
@@ -10,11 +10,11 @@ EXECUTABLE	:= Client
 $(EXECUTABLE): $(OBJ_FILES)
 	g++ $(LD_FLAGS) -o $@ $^ $(LD_LIBS)
 
-%.o: %.cpp
+obj/%.o: src/%.cpp
 	g++ $(CC_FLAGS) -c -o $@ $<
 	
 clean:
-	rm -rf *.o *.d $(EXECUTABLE)
+	rm -f obj/* $(EXECUTABLE)
 
 CC_FLAGS += -MMD
 -include $(OBJFILES:.o=.d)

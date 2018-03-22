@@ -1,6 +1,7 @@
 #include "NetworkCommunication.h"
 #include "Handle.h"
 #include "SpeakerPlacement.h"
+#include "Config.h"
 
 #include <iostream>
 #include <algorithm>
@@ -10,7 +11,9 @@ using namespace std;
 enum {
 	PACKET_GET_SPEAKER_VOLUME_AND_CAPTURE = 1,
 	PACKET_SET_SPEAKER_VOLUME_AND_CAPTURE,
-	PACKET_START_LOCALIZATION
+	PACKET_START_LOCALIZATION,
+	PACKET_TEST_SPEAKER_DBS,
+	PACKET_PARSE_SERVER_CONFIG
 };
 
 static void handle(NetworkCommunication& network, Connection& connection, Packet& input_packet) {
@@ -139,6 +142,53 @@ static void handle(NetworkCommunication& network, Connection& connection, Packet
 			break;
 		}
 		
+		case PACKET_TEST_SPEAKER_DBS: {
+			vector<string> ips;
+			int num_ips = input_packet.getInt();
+			
+			for (int i = 0; i < num_ips; i++)
+				ips.push_back(input_packet.getString());
+				
+			int play_time = input_packet.getInt();
+			int idle_time = input_packet.getInt();	
+				
+			auto results = Handle::handleTestSpeakerdBs(ips, play_time, idle_time, Config::get<bool>("no_scripts"));
+			
+			Packet packet;
+			packet.addHeader(PACKET_TEST_SPEAKER_DBS);
+			packet.addInt(results.size());
+			
+			for (size_t i = 0; i < results.size(); i++) {
+				auto& result = results.at(i);
+				auto& ip = ips.at(i);
+				
+				packet.addString(ip);
+				packet.addInt(result.size());
+				
+				for (auto& db : result) {
+					packet.addString(db.first);
+					packet.addFloat(db.second);
+				}
+			}
+			
+			packet.finalize();
+			
+			network.addOutgoingPacket(connection.getSocket(), packet);
+			break;	
+		}
+		
+		case PACKET_PARSE_SERVER_CONFIG: {
+			Config::clear();
+			Config::parse("config");
+			
+			Packet packet;
+			packet.addHeader(PACKET_PARSE_SERVER_CONFIG);
+			packet.finalize();
+			
+			network.addOutgoingPacket(connection.getSocket(), packet);
+			break;
+		}
+		
 		default: {
 			cout << "Debug: got some random packet\n";
 		}
@@ -170,10 +220,10 @@ static void start(unsigned short port) {
 }
 
 int main() {
-	const unsigned short PORT = 10200;
+	Config::parse("config");
 	
-	cout << "Starting server at port " << PORT << endl;
-	start(PORT);
+	cout << "Starting server at port " << Config::get<unsigned short>("port") << endl;
+	start(Config::get<unsigned short>("port"));
 	
 	return 0;
 }

@@ -25,18 +25,6 @@ function build {
 		exit 1
 	fi
 
-	cd ../SpeakerConfiguration/
-	
-	if [ $# -ne 0 ]; then
-		make clean
-	fi
-
-	make -j 9
-
-	if [ $? -ne 0 ]; then
-		exit 1
-	fi
-
 	cd ../Localization3D/
 
 	if [ $# -ne 0 ]; then
