@@ -1,14 +1,14 @@
-cd DistanceCalculation/
-make clean
-cd ../Localization/
-rm -rf live_localization.txt
-make clean
-cd ../dependencies/
+#!/bin/bash
+
+# Clean deprecated programs
+cd deprecated/
 ./clean.sh
-cd ../Localization3D/
-rm -rf live_localization.txt
-make clean
-cd ../Server/
+cd ../
+
+# Clean Server & Client
+cd Server/
 make clean
 cd ../Client/
 make clean
+cd ../dependencies/
+./clean.sh

@@ -14,10 +14,10 @@ obj/%.o: src/%.cpp
 	g++ $(CC_FLAGS) -c -o $@ $<
 	
 clean:
-	rm -rf obj/*.o obj/*.d bin/$(EXECUTABLE)
+	rm -f obj/* bin/$(EXECUTABLE)
 	rm -rf bin/scripts/
 	rm -rf bin/recordings/
-	rm -rf Calculated\ level\ 3
+	rm -f Calculated\ level\ 3
 	rm -f bin/server_results.txt
 	
 CC_FLAGS += -MMD

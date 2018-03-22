@@ -15,7 +15,6 @@ obj/%.o: src/%.cpp
 clean:
 	rm -f obj/* $(EXECUTABLE)
 	rm -f results/*
-	rm -f speaker_ips
 
 CC_FLAGS += -MMD
 -include $(OBJFILES:.o=.d)
