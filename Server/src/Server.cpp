@@ -113,9 +113,7 @@ static void handle(NetworkCommunication& network, Connection& connection, Packet
 			for (int i = 0; i < num_ips; i++)
 				ips.push_back(input_packet.getString());
 				
-			int type_localization = input_packet.getInt();	
-				
-			vector<SpeakerPlacement> placements = Handle::handleRunLocalization(ips, type_localization);
+			vector<SpeakerPlacement> placements = Handle::handleRunLocalization(ips, Config::get<bool>("no_scripts"));
 			
 			Packet packet;
 			packet.addHeader(PACKET_START_LOCALIZATION);

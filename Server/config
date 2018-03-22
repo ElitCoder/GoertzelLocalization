@@ -5,5 +5,15 @@ port: 10200
 white_noise: white_noise_2.wav
 goertzel: testTone.wav
 
-# Test
+# Testing
 no_scripts: 1
+
+# Script settings
+speaker_play_length: 1
+idle_time: 2
+extra_recording: 0
+
+# Localization3D (degrees and meter)
+degree_accuracy: 10
+point_accuracy: 1
+fast: 1

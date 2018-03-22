@@ -1,5 +1,8 @@
 #include "Handle.h"
 #include "WavReader.h"
+#include "Config.h"
+#include "Localization3D.h"
+#include "Goertzel.h"
 
 #include <libnessh/SSHMaster.h>
 
@@ -12,11 +15,6 @@
 #include <climits>
 
 using namespace std;
-
-enum {
-	RUN_LOCALIZATION_GOERTZEL,
-	RUN_LOCALIZATION_WHITE_NOISE
-};
 
 static SSHOutput runSSHScript(const vector<string>& ips, const vector<string>& commands) {
 	SSHMaster master;
@@ -86,6 +84,7 @@ SSHOutput Handle::handleSetSpeakerVolumeAndCapture(const vector<string>& ips, co
 	return runSSHScript(ips, commands);
 }
 
+/*
 static void writeDistanceSpeakerIps(const vector<string>& ips) {
 	string filename = "speaker_ips";
 	ofstream file(filename);
@@ -114,7 +113,96 @@ static vector<string> splitString(const string& input, char delimiter) {
 	
 	return tokens;
 }
+*/
 
+static vector<string> createRunLocalizationScripts(const vector<string>& ips, int play_time, int idle_time, int extra_recording, const string& file) {
+	vector<string> scripts;
+	
+	for (size_t i = 0; i < ips.size(); i++) {
+		string script =	"systemctl stop audio*\n";
+		script +=		"arecord -D audiosource -r 48000 -f S16_LE -c 1 -d ";
+		script +=		to_string(idle_time * 2 + ips.size() * (1 + play_time) + extra_recording);
+		script +=		" /tmp/cap";
+		script +=		ips.at(i);
+		script +=		".wav &\n";
+		script +=		"sleep ";
+		script +=		to_string(idle_time + i * (play_time + 1));
+		script +=		"\n";
+		script +=		"aplay -D localhw_0 -r 48000 -f S16_LE /tmp/";
+		script += 		file;
+		script +=		"\n";
+		
+		cout << "Debug: creating script.. " << script << endl;
+		scripts.push_back(script);
+	}
+	
+	return scripts;
+}
+
+void printSSHOutput(SSHOutput outputs) {
+	for (auto& output : outputs) {
+		for (auto& line : output.second) {
+			cout << output.first << ": " << line << endl;
+		}
+	}
+}
+
+vector<SpeakerPlacement> Handle::handleRunLocalization(const vector<string>& ips, bool skip_script) {
+	if (!skip_script) {
+		// Create scripts
+		auto scripts = createRunLocalizationScripts(ips, Config::get<int>("speaker_play_length"), Config::get<int>("idle_time"), Config::get<int>("extra_recording"), Config::get<string>("goertzel"));
+		
+		// Transfer test file
+		cout << "Debug: transferring files\n";
+		sendSSHFile(ips, "data/" + Config::get<string>("goertzel"), "/tmp/");
+		cout << "Debug: done\n";
+		
+		// Send scripts
+		cout << "Debug: running scripts\n";
+		printSSHOutput(runSSHScript(ips, scripts));
+		cout << "Debug: done\n";
+		
+		// Get recordings
+		vector<string> from;
+		vector<string> to;
+		
+		for (auto& ip : ips) {
+			from.push_back("/tmp/cap" + ip + ".wav");
+			to.push_back("results");
+		}
+		
+		cout << "Debug: getting recordings\n";
+		getSSHFile(ips, from, to);
+		cout << "Debug: done\n";
+	}
+	
+	auto distances = Goertzel::runGoertzel(ips);
+	cout << "Got distances\n";
+	
+	auto placement = Localization3D::run(distances, Config::get<bool>("fast"));
+	cout << "Got placement\n";
+	
+	vector<SpeakerPlacement> speakers;
+	
+	for (size_t i = 0; i < ips.size(); i++) {
+		SpeakerPlacement speaker(ips.at(i));
+		auto& master = distances.at(i);
+		
+		for (size_t j = 0; j < master.second.size(); j++) {
+			cout << "Add distance from " << ips.at(i) << " to " << ips.at(j) << " at " << master.second.at(j) << endl;
+			
+			speaker.addDistance(ips.at(j), master.second.at(j));
+		}
+		
+		speaker.setCoordinates(placement.at(i));
+		
+		speakers.push_back(speaker);
+	}
+	
+	return speakers;
+}
+
+/*
 // TODO: system() calls are bad and should be replaced, writing to relative path is horrible as well
 // * Introduce some kind of path handler and maybe run this script from Server, in other words move all functionality to Server instead of these modules 
 vector<SpeakerPlacement> Handle::handleRunLocalization(const vector<string>& ips, int type_localization) {
@@ -203,8 +291,9 @@ vector<SpeakerPlacement> Handle::handleRunLocalization(const vector<string>& ips
 	
 	return speakers;
 }
+*/
 
-static vector<string> createTestSpeakerdBsScripts(const vector<string>& ips, int play_time, int idle_time) {
+static vector<string> createTestSpeakerdBsScripts(const vector<string>& ips, int play_time, int idle_time, const string& file) {
 	vector<string> scripts;
 	
 	for (size_t i = 0; i < ips.size(); i++) {
@@ -217,21 +306,16 @@ static vector<string> createTestSpeakerdBsScripts(const vector<string>& ips, int
 		script +=		"sleep ";
 		script +=		to_string(idle_time + i * (play_time + 1));
 		script +=		"\n";
-		script +=		"aplay -D localhw_0 -r 48000 -f S16_LE /tmp/white_noise_2.wav\n";
+		script +=		"aplay -D localhw_0 -r 48000 -f S16_LE /tmp/";
+		script +=		file;
+		script +=		"\n";
+		//white_noise_2.wav\n";
 		
 		cout << "Debug: creating script.. " << script << endl;
 		scripts.push_back(script);
 	}
 	
 	return scripts;
-}
-
-void printSSHOutput(SSHOutput outputs) {
-	for (auto& output : outputs) {
-		for (auto& line : output.second) {
-			cout << output.first << ": " << line << endl;
-		}
-	}
 }
 
 static short getAverage(const vector<short>& data, size_t start, size_t end) {
@@ -245,11 +329,11 @@ static short getAverage(const vector<short>& data, size_t start, size_t end) {
 
 SpeakerdBs Handle::handleTestSpeakerdBs(const vector<string>& ips, int play_time, int idle_time, bool skip_script) {
 	if (!skip_script) {
-		auto scripts = createTestSpeakerdBsScripts(ips, play_time, idle_time);
+		auto scripts = createTestSpeakerdBsScripts(ips, play_time, idle_time, Config::get<string>("white_noise"));
 		
 		// Transfer test file
 		cout << "Debug: transferring files\n";
-		sendSSHFile(ips, "data/white_noise_2.wav", "/tmp");
+		sendSSHFile(ips, "data/" + Config::get<string>("white_noise"), "/tmp/");
 		cout << "Debug: done\n";
 		
 		// Send scripts

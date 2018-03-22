@@ -23,11 +23,6 @@ enum {
 	SPEAKER_CAPTURE_BOOST_ENABLED = 2	// +20 dB
 };
 
-enum {
-	RUN_LOCALIZATION_GOERTZEL,
-	RUN_LOCALIZATION_WHITE_NOISE
-};
-
 static NetworkCommunication* g_network;
 
 // Våning 3
@@ -157,7 +152,7 @@ void setSpeakerSettings() {
 	}
 }
 
-Packet createStartSpeakerLocalization(const vector<string>& ips, int type_localization) {
+Packet createStartSpeakerLocalization(const vector<string>& ips) {
 	Packet packet;
 	packet.addHeader(PACKET_START_LOCALIZATION);
 	packet.addInt(ips.size());
@@ -165,20 +160,11 @@ Packet createStartSpeakerLocalization(const vector<string>& ips, int type_locali
 	for (auto& ip : ips)
 		packet.addString(ip);
 		
-	packet.addInt(type_localization);	
-		
 	packet.finalize();
 	return packet;
 }
 
 void startSpeakerLocalization() {
-	int type_localization;
-	
-	cout << "0. Goertzel localization\n";
-	cout << "1. White noise localization\n\n";
-	cout << "What type of localization do you want?: ";
-	cin >> type_localization;
-	
 	// Set speakers to same volume
 	cout << "\nSetting all speakers to same volume and capture volume.. " << flush;
 	g_network->pushOutgoingPacket(createSetSpeakerSettings(g_ips, vector<double>(g_ips.size(), SPEAKER_MAX_VOLUME), vector<double>(g_ips.size(), SPEAKER_MAX_CAPTURE), vector<double>(g_ips.size(), SPEAKER_CAPTURE_BOOST_ENABLED)));
@@ -186,7 +172,7 @@ void startSpeakerLocalization() {
 	cout << "done\n";
 	
 	cout << "Running speaker localization script.. " << flush;
-	g_network->pushOutgoingPacket(createStartSpeakerLocalization(g_ips, type_localization));
+	g_network->pushOutgoingPacket(createStartSpeakerLocalization(g_ips));
 	
 	auto answer = g_network->waitForIncomingPacket();
 	answer.getByte();
