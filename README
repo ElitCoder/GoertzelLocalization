@@ -6,12 +6,24 @@ Install libraries:
 
 ./create.sh commands:
 	./create clean	- cleans everying and re-build
-	./create run	- builds new code and runs the program DistanceCalculation
 	./create <1>	- builds program 1
 	./create		- just build the new code for all programs
 
-FIRST USE:
+FIRST USE (Server & Client):
 1. Install build essentials using the command above
 2. Install libraries using the command above
 3. Compile using ./create.sh
-4. Run using ./create.sh run, after adjusting IPs in speaker_ips
+4. Start Server by cd Server/ && ./Server and start client by cd Client/ && ./Client
+
+Configuration:
+Server has a config file at Server/config.
+
+DEPRECATED PROGRAMS/LEGACY CODE:
+* DistanceCalculation (Server built-in)
+* Localization (2D is not needed anymore)
+* Localization3D (Server has a better version)
+
+Running deprecated programs:
+1. Follow step 1-3 in FIRST USE above.
+2. Configure the IP addresses in DistanceCalculation/bin/speaker_ips
+3. Run DistanceCalculation by ./create.sh run
