@@ -235,7 +235,7 @@ static vector<string> createTestSpeakerdBsPlayingScripts(const vector<string>& p
 	for (size_t i = 0; i < playing_ips.size(); i++) {
 		string script =	"systemctl stop audio*\n";
 		script +=		"sleep ";
-		script +=		to_string(idle_time);
+		script +=		to_string(idle_time + i * (play_time + 1));
 		script +=		"\n";
 		script +=		"aplay -D localhw_0 -r 48000 -f S16_LE /tmp/";
 		script +=		filename;
@@ -247,7 +247,12 @@ static vector<string> createTestSpeakerdBsPlayingScripts(const vector<string>& p
 	return scripts;
 }
 
-SpeakerdBs testSpeakerdBsExternal(const vector<string>& playing_ips, const vector<string>& listening_ips, int play_time, int idle_time) {
+static void testSpeakerdBsExternal(const vector<string>& playing_ips, const vector<string>& listening_ips, int play_time, int idle_time) {
+	cout << "Playing IPs:\n";
+	for_each(playing_ips.begin(), playing_ips.end(), [] (const string& ip) { cout << ip << endl; });
+	cout << "Listening IPs:\n";
+	for_each(listening_ips.begin(), listening_ips.end(), [] (const string& ip) { cout << ip << endl; });
+	
 	auto listening_scripts = createTestSpeakerdBsListeningScripts(listening_ips, playing_ips.size(), play_time, idle_time);
 	auto playing_scripts = createTestSpeakerdBsPlayingScripts(playing_ips, play_time, idle_time, Config::get<string>("white_noise"));
 	
@@ -262,56 +267,98 @@ SpeakerdBs testSpeakerdBsExternal(const vector<string>& playing_ips, const vecto
 	
 	// Send test tone to playing IPs
 	if (!sendSSHFile(playing_ips, "data/" + Config::get<string>("white_noise"), "/tmp/"))
-		return SpeakerdBs();
+		return;
 		
-	return SpeakerdBs();	
+	printSSHOutput(runSSHScript(all_ips, all_commands));	
+	
+	// Get resulting files
+	vector<string> from;
+	vector<string> to;
+	
+	for (auto& ip : listening_ips) {
+		from.push_back("/tmp/cap" + ip + ".wav");
+		to.push_back("results");
+	}
+	
+	cout << "Debug: getting recordings\n";
+	if (!getSSHFile(listening_ips, from, to))
+		return;
+	cout << "Debug: done\n";
 }
 
 SpeakerdBs Handle::handleTestSpeakerdBs(const vector<string>& ips, int play_time, int idle_time, int num_external, bool skip_script) {
-	if (num_external > 0) {
-		cout << "Warning: external mics are not supported right now\n";
-		
-		return SpeakerdBs();
-	}
+	vector<string> playing_ips = vector<string>(ips.begin(), ips.begin() + (ips.size() - num_external));
+	vector<string> listening_ips = vector<string>(ips.begin() + (ips.size() - num_external), ips.end());
 	
 	if (!skip_script) {
-		auto scripts = createTestSpeakerdBsScripts(ips, play_time, idle_time, Config::get<string>("white_noise"));
-		
-		// Transfer test file
-		cout << "Debug: transferring files\n";
-		if (!sendSSHFile(ips, "data/" + Config::get<string>("white_noise"), "/tmp/"))
-			return SpeakerdBs();
+		if (num_external > 0) {
+			testSpeakerdBsExternal(playing_ips, listening_ips, play_time, idle_time);
+		} else {
+			auto scripts = createTestSpeakerdBsScripts(ips, play_time, idle_time, Config::get<string>("white_noise"));
 			
-		cout << "Debug: done\n";
-		
-		// Send scripts
-		cout << "Debug: running scripts\n";
-		printSSHOutput(runSSHScript(ips, scripts));
-		cout << "Debug: done\n";
-		
-		// Get resulting files
-		vector<string> from;
-		vector<string> to;
-		
-		for (auto& ip : ips) {
-			from.push_back("/tmp/cap" + ip + ".wav");
-			to.push_back("results");
+			// Transfer test file
+			cout << "Debug: transferring files\n";
+			if (!sendSSHFile(ips, "data/" + Config::get<string>("white_noise"), "/tmp/"))
+				return SpeakerdBs();
+				
+			cout << "Debug: done\n";
+			
+			// Send scripts
+			cout << "Debug: running scripts\n";
+			printSSHOutput(runSSHScript(ips, scripts));
+			cout << "Debug: done\n";
+			
+			// Get resulting files
+			vector<string> from;
+			vector<string> to;
+			
+			for (auto& ip : ips) {
+				from.push_back("/tmp/cap" + ip + ".wav");
+				to.push_back("results");
+			}
+			
+			cout << "Debug: getting recordings\n";
+			if (!getSSHFile(ips, from, to))
+				return SpeakerdBs();
+			cout << "Debug: done\n";
 		}
-		
-		cout << "Debug: getting recordings\n";
-		if (!getSSHFile(ips, from, to))
-			return SpeakerdBs();
-		cout << "Debug: done\n";
 	}
+	
+	// Make sure only the listening IPs are used in the calculation
+	if (num_external == 0)
+		listening_ips = playing_ips;
 	
 	// TODO: maybe noise levels are more accurate to use since they represent how loud the mic is supposedly recording
 	//		 instead of normalizing on own speaker volume which is recorded
 	// Analyze files
 	SpeakerdBs results;
-	size_t nominal_self = 0;
+	//size_t nominal_self = 0;
 	
-	for (size_t i = 0; i < ips.size(); i++) {
-		string filename = "results/cap" + ips.at(i) + ".wav";
+	for (size_t i = 0; i < listening_ips.size(); i++) {
+		string filename = "results/cap" + listening_ips.at(i) + ".wav";
+		
+		vector<short> data;
+		WavReader::read(filename, data);
+		
+		if (data.empty())
+			return SpeakerdBs();
+			
+		vector<pair<string, double>> decibels;	
+			
+		for (size_t j = 0; j < playing_ips.size(); j++) {
+			size_t record_at = static_cast<double>((idle_time + j * (play_time + 1) + 0.3) * 48000);
+			size_t average = getAverage(data, record_at, record_at + (48000 / 2));
+			
+			double db = 20 * log10(average / (double)SHRT_MAX);
+			cout << "IP " << listening_ips.at(i) << " hears " << playing_ips.at(j) << " at " << db << " dB\n";
+			
+			decibels.push_back({ playing_ips.at(j), db });
+		}
+		
+		results.push_back(decibels);
+			
+		/*
+		string filename = "results/cap" + listening_ips.at(i) + ".wav";
 		
 		vector<short> data;
 		WavReader::read(filename, data);
@@ -335,7 +382,7 @@ SpeakerdBs Handle::handleTestSpeakerdBs(const vector<string>& ips, int play_time
 		vector<pair<string, double>> decibels;
 		decibels.push_back({ ips.at(i), own_db });
 			
-		for (size_t j = 0; j < ips.size(); j++) {
+		for (size_t j = 0; j < playing_ips.size(); j++) {
 			if (i == j)
 				continue;
 				
@@ -353,7 +400,14 @@ SpeakerdBs Handle::handleTestSpeakerdBs(const vector<string>& ips, int play_time
 		}
 		
 		results.push_back(decibels);
+		*/
 	}
 	
 	return results;
+}
+
+vector<bool> Handle::checkSpeakerOnline(const vector<string>& ips) {
+	SSHMaster master;
+	
+	return master.connectResult(ips, "pass");
 }

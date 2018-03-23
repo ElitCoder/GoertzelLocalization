@@ -22,6 +22,7 @@ public:
 	bool connect(const std::string& ip, const std::string& user, const std::string& pass);
 	bool connect(const std::vector<std::string>& ips, const std::string& pass);
 	bool connect(const std::vector<std::string>& ips, const std::vector<std::string>& users, const std::vector<std::string>& passwords);
+	std::vector<bool> connectResult(const std::vector<std::string>& ips, const std::string& pass);
 	bool command(std::vector<std::string>& ips, std::vector<std::string>& commands);
 	std::vector<std::pair<std::string, std::vector<std::string>>> command(const std::vector<std::string>& ips, const std::vector<std::string>& commands);
 	bool transferLocal(const std::vector<std::string>& ips, std::vector<std::string>& from, std::vector<std::string>& to, bool threading);
@@ -33,9 +34,13 @@ public:
 	void setThreadedConnectionStatus(bool status);
 	SSH& getSession(const std::string& ip, bool threading);
 	
+	void setConnectResult(size_t id, bool status);
+	
 private:
 	bool threaded_connections_result_;
 	std::mutex threaded_connections_mutex_;
+	
+	std::vector<bool> threaded_online_result_;
 	
 	std::vector<SSH> connections_;
 	std::vector<bool> settings_;

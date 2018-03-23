@@ -208,6 +208,39 @@ bool SSHMaster::connect(const vector<string>& ips, const string& pass) {
 	return threaded_connections_result_;
 }
 
+void SSHMaster::setConnectResult(size_t id, bool status) {
+	threaded_online_result_.at(id) = status;
+}
+
+static void connectThreadedResult(SSHMaster& connections, const string& ip, const string& pass, size_t id) {
+	bool result = connections.connect(ip, pass);
+	
+	if (result)
+		return;
+		
+	connections.setConnectResult(id, false);
+}
+
+vector<bool> SSHMaster::connectResult(const vector<string>& ips, const string& pass) {
+	if (ips.empty())
+		return vector<bool>();
+		
+	threaded_online_result_ = vector<bool>(ips.size(), true);
+	thread* threads = new thread[ips.size()];
+	
+	for (size_t i = 0; i < ips.size(); i++) {
+		threads[i] = thread(connectThreadedResult, ref(*this), ref(ips.at(i)), ref(pass), i);
+	}
+	
+	for (size_t i = 0; i < ips.size(); i++) {
+		threads[i].join();
+	}
+	
+	delete[] threads;
+	
+	return threaded_online_result_;
+}
+
 bool SSHMaster::connect(const vector<string>& ips, const vector<string>& users, const vector<string>& passwords) {
 	if (ips.empty() || users.empty() || passwords.empty())
 		return false;

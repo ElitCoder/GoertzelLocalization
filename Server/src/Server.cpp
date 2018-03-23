@@ -13,7 +13,8 @@ enum {
 	PACKET_SET_SPEAKER_VOLUME_AND_CAPTURE,
 	PACKET_START_LOCALIZATION,
 	PACKET_TEST_SPEAKER_DBS,
-	PACKET_PARSE_SERVER_CONFIG
+	PACKET_PARSE_SERVER_CONFIG,
+	PACKET_CHECK_SPEAKERS_ONLINE
 };
 
 static void handle(NetworkCommunication& network, Connection& connection, Packet& input_packet) {
@@ -191,8 +192,38 @@ static void handle(NetworkCommunication& network, Connection& connection, Packet
 			break;
 		}
 		
+		case PACKET_CHECK_SPEAKERS_ONLINE: {
+			int num_speakers = input_packet.getInt();
+			vector<string> ips;
+			
+			for (int i = 0; i < num_speakers; i++)
+				ips.push_back(input_packet.getString());
+				
+			auto answer = Handle::checkSpeakerOnline(ips);
+			
+			Packet packet;
+			packet.addHeader(PACKET_CHECK_SPEAKERS_ONLINE);
+			packet.addInt(num_speakers);
+			
+			for (int i = 0; i < num_speakers; i++) {
+				packet.addString(ips.at(i));
+				packet.addBool(answer.at(i));
+			}
+			
+			packet.finalize();
+			network.addOutgoingPacket(connection.getSocket(), packet);
+			break;
+		}
+		
 		default: {
-			cout << "Debug: got some random packet\n";
+			cout << "Debug: got some random packet, answering with empty packet\n";
+			
+			Packet packet;
+			packet.addHeader(0x00);
+			packet.finalize();
+			
+			network.addOutgoingPacket(connection.getSocket(), packet);
+			break;
 		}
 	}
 }

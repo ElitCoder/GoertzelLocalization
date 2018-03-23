@@ -9,7 +9,8 @@ enum {
 	PACKET_SET_SPEAKER_VOLUME_AND_CAPTURE,
 	PACKET_START_LOCALIZATION,
 	PACKET_TEST_SPEAKER_DBS,
-	PACKET_PARSE_SERVER_CONFIG
+	PACKET_PARSE_SERVER_CONFIG,
+	PACKET_CHECK_SPEAKERS_ONLINE
 };
 
 enum {
@@ -26,8 +27,8 @@ enum {
 static NetworkCommunication* g_network;
 
 // Våning 3
-static vector<string> g_ips = { "172.25.9.38",
-								"172.25.13.200" };
+static vector<string> g_ips = { "172.25.9.38" };
+							//	"172.25.13.200" };
 							 	//"172.25.11.98" };
 							 	//"172.25.14.27" };
 // J0
@@ -42,7 +43,7 @@ static vector<string> g_ips = { "172.25.45.152",
 								*/
 								
 // External microphones
-static vector<string> g_external_microphones = {};								
+static vector<string> g_external_microphones = { "172.25.13.200" };								
 
 using SSHOutput = vector<pair<string, vector<string>>>;
 
@@ -302,6 +303,37 @@ void parseServerConfig() {
 	cout << "done!\n\n";
 }
 
+Packet createCheckSpeakerOnline(const vector<string>& ips) {
+	Packet packet;
+	packet.addHeader(PACKET_CHECK_SPEAKERS_ONLINE);
+	packet.addInt(ips.size());
+	
+	for (auto& ip : ips)
+		packet.addString(ip);
+		
+	packet.finalize();
+	return packet;
+}
+
+void checkSpeakerOnline() {
+	cout << "Trying speakers.. " << flush;
+	g_network->pushOutgoingPacket(createCheckSpeakerOnline(g_ips));
+	auto answer = g_network->waitForIncomingPacket();
+	cout << "done!\n\n";
+	
+	answer.getByte();
+	int num_speakers = answer.getInt();
+	
+	for (int i = 0; i < num_speakers; i++) {
+		string ip = answer.getString();
+		bool online = answer.getBool();
+		
+		cout << ip << " is " << (online ? "online" : "NOT online") << endl;
+	}
+	
+	cout << endl;
+}
+
 void run(const string& host, unsigned short port) {
 	cout << "Connecting to server.. ";
 	NetworkCommunication network(host, port);
@@ -318,6 +350,7 @@ void run(const string& host, unsigned short port) {
 		cout << "6. See how speakers affect eachother dB\n";
 		cout << "7. First install, enable SSH & factory reset & flash latest alpha\n";
 		cout << "8. Parse Server config again\n";
+		cout << "9. Check if speakers are online\n";
 		cout << "\n: ";
 		
 		int input;
@@ -348,6 +381,9 @@ void run(const string& host, unsigned short port) {
 				break;
 				
 			case 8: parseServerConfig();
+				break;
+				
+			case 9: checkSpeakerOnline();
 				break;
 				
 			default: cout << "Invalid input\n";
