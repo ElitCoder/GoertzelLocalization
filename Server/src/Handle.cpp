@@ -355,7 +355,7 @@ SpeakerdBs Handle::handleTestSpeakerdBs(const vector<string>& ips, int play_time
 			decibels.push_back({ playing_ips.at(j), db });
 		}
 		
-		results.push_back(decibels);
+		results.push_back({ listening_ips.at(i), decibels });
 			
 		/*
 		string filename = "results/cap" + listening_ips.at(i) + ".wav";

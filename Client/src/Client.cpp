@@ -1,6 +1,7 @@
 #include "NetworkCommunication.h"
 
 #include <iostream>
+#include <algorithm>
 
 using namespace std;
 
@@ -27,8 +28,8 @@ enum {
 static NetworkCommunication* g_network;
 
 // Våning 3
-static vector<string> g_ips = { "172.25.9.38" };
-							//	"172.25.13.200" };
+static vector<string> g_ips = { "172.25.9.38",
+								"172.25.13.200" };
 							 	//"172.25.11.98" };
 							 	//"172.25.14.27" };
 // J0
@@ -43,7 +44,7 @@ static vector<string> g_ips = { "172.25.45.152",
 								*/
 								
 // External microphones
-static vector<string> g_external_microphones = { "172.25.13.200" };								
+static vector<string> g_external_microphones = { };// "172.25.13.200" };								
 
 using SSHOutput = vector<pair<string, vector<string>>>;
 
@@ -66,12 +67,15 @@ SSHOutput getSSHOutputFromPacket(Packet& packet) {
 	return outputs;
 }
 
-Packet createGetSpeakerSettings(const vector<string>& ips) {
+Packet createGetSpeakerSettings(const vector<string>& ips, const vector<string>& external_ips) {
 	Packet packet;
 	packet.addHeader(PACKET_GET_SPEAKER_VOLUME_AND_CAPTURE);
-	packet.addInt(ips.size());
+	packet.addInt(ips.size() + external_ips.size());
 	
 	for (auto& ip : ips)
+		packet.addString(ip);
+		
+	for (auto& ip : external_ips)
 		packet.addString(ip);
 		
 	packet.finalize();
@@ -79,7 +83,7 @@ Packet createGetSpeakerSettings(const vector<string>& ips) {
 }
 
 void getSpeakerSettings() {
-	g_network->pushOutgoingPacket(createGetSpeakerSettings(g_ips));
+	g_network->pushOutgoingPacket(createGetSpeakerSettings(g_ips, g_external_microphones));
 	
 	Packet answer = g_network->waitForIncomingPacket();
 	answer.getByte();
@@ -122,9 +126,15 @@ void setSpeakerSettings() {
 	vector<double> captures;
 	vector<double> boosts;
 	
-	for (auto& ip : g_ips) {
+	vector<string> all_ips(g_ips);
+	all_ips.insert(all_ips.end(), g_external_microphones.begin(), g_external_microphones.end());
+	
+	for (auto& ip : all_ips) {
 		double tmp;
 		int tmp_int;
+		
+		if (find(g_external_microphones.begin(), g_external_microphones.end(), ip) != g_external_microphones.end())
+			cout << "(Recording microphone)\n";
 		
 		cout << ip << " - volume (" << SPEAKER_MIN_VOLUME << " - " << SPEAKER_MAX_VOLUME << ", SAFE MAX = " << SPEAKER_MAX_VOLUME_SAFE << "): ";
 		cin >> tmp;
@@ -139,7 +149,7 @@ void setSpeakerSettings() {
 		boosts.push_back(tmp_int);
 	}
 	
-	g_network->pushOutgoingPacket(createSetSpeakerSettings(g_ips, volumes, captures, boosts));
+	g_network->pushOutgoingPacket(createSetSpeakerSettings(all_ips, volumes, captures, boosts));
 	
 	cout << endl;
 	
@@ -161,6 +171,7 @@ void setSpeakerSettings() {
 	}
 }
 
+// Should this include microphones?
 Packet createStartSpeakerLocalization(const vector<string>& ips) {
 	Packet packet;
 	packet.addHeader(PACKET_START_LOCALIZATION);
@@ -220,14 +231,23 @@ void startSpeakerLocalization() {
 }
 
 void setMaxSpeakerSettings() {
+	vector<string> all_ips(g_ips);
+	all_ips.insert(all_ips.end(), g_external_microphones.begin(), g_external_microphones.end());
+	
 	cout << "Running script.. " << flush;
-	g_network->pushOutgoingPacket(createSetSpeakerSettings(g_ips, vector<double>(g_ips.size(), SPEAKER_MAX_VOLUME), vector<double>(g_ips.size(), SPEAKER_MAX_CAPTURE), vector<double>(g_ips.size(), SPEAKER_CAPTURE_BOOST_ENABLED)));
+	g_network->pushOutgoingPacket(createSetSpeakerSettings(all_ips, vector<double>(all_ips.size(), SPEAKER_MAX_VOLUME), vector<double>(all_ips.size(), SPEAKER_MAX_CAPTURE), vector<double>(all_ips.size(), SPEAKER_CAPTURE_BOOST_ENABLED)));
 	g_network->waitForIncomingPacket();
 	cout << "done!\n\n";
 }
 
 void printIPs() {
+	cout << "Playing IPs:\n";
 	for (auto& ip : g_ips) {
+		cout << ip << endl;
+	}
+	
+	cout << "\nListening IPs:\n";
+	for (auto& ip : g_external_microphones) {
 		cout << ip << endl;
 	}
 	
@@ -254,10 +274,14 @@ Packet createSpeakerdB(vector<string>& ips, vector<string>& external_ips) {
 }
 
 void speakerdB() {
+	setMaxSpeakerSettings();
+	
+	/*
 	cout << "Setting all speakers to -10 dB.. " << flush;
 	g_network->pushOutgoingPacket(createSetSpeakerSettings(g_ips, vector<double>(g_ips.size(), SPEAKER_MAX_VOLUME - 10), vector<double>(g_ips.size(), SPEAKER_MAX_CAPTURE), vector<double>(g_ips.size(), SPEAKER_CAPTURE_BOOST_ENABLED)));
 	g_network->waitForIncomingPacket();
 	cout << "done!\n";
+	*/
 	
 	cout << "Running remote scripts and collecting data.. " << flush;
 	g_network->pushOutgoingPacket(createSpeakerdB(g_ips, g_external_microphones));
@@ -316,8 +340,11 @@ Packet createCheckSpeakerOnline(const vector<string>& ips) {
 }
 
 void checkSpeakerOnline() {
+	vector<string> all_ips(g_ips);
+	all_ips.insert(all_ips.end(), g_external_microphones.begin(), g_external_microphones.end());
+	
 	cout << "Trying speakers.. " << flush;
-	g_network->pushOutgoingPacket(createCheckSpeakerOnline(g_ips));
+	g_network->pushOutgoingPacket(createCheckSpeakerOnline(all_ips));
 	auto answer = g_network->waitForIncomingPacket();
 	cout << "done!\n\n";
 	
@@ -327,6 +354,11 @@ void checkSpeakerOnline() {
 	for (int i = 0; i < num_speakers; i++) {
 		string ip = answer.getString();
 		bool online = answer.getBool();
+		
+		if (find(g_external_microphones.begin(), g_external_microphones.end(), ip) != g_external_microphones.end())
+			cout << "(Listening) ";
+		else
+			cout << "(Recording) ";
 		
 		cout << ip << " is " << (online ? "online" : "NOT online") << endl;
 	}
@@ -345,7 +377,7 @@ void run(const string& host, unsigned short port) {
 		cout << "1. Get speaker settings\n";
 		cout << "2. Set speaker settings\n";
 		cout << "3. Start speaker localization script\n";
-		cout << "4. Set max safe volume & capture + boost for all speakers\n";
+		cout << "4. Set max volume & capture + boost for all speakers\n";
 		cout << "5. See current IPs\n";
 		cout << "6. See how speakers affect eachother dB\n";
 		cout << "7. First install, enable SSH & factory reset & flash latest alpha\n";

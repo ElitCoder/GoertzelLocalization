@@ -162,10 +162,10 @@ static void handle(NetworkCommunication& network, Connection& connection, Packet
 			packet.addInt(results.size());
 			
 			for (size_t i = 0; i < results.size(); i++) {
-				auto& result = results.at(i);
-				auto& ip = ips.at(i);
+				auto& listening_ip = results.at(i).first;
+				auto& result = results.at(i).second;
 				
-				packet.addString(ip);
+				packet.addString(listening_ip);
 				packet.addInt(result.size());
 				
 				for (auto& db : result) {

@@ -7,7 +7,7 @@
 #include <string>
 
 using SSHOutput = std::vector<std::pair<std::string, std::vector<std::string>>>;
-using SpeakerdBs = std::vector<std::vector<std::pair<std::string, double>>>;
+using SpeakerdBs = std::vector<std::pair<std::string, std::vector<std::pair<std::string, double>>>>;
 
 class Handle {
 public:
