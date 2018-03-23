@@ -11,7 +11,9 @@ enum {
 	PACKET_START_LOCALIZATION,
 	PACKET_TEST_SPEAKER_DBS,
 	PACKET_PARSE_SERVER_CONFIG,
-	PACKET_CHECK_SPEAKERS_ONLINE
+	PACKET_CHECK_SPEAKERS_ONLINE,
+	PACKET_CHECK_SOUND_IMAGE,
+	PACKET_CHECK_OWN_SOUND_LEVEL
 };
 
 enum {
@@ -27,11 +29,10 @@ enum {
 
 static NetworkCommunication* g_network;
 
+// Horn IP: 172.25.11.98
 // Våning 3
 static vector<string> g_ips = { "172.25.9.38",
-								"172.25.13.200" };
-							 	//"172.25.11.98" };
-							 	//"172.25.14.27" };
+							 	"172.25.11.186" };
 // J0
 /*
 static vector<string> g_ips = { "172.25.45.152",
@@ -44,7 +45,10 @@ static vector<string> g_ips = { "172.25.45.152",
 								*/
 								
 // External microphones
-static vector<string> g_external_microphones = { };// "172.25.13.200" };								
+static vector<string> g_external_microphones = { "172.25.13.200",
+												 "172.25.14.27" };// "172.25.13.200" };	
+												 
+static vector<float> g_normalization;					
 
 using SSHOutput = vector<pair<string, vector<string>>>;
 
@@ -102,7 +106,7 @@ void getSpeakerSettings() {
 }
 
 // TODO: remove horn IP
-Packet createSetSpeakerSettings(const vector<string>& ips, const vector<double>& volumes, const vector<double>& captures, const vector<double>& boosts) {
+Packet createSetSpeakerSettings(const vector<string>& ips, const vector<int>& volumes, const vector<int>& captures, const vector<int>& boosts) {
 	Packet packet;
 	packet.addHeader(PACKET_SET_SPEAKER_VOLUME_AND_CAPTURE);
 	packet.addInt(ips.size());
@@ -122,15 +126,15 @@ Packet createSetSpeakerSettings(const vector<string>& ips, const vector<double>&
 }
 
 void setSpeakerSettings() {
-	vector<double> volumes;
-	vector<double> captures;
-	vector<double> boosts;
+	vector<int> volumes;
+	vector<int> captures;
+	vector<int> boosts;
 	
 	vector<string> all_ips(g_ips);
 	all_ips.insert(all_ips.end(), g_external_microphones.begin(), g_external_microphones.end());
 	
 	for (auto& ip : all_ips) {
-		double tmp;
+		int tmp;
 		int tmp_int;
 		
 		if (find(g_external_microphones.begin(), g_external_microphones.end(), ip) != g_external_microphones.end())
@@ -187,7 +191,7 @@ Packet createStartSpeakerLocalization(const vector<string>& ips) {
 void startSpeakerLocalization() {
 	// Set speakers to same volume
 	cout << "\nSetting all speakers to same volume and capture volume.. " << flush;
-	g_network->pushOutgoingPacket(createSetSpeakerSettings(g_ips, vector<double>(g_ips.size(), SPEAKER_MAX_VOLUME), vector<double>(g_ips.size(), SPEAKER_MAX_CAPTURE), vector<double>(g_ips.size(), SPEAKER_CAPTURE_BOOST_ENABLED)));
+	g_network->pushOutgoingPacket(createSetSpeakerSettings(g_ips, vector<int>(g_ips.size(), SPEAKER_MAX_VOLUME), vector<int>(g_ips.size(), SPEAKER_MAX_CAPTURE), vector<int>(g_ips.size(), SPEAKER_CAPTURE_BOOST_ENABLED)));
 	g_network->waitForIncomingPacket();
 	cout << "done\n";
 	
@@ -230,12 +234,19 @@ void startSpeakerLocalization() {
 	}
 }
 
-void setMaxSpeakerSettings() {
+void setSpeakerSettings(const string& ip, int speaker_volume, int speaker_capture, int speaker_boost) {
+	cout << "Running script.. " << flush;
+	g_network->pushOutgoingPacket(createSetSpeakerSettings({ ip }, { speaker_volume }, { speaker_capture }, { speaker_boost }));
+	g_network->waitForIncomingPacket();
+	cout << "done!\n\n";
+}
+
+void setMaxSpeakerSettings(int speaker_volume, int speaker_capture, int speaker_boost) {
 	vector<string> all_ips(g_ips);
 	all_ips.insert(all_ips.end(), g_external_microphones.begin(), g_external_microphones.end());
 	
 	cout << "Running script.. " << flush;
-	g_network->pushOutgoingPacket(createSetSpeakerSettings(all_ips, vector<double>(all_ips.size(), SPEAKER_MAX_VOLUME), vector<double>(all_ips.size(), SPEAKER_MAX_CAPTURE), vector<double>(all_ips.size(), SPEAKER_CAPTURE_BOOST_ENABLED)));
+	g_network->pushOutgoingPacket(createSetSpeakerSettings(all_ips, vector<int>(all_ips.size(), speaker_volume), vector<int>(all_ips.size(), speaker_capture), vector<int>(all_ips.size(), speaker_boost)));
 	g_network->waitForIncomingPacket();
 	cout << "done!\n\n";
 }
@@ -274,7 +285,7 @@ Packet createSpeakerdB(vector<string>& ips, vector<string>& external_ips) {
 }
 
 void speakerdB() {
-	setMaxSpeakerSettings();
+	setMaxSpeakerSettings(SPEAKER_MAX_VOLUME_SAFE, SPEAKER_MAX_CAPTURE, SPEAKER_CAPTURE_BOOST_ENABLED);
 	
 	/*
 	cout << "Setting all speakers to -10 dB.. " << flush;
@@ -358,9 +369,151 @@ void checkSpeakerOnline() {
 		if (find(g_external_microphones.begin(), g_external_microphones.end(), ip) != g_external_microphones.end())
 			cout << "(Listening) ";
 		else
-			cout << "(Recording) ";
+			cout << "(Playing) ";
 		
 		cout << ip << " is " << (online ? "online" : "NOT online") << endl;
+	}
+	
+	cout << endl;
+}
+
+Packet createSpeakerSoundImage(const vector<string>& play_ips, const vector<string>& listen_ips) {
+	Packet packet;
+	packet.addHeader(PACKET_CHECK_SOUND_IMAGE);
+	packet.addInt(play_ips.size());
+	
+	for (auto& ip : play_ips)
+		packet.addString(ip);
+		
+	packet.addInt(listen_ips.size());
+	
+	for (auto& ip : listen_ips)
+		packet.addString(ip);
+		
+	packet.finalize();
+	return packet;
+}
+
+void iterateUntilGoodSoundImage() {
+	// Set max microphones
+	setMaxSpeakerSettings(SPEAKER_MAX_VOLUME_SAFE, SPEAKER_MAX_CAPTURE, SPEAKER_CAPTURE_BOOST_ENABLED);
+	
+	size_t iteration = 1;
+	
+	for (int first = SPEAKER_MAX_VOLUME_SAFE; first >= SPEAKER_MIN_VOLUME; first--) {
+		setSpeakerSettings(g_ips.at(0), first, SPEAKER_MAX_CAPTURE, SPEAKER_CAPTURE_BOOST_ENABLED);
+		
+		for (int second = SPEAKER_MAX_VOLUME_SAFE; second >= SPEAKER_MIN_VOLUME; second--) {
+			cout << "Running iteration " << iteration << ".. ";
+			setSpeakerSettings(g_ips.at(1), second, SPEAKER_MAX_CAPTURE, SPEAKER_CAPTURE_BOOST_ENABLED);
+			g_network->pushOutgoingPacket(createSpeakerSoundImage(g_ips, g_external_microphones));
+			Packet answer = g_network->waitForIncomingPacket();
+			answer.getByte();
+			int num_speakers = answer.getInt();
+			
+			vector<double> dbs;
+			
+			for (int i = 0; i < num_speakers; i++) {
+				answer.getString();
+				dbs.push_back(answer.getFloat());
+			}
+			
+			double error = 0;
+		
+			for (size_t i = 0; i < dbs.size(); i++) {
+				for (size_t j = 0; j < dbs.size(); j++) {
+					if (j == i)
+						continue;
+						
+					error += abs(dbs.at(i) - dbs.at(j));
+				}
+			}
+			
+			cout << "done, got " << error << " as error\n";
+			
+			iteration++;
+		}
+	}
+	
+	cout << endl;
+}
+
+void checkCurrentSoundImage() {
+	iterateUntilGoodSoundImage();
+	
+	return;
+	
+	/*
+	if (g_normalization.empty()) {
+		cout << "Please run 11. Check own sound level to calibrate the sound levels\n\n";
+		
+		return;
+	}
+	*/
+	
+	setMaxSpeakerSettings(SPEAKER_MAX_VOLUME_SAFE, SPEAKER_MAX_CAPTURE, SPEAKER_CAPTURE_BOOST_ENABLED);
+	//setSpeakerSettings("172.25.9.38", SPEAKER_MAX_VOLUME_SAFE - 18, SPEAKER_MAX_CAPTURE, SPEAKER_CAPTURE_BOOST_ENABLED);
+	
+	cout << "Running remote scripts and collecting data.. " << flush;
+	g_network->pushOutgoingPacket(createSpeakerSoundImage(g_ips, g_external_microphones));
+	Packet answer = g_network->waitForIncomingPacket();
+	cout << "done!\n\n";
+	answer.getByte();
+	
+	int num_speakers = answer.getInt();
+	
+	for (int i = 0; i < num_speakers; i++) {
+		string ip = answer.getString();
+		double db = answer.getFloat();
+		
+		cout << ip << " hears\t " << db /* Server should do this to get the right value * g_normalization.at(i) */ << " dB\n";
+		
+		/*
+		int num_db = answer.getInt();
+		
+		for (int j = 0; j < num_db; j++) {
+			string playing_ip = answer.getString();
+			double db = answer.getFloat();
+			
+			cout << ip << " <- " << playing_ip << "\t: " << db << " dB\n";
+		}
+		*/
+	}
+	
+	cout << endl;
+}
+
+Packet createCheckSpeakerOwnSoundLevel(const vector<string>& ips) {
+	Packet packet;
+	packet.addHeader(PACKET_CHECK_OWN_SOUND_LEVEL);
+	packet.addInt(ips.size());
+	
+	for (auto& ip : ips)
+		packet.addString(ip);
+		
+	packet.finalize();
+	return packet;
+}
+
+void checkSpeakerOwnSoundLevel() {
+	g_network->pushOutgoingPacket(createCheckSpeakerOwnSoundLevel(g_ips));
+	auto answer = g_network->waitForIncomingPacket();
+	
+	cout << "Average and normalization needed:\n";
+	
+	g_normalization.clear();
+	
+	answer.getByte();
+	int num = answer.getInt();
+	
+	for (int i = 0; i < num; i++) {
+		string ip = answer.getString();
+		int avg = answer.getInt();
+		float multi = answer.getFloat();
+		
+		cout << ip << " (" << avg << ") (" << multi << ")\n";
+		
+		g_normalization.push_back(multi);
 	}
 	
 	cout << endl;
@@ -383,6 +536,8 @@ void run(const string& host, unsigned short port) {
 		cout << "7. First install, enable SSH & factory reset & flash latest alpha\n";
 		cout << "8. Parse Server config again\n";
 		cout << "9. Check if speakers are online\n";
+		cout << "10. Check sound image level\n";
+		cout << "11. Check speaker own recording level\n";
 		cout << "\n: ";
 		
 		int input;
@@ -400,7 +555,7 @@ void run(const string& host, unsigned short port) {
 			case 3: startSpeakerLocalization();
 				break;
 				
-			case 4: setMaxSpeakerSettings();
+			case 4: setMaxSpeakerSettings(SPEAKER_MAX_VOLUME, SPEAKER_MAX_CAPTURE, SPEAKER_CAPTURE_BOOST_ENABLED);
 				break;
 				
 			case 5: printIPs();
@@ -416,6 +571,12 @@ void run(const string& host, unsigned short port) {
 				break;
 				
 			case 9: checkSpeakerOnline();
+				break;
+				
+			case 10: checkCurrentSoundImage();
+				break;
+				
+			case 11: checkSpeakerOwnSoundLevel();
 				break;
 				
 			default: cout << "Invalid input\n";

@@ -14,7 +14,9 @@ enum {
 	PACKET_START_LOCALIZATION,
 	PACKET_TEST_SPEAKER_DBS,
 	PACKET_PARSE_SERVER_CONFIG,
-	PACKET_CHECK_SPEAKERS_ONLINE
+	PACKET_CHECK_SPEAKERS_ONLINE,
+	PACKET_CHECK_SOUND_IMAGE,
+	PACKET_CHECK_OWN_SOUND_LEVEL
 };
 
 static void handle(NetworkCommunication& network, Connection& connection, Packet& input_packet) {
@@ -209,6 +211,67 @@ static void handle(NetworkCommunication& network, Connection& connection, Packet
 				packet.addString(ips.at(i));
 				packet.addBool(answer.at(i));
 			}
+			
+			packet.finalize();
+			network.addOutgoingPacket(connection.getSocket(), packet);
+			break;
+		}
+		
+		case PACKET_CHECK_SOUND_IMAGE: {
+			int num_play = input_packet.getInt();
+			vector<string> play_ips;
+			
+			for (int i = 0; i < num_play; i++)
+				play_ips.push_back(input_packet.getString());
+				
+			int num_listen = input_packet.getInt();
+			vector<string> listen_ips;
+			
+			for (int i = 0; i < num_listen; i++)
+				listen_ips.push_back(input_packet.getString());
+				
+			auto answer = Handle::checkCurrentSoundImage(play_ips, listen_ips);
+			
+			Packet packet;
+			packet.addHeader(PACKET_CHECK_SOUND_IMAGE);
+			packet.addInt(answer.size());
+			
+			for (auto& peer : answer) {
+				packet.addString(peer.first);
+				packet.addFloat(peer.second);
+			}
+			
+			packet.finalize();
+			network.addOutgoingPacket(connection.getSocket(), packet);
+			break;
+		}
+		
+		case PACKET_CHECK_OWN_SOUND_LEVEL: {
+			int num = input_packet.getInt();
+			vector<string> ips;
+			
+			for (int i = 0; i < num; i++)
+				ips.push_back(input_packet.getString());
+				
+			auto answer = Handle::checkSpeakerOwnSoundLevel(ips);
+			
+			Packet packet;
+			packet.addHeader(PACKET_CHECK_OWN_SOUND_LEVEL);
+			packet.addInt(answer.size());
+			
+			for (auto& peer : answer) {
+				string ip = get<0>(peer);
+				int avg = get<1>(peer);
+				double multiplier = get<2>(peer);
+				
+				packet.addString(ip);
+				packet.addInt(avg);
+				packet.addFloat(multiplier);
+				
+				cout << "IP: " << ip << endl;
+				cout << "Average: " << avg << endl;
+				cout << "Multiplier: " << multiplier << endl;
+			}	
 			
 			packet.finalize();
 			network.addOutgoingPacket(connection.getSocket(), packet);

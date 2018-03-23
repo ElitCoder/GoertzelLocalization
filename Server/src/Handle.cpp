@@ -13,6 +13,7 @@
 #include <memory>
 #include <algorithm>
 #include <climits>
+#include <cassert>
 
 using namespace std;
 
@@ -410,4 +411,192 @@ vector<bool> Handle::checkSpeakerOnline(const vector<string>& ips) {
 	SSHMaster master;
 	
 	return master.connectResult(ips, "pass");
+}
+
+static vector<string> createSoundImageScripts(const vector<string>& play_ips, const vector<string>& listen_ips, const string& filename) {
+	vector<string> scripts;
+	
+	for (auto& ip : play_ips) {
+		string script =	"systemctl stop audio*\n";
+		script +=		"sleep 2\n";
+		script +=		"aplay -D localhw_0 -r 48000 -f S16_LE /tmp/";
+		script +=		filename;
+		script +=		"\n";
+		
+		scripts.push_back(script);
+	}
+	
+	for (auto& ip : listen_ips) {
+		string script =	"systemctl stop audio*\n";
+		script +=		"arecord -D audiosource -r 48000 -f S16_LE -c 1 -d ";
+		script +=		to_string(2 + 3);
+		script +=		" /tmp/cap";
+		script +=		ip;
+		script +=		".wav\n";
+		
+		cout << "Debug: created script " << script << endl;
+		
+		scripts.push_back(script);
+	}
+	
+	return scripts;
+}
+
+vector<pair<string, double>> Handle::checkCurrentSoundImage(const vector<string>& play_ips, const vector<string>& listen_ips) {
+	auto scripts = createSoundImageScripts(play_ips, listen_ips, Config::get<string>("white_noise"));
+	
+	if (!sendSSHFile(play_ips, "data/" + Config::get<string>("white_noise"), "/tmp/"))
+		return vector<pair<string, double>>();
+
+	vector<string> all_ips(play_ips);
+	all_ips.insert(all_ips.end(), listen_ips.begin(), listen_ips.end());
+	
+	cout << "Debug: all_ips ";
+	
+	for (auto& ip : all_ips)
+		cout << ip << " ";
+		
+	cout << endl;
+	
+	assert(scripts.size() == all_ips.size());
+	
+	printSSHOutput(runSSHScript(all_ips, scripts));
+	
+	vector<string> from;
+	vector<string> to;
+	
+	for (auto& ip : listen_ips) {
+		from.push_back("/tmp/cap" + ip + ".wav");
+		to.push_back("results/");
+	}
+	
+	if (!getSSHFile(listen_ips, from, to))
+		return vector<pair<string, double>>();
+		
+	vector<pair<string, double>> results;	
+		
+	for (size_t i = 0; i < listen_ips.size(); i++) {
+		string filename = "results/cap" + listen_ips.at(i) + ".wav";
+		
+		vector<short> data;
+		WavReader::read(filename, data);
+		
+		if (data.empty())
+			return vector<pair<string, double>>();
+			
+		size_t record_at = static_cast<double>((2 + 0.3) * 48000);
+		size_t average = getAverage(data, record_at, record_at + (48000 / 2));
+		
+		double db = 20 * log10(average / (double)SHRT_MAX);
+		
+		results.push_back({ listen_ips.at(i), db });
+	}
+	
+	return results;
+}
+
+static vector<string> createCheckSpeakerOwnSoundLevel(const vector<string>& ips, int play_time, int idle_time, const string& file) {
+	vector<string> scripts;
+	
+	for (size_t i = 0; i < ips.size(); i++) {
+		string script =	"systemctl stop audio*\n";
+		script +=		"arecord -D audiosource -r 48000 -f S16_LE -c 1 -d ";
+		script +=		to_string(idle_time * 2 + ips.size() * (1 + play_time));
+		script +=		" /tmp/cap";
+		script +=		ips.at(i);
+		script +=		".wav &\n";
+		script +=		"sleep ";
+		script +=		to_string(idle_time + i * (play_time + 1));
+		script +=		"\n";
+		script +=		"aplay -D localhw_0 -r 48000 -f S16_LE /tmp/";
+		script +=		file;
+		script +=		"\n";
+		//white_noise_2.wav\n";
+		
+		cout << "Debug: creating script.. " << script << endl;
+		scripts.push_back(script);
+	}
+	
+	return scripts;
+}
+
+OwnSoundLevelOutput Handle::checkSpeakerOwnSoundLevel(const vector<string>& ips) {
+	int play_time = Config::get<int>("speaker_play_length");
+	int idle_time = Config::get<int>("idle_time");
+	
+	// Create scripts
+	auto scripts = createCheckSpeakerOwnSoundLevel(ips, play_time, idle_time, Config::get<string>("white_noise"));
+	
+	// Send test files
+	if (!sendSSHFile(ips, "data/" + Config::get<string>("white_noise"), "/tmp/"))
+		return OwnSoundLevelOutput();
+	
+	// Run scripts
+	printSSHOutput(runSSHScript(ips, scripts));
+	
+	// Retrieve data
+	vector<string> from;
+	vector<string> to;
+	
+	for (auto& ip : ips) {
+		from.push_back("/tmp/cap" + ip + ".wav");
+		to.push_back("results");
+	}
+	
+	if (!getSSHFile(ips, from, to))
+		return OwnSoundLevelOutput();
+	
+	// Analyze data
+	OwnSoundLevelOutput results;
+	size_t nominal_self = 0;
+	
+	for (size_t i = 0; i < ips.size(); i++) {
+		string filename = "results/cap" + ips.at(i) + ".wav";
+		
+		vector<short> data;
+		WavReader::read(filename, data);
+		
+		if (data.empty())
+			return OwnSoundLevelOutput();
+		
+		// Check own sound level
+		size_t own_record_at = static_cast<double>((idle_time + i * (play_time + 1) + 0.3) * 48000);
+		size_t own_average = getAverage(data, own_record_at, own_record_at + (48000 / 2));
+		
+		// Set general nominal level
+		if (nominal_self == 0)
+			nominal_self = own_average;
+			
+		double multiplier = (double)nominal_self / own_average;
+		
+		size_t real_average = own_average;
+		own_average *= multiplier;
+		//double own_db = 20 * log10(own_average / (double)SHRT_MAX);
+		
+		results.push_back(make_tuple(ips.at(i), real_average, multiplier));
+		
+		/*
+		vector<pair<string, double>> decibels;
+		decibels.push_back({ ips.at(i), own_db });
+			
+		for (size_t j = 0; j < playing_ips.size(); j++) {
+			if (i == j)
+				continue;
+				
+			// Check the middle 0.5 sec of the sound to get average dB
+			size_t record_at = static_cast<double>((idle_time + j * (play_time + 1) + 0.3) * 48000);
+			size_t average = getAverage(data, record_at, record_at + (48000 / 2));
+			
+			// Normalize since all speakers should hear themselves equally
+			average *= multiplier;
+			double db = 20 * log10(average / (double)SHRT_MAX);
+			
+			cout << "IP " << ips.at(i) << " hears " << ips.at(j) << " at " << db << " dB\n";
+			
+			decibels.push_back({ ips.at(j), db });
+		}
+		*/
+	}
+	
+	return results;
 }

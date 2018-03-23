@@ -287,19 +287,25 @@ vector<array<double, 3>> Localization3D::run(const Localization3DInput& input, b
 	
 	cout << "Debug: running localization\n";
 	
-	while (g_degree_accuracy > 2) {
+	while (g_degree_accuracy > 0) {
 		cout << "Debug: trying degree " << g_degree_accuracy << endl;
 		
 		g_point_accuracy = Config::get<double>("point_accuracy");
 		
+		// Too slow with lower degree accuracy
+		if ((unsigned int)g_degree_accuracy < points.size())
+			break;
+			
+		/*
 		// g_degree_accuracy < 3 is really slow if there's a lot of speakers
-		if (points.size() > 10)
+		if (points.size() >= 10)
 			if (g_degree_accuracy < 10)
 				break;
 				
-		if (points.size() > 5)
+		if (points.size() >= 5)
 			if (g_degree_accuracy < 5)
 				break;
+				*/
 		
 		while (g_point_accuracy > 0) {
 			vector<Point> basic_points(points);
@@ -308,7 +314,7 @@ vector<array<double, 3>> Localization3D::run(const Localization3DInput& input, b
 			if (results.empty())
 				break;
 			
-			if (g_point_accuracy < 0.1 && diffZ(results) < best_z_diff) {
+			if (g_point_accuracy < 0.15 && diffZ(results) < best_z_diff) {
 				best_point = g_point_accuracy;
 				best_z_diff = diffZ(results);
 				best_points = results;
@@ -321,7 +327,7 @@ vector<array<double, 3>> Localization3D::run(const Localization3DInput& input, b
 				best_points = results;
 			}
 			
-			if (best_point < 0.05 && fast_calcuation)
+			if (best_point < 0.1 && fast_calcuation)
 				break;
 			
 			g_point_accuracy -= 0.01;
@@ -330,7 +336,7 @@ vector<array<double, 3>> Localization3D::run(const Localization3DInput& input, b
 		g_degree_accuracy--;
 		
 		// A lot faster
-		if (best_point < 0.05 && fast_calcuation)
+		if (best_point < 0.1 && fast_calcuation)
 			break;
 	}
 	
