@@ -14,6 +14,7 @@
 #include <algorithm>
 #include <climits>
 #include <cassert>
+#include <thread>
 
 using namespace std;
 
@@ -120,7 +121,11 @@ void printSSHOutput(SSHOutput outputs) {
 vector<SpeakerPlacement> Handle::handleRunLocalization(const vector<string>& ips, bool skip_script) {
 	if (!skip_script) {
 		// Create scripts
-		auto scripts = createRunLocalizationScripts(ips, Config::get<int>("speaker_play_length"), Config::get<int>("idle_time"), Config::get<int>("extra_recording"), Config::get<string>("goertzel"));
+		int play_time = Config::get<int>("speaker_play_length");
+		int idle_time = Config::get<int>("idle_time");
+		int extra_recording = Config::get<int>("extra_recording");
+		
+		auto scripts = createRunLocalizationScripts(ips, play_time, idle_time, extra_recording, Config::get<string>("goertzel"));
 		
 		// Transfer test file
 		cout << "Debug: transferring files\n";
@@ -133,6 +138,10 @@ vector<SpeakerPlacement> Handle::handleRunLocalization(const vector<string>& ips
 		cout << "Debug: running scripts\n";
 		printSSHOutput(runSSHScript(ips, scripts));
 		cout << "Debug: done\n";
+		
+		// Wait for completition
+		int wait_time = idle_time * 2 + ips.size() * (1 + play_time) + extra_recording;
+		this_thread::sleep_for(chrono::seconds(wait_time + 1));
 		
 		// Get recordings
 		vector<string> from;
@@ -270,7 +279,10 @@ static void testSpeakerdBsExternal(const vector<string>& playing_ips, const vect
 	if (!sendSSHFile(playing_ips, "data/" + Config::get<string>("white_noise"), "/tmp/"))
 		return;
 		
-	printSSHOutput(runSSHScript(all_ips, all_commands));	
+	printSSHOutput(runSSHScript(all_ips, all_commands));
+	
+	int wait_time = idle_time * 2 + playing_ips.size() * (1 + play_time);
+	this_thread::sleep_for(chrono::seconds(wait_time + 1));
 	
 	// Get resulting files
 	vector<string> from;
@@ -308,6 +320,9 @@ SpeakerdBs Handle::handleTestSpeakerdBs(const vector<string>& ips, int play_time
 			cout << "Debug: running scripts\n";
 			printSSHOutput(runSSHScript(ips, scripts));
 			cout << "Debug: done\n";
+			
+			int wait_time = idle_time * 2 + ips.size() * (1 + play_time);
+			this_thread::sleep_for(chrono::seconds(wait_time + 1));
 			
 			// Get resulting files
 			vector<string> from;
@@ -357,51 +372,6 @@ SpeakerdBs Handle::handleTestSpeakerdBs(const vector<string>& ips, int play_time
 		}
 		
 		results.push_back({ listening_ips.at(i), decibels });
-			
-		/*
-		string filename = "results/cap" + listening_ips.at(i) + ".wav";
-		
-		vector<short> data;
-		WavReader::read(filename, data);
-		
-		if (data.empty())
-			return SpeakerdBs();
-		
-		// Check own sound level
-		size_t own_record_at = static_cast<double>((idle_time + i * (play_time + 1) + 0.3) * 48000);
-		size_t own_average = getAverage(data, own_record_at, own_record_at + (48000 / 2));
-		
-		// Set general nominal level
-		if (nominal_self == 0)
-			nominal_self = own_average;
-			
-		double multiplier = (double)nominal_self / own_average;
-		
-		own_average *= multiplier;
-		double own_db = 20 * log10(own_average / (double)SHRT_MAX);
-		
-		vector<pair<string, double>> decibels;
-		decibels.push_back({ ips.at(i), own_db });
-			
-		for (size_t j = 0; j < playing_ips.size(); j++) {
-			if (i == j)
-				continue;
-				
-			// Check the middle 0.5 sec of the sound to get average dB
-			size_t record_at = static_cast<double>((idle_time + j * (play_time + 1) + 0.3) * 48000);
-			size_t average = getAverage(data, record_at, record_at + (48000 / 2));
-			
-			// Normalize since all speakers should hear themselves equally
-			average *= multiplier;
-			double db = 20 * log10(average / (double)SHRT_MAX);
-			
-			cout << "IP " << ips.at(i) << " hears " << ips.at(j) << " at " << db << " dB\n";
-			
-			decibels.push_back({ ips.at(j), db });
-		}
-		
-		results.push_back(decibels);
-		*/
 	}
 	
 	return results;
@@ -424,6 +394,8 @@ static vector<string> createSoundImageScripts(const vector<string>& play_ips, co
 		script +=		"\n";
 		
 		scripts.push_back(script);
+		
+		if (ip.empty()) {}
 	}
 	
 	for (auto& ip : listen_ips) {
@@ -461,6 +433,8 @@ vector<pair<string, double>> Handle::checkCurrentSoundImage(const vector<string>
 	assert(scripts.size() == all_ips.size());
 	
 	printSSHOutput(runSSHScript(all_ips, scripts));
+	
+	this_thread::sleep_for(chrono::seconds(5));
 	
 	vector<string> from;
 	vector<string> to;
@@ -533,6 +507,9 @@ OwnSoundLevelOutput Handle::checkSpeakerOwnSoundLevel(const vector<string>& ips)
 	
 	// Run scripts
 	printSSHOutput(runSSHScript(ips, scripts));
+	
+	int wait_time = idle_time * 2 + ips.size() * (1 + play_time);
+	this_thread::sleep_for(chrono::seconds(wait_time + 1));
 	
 	// Retrieve data
 	vector<string> from;

@@ -116,7 +116,7 @@ void Recording::findStartingTones(int num_recordings, const int N, double thresh
 
 size_t Recording::getTonePlayingWhen(int id) const {
 	if (static_cast<unsigned int>(id) >= starting_tones_.size()) {
-		cout << "Warning: tone detection failed\n";
+		cout << "Warning: tone detection failed, id " << id << " size " << starting_tones_.size() << "\n";
 		
 		return 0;
 	}

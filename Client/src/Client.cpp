@@ -2,6 +2,7 @@
 
 #include <iostream>
 #include <algorithm>
+#include <cmath>
 
 using namespace std;
 
@@ -235,10 +236,8 @@ void startSpeakerLocalization() {
 }
 
 void setSpeakerSettings(const string& ip, int speaker_volume, int speaker_capture, int speaker_boost) {
-	cout << "Running script.. " << flush;
 	g_network->pushOutgoingPacket(createSetSpeakerSettings({ ip }, { speaker_volume }, { speaker_capture }, { speaker_boost }));
 	g_network->waitForIncomingPacket();
-	cout << "done!\n\n";
 }
 
 void setMaxSpeakerSettings(int speaker_volume, int speaker_capture, int speaker_boost) {
