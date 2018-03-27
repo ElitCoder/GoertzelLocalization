@@ -97,12 +97,14 @@ static vector<string> createRunLocalizationScripts(const vector<string>& ips, in
 		script +=		" /tmp/cap";
 		script +=		ips.at(i);
 		script +=		".wav &\n";
+		script +=		"proc1=$!\n";
 		script +=		"sleep ";
 		script +=		to_string(idle_time + i * (play_time + 1));
 		script +=		"\n";
 		script +=		"aplay -D localhw_0 -r 48000 -f S16_LE /tmp/";
 		script += 		file;
 		script +=		"\n";
+		script +=		"wait $proc1\n";
 		
 		cout << "Debug: creating script.. " << script << endl;
 		scripts.push_back(script);
@@ -140,9 +142,11 @@ vector<SpeakerPlacement> Handle::handleRunLocalization(const vector<string>& ips
 		printSSHOutput(runSSHScript(ips, scripts));
 		cout << "Debug: done\n";
 		
+		/*
 		// Wait for completition
 		int wait_time = idle_time * 2 + ips.size() * (1 + play_time) + extra_recording;
 		this_thread::sleep_for(chrono::seconds(wait_time + 1));
+		*/
 		
 		// Get recordings
 		vector<string> from;
@@ -199,12 +203,14 @@ static vector<string> createTestSpeakerdBsScripts(const vector<string>& ips, int
 		script +=		" /tmp/cap";
 		script +=		ips.at(i);
 		script +=		".wav &\n";
+		script +=		"proc1=$1\n";
 		script +=		"sleep ";
 		script +=		to_string(idle_time + i * (play_time + 1));
 		script +=		"\n";
 		script +=		"aplay -D localhw_0 -r 48000 -f S16_LE /tmp/";
 		script +=		file;
 		script +=		"\n";
+		script +=		"wait $proc1\n";
 		//white_noise_2.wav\n";
 		
 		cout << "Debug: creating script.. " << script << endl;
@@ -232,7 +238,7 @@ static vector<string> createTestSpeakerdBsListeningScripts(const vector<string>&
 		script +=		to_string(idle_time * 2 + num_playing * (1 + play_time));
 		script +=		" /tmp/cap";
 		script +=		listening_ips.at(i);
-		script +=		".wav &\n";
+		script +=		".wav\n";
 		
 		scripts.push_back(script);
 	}
@@ -282,8 +288,8 @@ static void testSpeakerdBsExternal(const vector<string>& playing_ips, const vect
 		
 	printSSHOutput(runSSHScript(all_ips, all_commands));
 	
-	int wait_time = idle_time * 2 + playing_ips.size() * (1 + play_time);
-	this_thread::sleep_for(chrono::seconds(wait_time + 1));
+	//int wait_time = idle_time * 2 + playing_ips.size() * (1 + play_time);
+	//this_thread::sleep_for(chrono::seconds(wait_time + 1));
 	
 	// Get resulting files
 	vector<string> from;
@@ -322,8 +328,8 @@ SpeakerdBs Handle::handleTestSpeakerdBs(const vector<string>& ips, int play_time
 			printSSHOutput(runSSHScript(ips, scripts));
 			cout << "Debug: done\n";
 			
-			int wait_time = idle_time * 2 + ips.size() * (1 + play_time);
-			this_thread::sleep_for(chrono::seconds(wait_time + 1));
+			//int wait_time = idle_time * 2 + ips.size() * (1 + play_time);
+			//this_thread::sleep_for(chrono::seconds(wait_time + 1));
 			
 			// Get resulting files
 			vector<string> from;
@@ -435,7 +441,7 @@ vector<pair<string, double>> Handle::checkCurrentSoundImage(const vector<string>
 	
 	printSSHOutput(runSSHScript(all_ips, scripts));
 	
-	this_thread::sleep_for(chrono::seconds(5));
+	//this_thread::sleep_for(chrono::seconds(5));
 	
 	vector<string> from;
 	vector<string> to;
@@ -480,12 +486,14 @@ static vector<string> createCheckSpeakerOwnSoundLevel(const vector<string>& ips,
 		script +=		" /tmp/cap";
 		script +=		ips.at(i);
 		script +=		".wav &\n";
+		script +=		"proc1=$1\n";
 		script +=		"sleep ";
 		script +=		to_string(idle_time + i * (play_time + 1));
 		script +=		"\n";
 		script +=		"aplay -D localhw_0 -r 48000 -f S16_LE /tmp/";
 		script +=		file;
 		script +=		"\n";
+		script +=		"wait $proc1\n";
 		//white_noise_2.wav\n";
 		
 		cout << "Debug: creating script.. " << script << endl;
@@ -509,8 +517,8 @@ OwnSoundLevelOutput Handle::checkSpeakerOwnSoundLevel(const vector<string>& ips)
 	// Run scripts
 	printSSHOutput(runSSHScript(ips, scripts));
 	
-	int wait_time = idle_time * 2 + ips.size() * (1 + play_time);
-	this_thread::sleep_for(chrono::seconds(wait_time + 1));
+	//int wait_time = idle_time * 2 + ips.size() * (1 + play_time);
+	//this_thread::sleep_for(chrono::seconds(wait_time + 1));
 	
 	// Retrieve data
 	vector<string> from;
