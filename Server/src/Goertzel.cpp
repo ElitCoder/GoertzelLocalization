@@ -50,7 +50,7 @@ static vector<Recording> analyzeSound(const vector<string>& filenames, const vec
 		if (recording.getData().empty())
 			return vector<Recording>();
 		
-		cout << "Playing length: " << (Config::get<int>("speaker_play_length") + 1) * 48000 << endl;
+		//cout << "Playing length: " << (Config::get<int>("speaker_play_length") + 1) * 48000 << endl;
 		
 		recording.findStartingTones(filenames.size(), FREQ_N, FREQ_THRESHOLD, FREQ_REDUCING, FREQ_FREQ, (Config::get<int>("speaker_play_length") + 1) * 48000, Config::get<int>("idle_time"));
 	}
@@ -59,8 +59,8 @@ static vector<Recording> analyzeSound(const vector<string>& filenames, const vec
 }
 
 static Localization3DInput runDistanceCalculation(const vector<string>& ips, vector<Recording>& recordings) {
-	cout << recordings.size() << endl;
-	cout << ips.size() << endl;
+	//cout << recordings.size() << endl;
+	//cout << ips.size() << endl;
 	
 	Localization3DInput output;
 	
@@ -77,7 +77,7 @@ static Localization3DInput runDistanceCalculation(const vector<string>& ips, vec
 			Recording& recording = recordings.at(j);
 			double distance = calculateDistance(master, recording);
 			
-			cout << "Calculated distance " << distance << endl;
+			cout << "Calculated distance " << master.getIp() << " -> " << recording.getIp() << " : " << distance << " m\n";
 			
 			master.addDistance(j, distance);
 		}

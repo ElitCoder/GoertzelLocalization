@@ -366,7 +366,7 @@ bool SSH::command(const string& command, bool output_file, bool output_vector) {
 				goto end;
 			}
 			
-			cout << "Debug: writing to log\n";
+			//cout << "Debug: writing to log\n";
 			
 			string current_time = getTimestamp();
 			
@@ -374,7 +374,7 @@ bool SSH::command(const string& command, bool output_file, bool output_vector) {
 			file->write(current_time.c_str(), current_time.length() - 1);
 			file->write("]\n", 2);
 		} else {
-			cout << "Debug: writing to vector\n";
+			//cout << "Debug: writing to vector\n";
 			output_.clear();
 		}
 
@@ -387,7 +387,7 @@ bool SSH::command(const string& command, bool output_file, bool output_vector) {
 				if (bytes_received <= 0)
 					break;
 					
-				cout << "Debug: read " << bytes_received << " bytes from remote\n";
+				//cout << "Debug: read " << bytes_received << " bytes from remote\n";
 				
 				if (output_file)
 					file->write(buffer, bytes_received);

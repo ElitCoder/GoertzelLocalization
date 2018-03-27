@@ -78,7 +78,7 @@ void Recording::findStartingTones(int num_recordings, const int N, double thresh
 	size_t current_i = idle_time * 48000 - 0.5 * (double)48000; // Should start at g_playingLength - 0.5 sec
 	size_t frame_ending = ((double)idle_time - 0.5) * 48000 + total_play_time_frames;
 	
-	cout << "Checking first tone at " << current_i / (double)48000 << " to " << frame_ending / (double)48000 << "\n";
+	//cout << "Checking first tone at " << current_i / (double)48000 << " to " << frame_ending / (double)48000 << "\n";
 	
 	for (int i = 0; i < num_recordings; i++) {
 		threshold = orig_threshold;
@@ -97,9 +97,9 @@ void Recording::findStartingTones(int num_recordings, const int N, double thresh
 					current_i = ((double)idle_time - 0.5) * 48000 + total_play_time_frames * (i + 1);
 					frame_ending = ((double)idle_time - 0.5) * 48000 + total_play_time_frames * (i + 2);
 					
-					cout << "delta_current " << delta_current << endl;
+					//cout << "delta_current " << delta_current << endl;
 					
-					cout << "Found tone, checking " << current_i / (double)48000 << " to " << frame_ending / (double)48000 << " now\n";
+					//cout << "Found tone, checking " << current_i / (double)48000 << " to " << frame_ending / (double)48000 << " now\n";
 					
 					found = true;
 					break;
@@ -126,4 +126,8 @@ size_t Recording::getTonePlayingWhen(int id) const {
 
 int Recording::getId() const {
 	return id_;
+}
+
+const string& Recording::getIp() const {
+	return ip_;
 }

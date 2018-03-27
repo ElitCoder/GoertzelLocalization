@@ -6,8 +6,13 @@
 #include <set>
 #include <algorithm>
 #include <climits>
+#include <chrono>
 
 using namespace std;
+
+// For stopping in time
+auto g_stopping = chrono::system_clock::now();
+bool g_fast_calculation = false;
 
 // Needed by Point
 static bool equal(double a, double b);
@@ -225,7 +230,7 @@ static vector<Point> getPlacement(vector<Point> points, size_t start) {
 	
 	#pragma omp parallel for shared(flag)
 	for (size_t i = 0; i < possibles.size(); i++) {
-		if (flag)
+		if (flag || ((chrono::system_clock::now() - g_stopping).count() > 0 && g_fast_calculation))
 			continue;
 			
 		auto& possible = possibles.at(i);
@@ -261,7 +266,7 @@ vector<array<double, 3>> Localization3D::run(const Localization3DInput& input, b
 	
 	vector<Point> points;
 	
-	cout << "Debug: input size " << input.size() << endl;
+	//cout << "Debug: input size " << input.size() << endl;
 	
 	for (auto& peer : input) {
 		auto& ip = peer.first;
@@ -272,7 +277,7 @@ vector<array<double, 3>> Localization3D::run(const Localization3DInput& input, b
 		for (auto& distance : distances) {
 			point.addDistance(distance);
 			
-			cout << "Debug: added distance " << distance << endl;
+			//cout << "Debug: added distance " << distance << endl;
 		}
 			
 		points.push_back(point);	
@@ -284,8 +289,14 @@ vector<array<double, 3>> Localization3D::run(const Localization3DInput& input, b
 	double best_point = INT_MAX;
 	double best_z_diff = INT_MAX;
 	vector<Point> best_points;
+	bool has_solution = false;
 	
-	cout << "Debug: running localization\n";
+	//cout << "Debug: running localization\n";
+	
+	g_stopping = chrono::system_clock::now() + chrono::seconds(Config::get<int>("timeout"));
+	g_fast_calculation = fast_calcuation;
+	
+	bool stop = false;
 	
 	while (g_degree_accuracy > 0) {
 		cout << "Debug: trying degree " << g_degree_accuracy << endl;
@@ -295,57 +306,56 @@ vector<array<double, 3>> Localization3D::run(const Localization3DInput& input, b
 		// Too slow with lower degree accuracy
 		if ((unsigned int)g_degree_accuracy < points.size())
 			break;
-			
-		/*
-		// g_degree_accuracy < 3 is really slow if there's a lot of speakers
-		if (points.size() >= 10)
-			if (g_degree_accuracy < 10)
-				break;
-				
-		if (points.size() >= 5)
-			if (g_degree_accuracy < 5)
-				break;
-				*/
 		
 		while (g_point_accuracy > 0) {
+			// Check time limit here
+			if ((chrono::system_clock::now() - g_stopping).count() > 0 && fast_calcuation) {
+				cout << "Debug: " << "Execution timed out\n";
+				stop = true;
+				
+				break;
+			}
+				
 			vector<Point> basic_points(points);
 			auto results = getPlacement(basic_points, 1);
 			
 			if (results.empty())
 				break;
 			
-			if (g_point_accuracy < 0.15 && diffZ(results) < best_z_diff) {
-				best_point = g_point_accuracy;
-				best_z_diff = diffZ(results);
-				best_points = results;
-			}
-			
-			else if (g_point_accuracy < best_point) {
+			// If the current best result has the same point accuracy better z_diff, ignore it
+			if (g_point_accuracy < best_point || (equal(g_point_accuracy, best_point) && diffZ(results) < best_z_diff)) {
 				// New best result
 				best_point = g_point_accuracy;
 				best_z_diff = diffZ(results);
 				best_points = results;
+				has_solution = true;
 			}
-			
-			if (best_point < 0.1 && fast_calcuation)
-				break;
 			
 			g_point_accuracy -= 0.01;
 		}
 		
-		g_degree_accuracy--;
-		
-		// A lot faster
-		if (best_point < 0.1 && fast_calcuation)
+		if (stop && fast_calcuation)
 			break;
+		
+		g_degree_accuracy--;
 	}
-	
-	cout << "Debug: Localization3D got solution with accuracy " << best_point << " m and z_diff " << best_z_diff << endl; 
 	
 	vector<array<double, 3>> final_result;
 	
-	for (auto& point : best_points) {
-		final_result.push_back(point.getPosition());
+	if (has_solution) {
+		cout << "Debug: Localization3D got solution with accuracy " << best_point << " m and z_diff " << best_z_diff << endl; 
+		
+		for (auto& point : best_points) {
+			final_result.push_back(point.getPosition());
+		}
+		
+		return final_result;
+	} else {
+		cout << "Debug: no solution available\n";
+		
+		for (auto& point : points) {
+			final_result.push_back(point.getPosition());
+		}
 	}
 	
 	return final_result;

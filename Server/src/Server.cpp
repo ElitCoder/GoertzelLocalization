@@ -41,68 +41,26 @@ static void handle(NetworkCommunication& network, Connection& connection, Packet
 			break;
 		}
 		
-		case PACKET_GET_SPEAKER_VOLUME_AND_CAPTURE: {
-			vector<string> ips;
-			int num_ips = input_packet.getInt();
-			
-			for (int i = 0; i < num_ips; i++)
-				ips.push_back(input_packet.getString());
-				
-			auto finished = Handle::handleGetSpeakerVolumeAndCapture(ips);
-			
-			Packet packet;
-			packet.addHeader(PACKET_SET_SPEAKER_VOLUME_AND_CAPTURE);
-			packet.addInt(finished.size());
-			
-			for (size_t i = 0; i < finished.size(); i++) {
-				auto& ip = finished.at(i).first;
-				auto& lines = finished.at(i).second;
-				
-				packet.addString(ip);
-				packet.addInt(lines.size());
-				
-				for (auto& line : lines)
-					packet.addString(line);
-			}
-			
-			packet.finalize();
-			
-			network.addOutgoingPacket(connection.getSocket(), packet);
-			break;
-		}
-		
 		case PACKET_SET_SPEAKER_VOLUME_AND_CAPTURE: {
 			vector<string> ips;
-			vector<double> volumes;
-			vector<double> captures;
+			vector<int> volumes;
+			vector<int> captures;
 			vector<int> boosts;
 			
 			int num_ips = input_packet.getInt();
 			
 			for (int i = 0; i < num_ips; i++) {
 				ips.push_back(input_packet.getString());
-				volumes.push_back(input_packet.getFloat());
-				captures.push_back(input_packet.getFloat());
+				volumes.push_back(input_packet.getInt());
+				captures.push_back(input_packet.getInt());
 				boosts.push_back(input_packet.getInt());
 			}
 			
-			auto finished = Handle::handleSetSpeakerVolumeAndCapture(ips, volumes, captures, boosts);
+			auto status = Handle::handleSetSpeakerVolumeAndCapture(ips, volumes, captures, boosts);
 			
 			Packet packet;
 			packet.addHeader(PACKET_SET_SPEAKER_VOLUME_AND_CAPTURE);
-			packet.addInt(finished.size());
-			
-			for (size_t i = 0; i < finished.size(); i++) {
-				auto& ip = finished.at(i).first;
-				auto& lines = finished.at(i).second;
-				
-				packet.addString(ip);
-				packet.addInt(lines.size());
-				
-				for (auto& line : lines)
-					packet.addString(line);
-			}
-			
+			packet.addBool(status);
 			packet.finalize();
 			
 			network.addOutgoingPacket(connection.getSocket(), packet);
@@ -211,67 +169,6 @@ static void handle(NetworkCommunication& network, Connection& connection, Packet
 				packet.addString(ips.at(i));
 				packet.addBool(answer.at(i));
 			}
-			
-			packet.finalize();
-			network.addOutgoingPacket(connection.getSocket(), packet);
-			break;
-		}
-		
-		case PACKET_CHECK_SOUND_IMAGE: {
-			int num_play = input_packet.getInt();
-			vector<string> play_ips;
-			
-			for (int i = 0; i < num_play; i++)
-				play_ips.push_back(input_packet.getString());
-				
-			int num_listen = input_packet.getInt();
-			vector<string> listen_ips;
-			
-			for (int i = 0; i < num_listen; i++)
-				listen_ips.push_back(input_packet.getString());
-				
-			auto answer = Handle::checkCurrentSoundImage(play_ips, listen_ips);
-			
-			Packet packet;
-			packet.addHeader(PACKET_CHECK_SOUND_IMAGE);
-			packet.addInt(answer.size());
-			
-			for (auto& peer : answer) {
-				packet.addString(peer.first);
-				packet.addFloat(peer.second);
-			}
-			
-			packet.finalize();
-			network.addOutgoingPacket(connection.getSocket(), packet);
-			break;
-		}
-		
-		case PACKET_CHECK_OWN_SOUND_LEVEL: {
-			int num = input_packet.getInt();
-			vector<string> ips;
-			
-			for (int i = 0; i < num; i++)
-				ips.push_back(input_packet.getString());
-				
-			auto answer = Handle::checkSpeakerOwnSoundLevel(ips);
-			
-			Packet packet;
-			packet.addHeader(PACKET_CHECK_OWN_SOUND_LEVEL);
-			packet.addInt(answer.size());
-			
-			for (auto& peer : answer) {
-				string ip = get<0>(peer);
-				int avg = get<1>(peer);
-				double multiplier = get<2>(peer);
-				
-				packet.addString(ip);
-				packet.addInt(avg);
-				packet.addFloat(multiplier);
-				
-				cout << "IP: " << ip << endl;
-				cout << "Average: " << avg << endl;
-				cout << "Multiplier: " << multiplier << endl;
-			}	
 			
 			packet.finalize();
 			network.addOutgoingPacket(connection.getSocket(), packet);

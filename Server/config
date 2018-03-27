@@ -13,7 +13,9 @@ speaker_play_length: 1
 idle_time: 2
 extra_recording: 0
 
-# Localization3D (degrees and meter)
+# Localization3D (degrees and meters)
 degree_accuracy: 10
 point_accuracy: 1
 fast: 1
+# timeout in seconds
+timeout: 30
