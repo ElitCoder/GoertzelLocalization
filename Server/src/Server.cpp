@@ -175,6 +175,37 @@ static void handle(NetworkCommunication& network, Connection& connection, Packet
 			break;
 		}
 		
+		case PACKET_CHECK_SOUND_IMAGE: {
+			vector<string> speakers;
+			vector<string> mics;
+			
+			int num_speakers = input_packet.getInt();
+			int num_mics = input_packet.getInt();
+			int play_time = input_packet.getInt();
+			int idle_time = input_packet.getInt();
+			
+			for (int i = 0; i < num_speakers; i++)
+				speakers.push_back(input_packet.getString());
+				
+			for (int i = 0; i < num_mics; i++)
+				mics.push_back(input_packet.getString());
+				
+			auto answer = Handle::handleSoundImage(speakers, mics, play_time, idle_time);
+			
+			Packet packet;
+			packet.addHeader(PACKET_CHECK_SOUND_IMAGE);
+			packet.addInt(answer.size());
+			
+			for (auto& peer : answer) {
+				packet.addString(peer.first);
+				packet.addFloat(peer.second);
+			}
+			
+			packet.finalize();
+			network.addOutgoingPacket(connection.getSocket(), packet);
+			break;
+		}
+		
 		default: {
 			cout << "Debug: got some random packet, answering with empty packet\n";
 			

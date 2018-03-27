@@ -192,7 +192,7 @@ static vector<string> createTestSpeakerdBsScripts(const vector<string>& ips, int
 	for (size_t i = 0; i < ips.size(); i++) {
 		string script =	"systemctl stop audio*\n";
 		script +=		"arecord -D audiosource -r 48000 -f S16_LE -c 1 -d ";
-		script +=		to_string(idle_time * 2 + ips.size() * (1 + play_time));
+		script +=		to_string(idle_time * 3 + ips.size() * (1 + play_time));
 		script +=		" /tmp/cap";
 		script +=		ips.at(i);
 		script +=		".wav &\n";
@@ -212,13 +212,15 @@ static vector<string> createTestSpeakerdBsScripts(const vector<string>& ips, int
 	return scripts;
 }
 
-static short getAverage(const vector<short>& data, size_t start, size_t end) {
+static short getRMS(const vector<short>& data, size_t start, size_t end) {
 	unsigned long long sum = 0;
 	
 	for (size_t i = start; i < end; i++)
-		sum += abs(data.at(i));
+		sum += (data.at(i) * data.at(i));
 		
-	return sum / (end - start);
+	sum /= (end - start);
+	
+	return sqrt(sum);
 }
 
 static vector<string> createTestSpeakerdBsListeningScripts(const vector<string>& listening_ips, int num_playing, int play_time, int idle_time) {
@@ -227,7 +229,7 @@ static vector<string> createTestSpeakerdBsListeningScripts(const vector<string>&
 	for (size_t i = 0; i < listening_ips.size(); i++) {
 		string script =	"systemctl stop audio*\n";
 		script +=		"arecord -D audiosource -r 48000 -f S16_LE -c 1 -d ";
-		script +=		to_string(idle_time * 2 + num_playing * (1 + play_time));
+		script +=		to_string(idle_time * 3 + num_playing * (1 + play_time));
 		script +=		" /tmp/cap";
 		script +=		listening_ips.at(i);
 		script +=		".wav\n";
@@ -295,6 +297,13 @@ static void testSpeakerdBsExternal(const vector<string>& playing_ips, const vect
 		return;
 }
 
+SpeakerdBs Handle::handleTestSpeakerdBs(const vector<string>& speakers, const vector<string>& mics, int play_time, int idle_time) {
+	vector<string> all_ips(speakers);
+	all_ips.insert(all_ips.end(), mics.begin(), mics.end());
+	
+	return handleTestSpeakerdBs(all_ips, play_time, idle_time, mics.size(), false);
+}
+
 SpeakerdBs Handle::handleTestSpeakerdBs(const vector<string>& ips, int play_time, int idle_time, int num_external, bool skip_script) {
 	vector<string> playing_ips = vector<string>(ips.begin(), ips.begin() + (ips.size() - num_external));
 	vector<string> listening_ips = vector<string>(ips.begin() + (ips.size() - num_external), ips.end());
@@ -334,7 +343,7 @@ SpeakerdBs Handle::handleTestSpeakerdBs(const vector<string>& ips, int play_time
 	//		 instead of normalizing on own speaker volume which is recorded
 	// Analyze files
 	SpeakerdBs results;
-	//size_t nominal_self = 0;
+	size_t normalized_noise = 0;
 	
 	for (size_t i = 0; i < listening_ips.size(); i++) {
 		string filename = "results/cap" + listening_ips.at(i) + ".wav";
@@ -344,14 +353,33 @@ SpeakerdBs Handle::handleTestSpeakerdBs(const vector<string>& ips, int play_time
 		
 		if (data.empty())
 			return SpeakerdBs();
+
+		size_t noise_start = idle_time + playing_ips.size() * (play_time + 1);
+		noise_start *= 48000;
+		size_t noise_level = getRMS(data, noise_start, data.size());
+		
+		if (normalized_noise == 0)
+			normalized_noise = noise_level;
+		
+		cout << "Debug: noise_level " << noise_level << endl;
+		cout << "Debug: normalized_noise " << normalized_noise << endl;
 			
-		vector<pair<string, double>> decibels;	
+		double normalize = (double)normalized_noise / noise_level;
+		
+		cout << "Debug: normalize " << normalize << endl;
+			
+		vector<pair<string, double>> decibels;		
 			
 		for (size_t j = 0; j < playing_ips.size(); j++) {
 			size_t record_at = static_cast<double>((idle_time + j * (play_time + 1) + 0.3) * 48000);
-			size_t average = getAverage(data, record_at, record_at + (48000 / 2));
+			size_t average = getRMS(data, record_at, record_at + (48000 / 2));
+			size_t average_normalized = average * normalize;
 			
-			double db = 20 * log10(average / (double)SHRT_MAX);
+			cout << "Debug: sound_average " << average << endl;
+			cout << "Debug: sound_average_normalized " << average_normalized << endl;
+			
+			double db = 20 * log10(average_normalized / (double)SHRT_MAX);
+			
 			cout << "IP " << listening_ips.at(i) << " hears " << playing_ips.at(j) << " at " << db << " dB\n";
 			
 			decibels.push_back({ playing_ips.at(j), db });
@@ -367,4 +395,103 @@ vector<bool> Handle::checkSpeakerOnline(const vector<string>& ips) {
 	SSHMaster master;
 	
 	return master.connectResult(ips, "pass");
+}
+
+static vector<string> createSoundImageScripts(const vector<string>& speakers, const vector<string>& mics, int play_time, int idle_time, const string& filename) {
+	vector<string> scripts;
+	
+	for (size_t i = 0; i < speakers.size(); i++) {
+		string script = "systemctl stop audio*\n";
+		script +=		"sleep " + to_string(idle_time) + "\n";
+		script +=		"aplay -D localhw_0 -r 48000 -f S16_LE /tmp/" + filename + "\n";
+		script +=		"systemctl start audio-conf; wait\n";
+		
+		scripts.push_back(script);
+	}
+	
+	for (size_t i = 0; i < mics.size(); i++) {
+		string script = "systemctl stop audio*\n";
+		script +=		"arecord -D audiosource -r 48000 -f S16_LE -c 1 -d " + to_string(idle_time * 4 + play_time);
+		script +=		" /tmp/cap";
+		script +=		mics.at(i);
+		script +=		".wav\n";
+		script +=		"systemctl start audio-conf; wait\n";
+		
+		scripts.push_back(script);
+	}
+	
+	return scripts;
+}
+
+vector<pair<string, double>> Handle::handleSoundImage(const vector<string>& speakers, const vector<string>& mics, int play_time, int idle_time) {
+	// Not needed?
+	// Get speaker dB in order to normalize sound level
+	//auto speaker_dbs = handleTestSpeakerdBs(speakers, mics, play_time, idle_time);
+	
+	// Get sound image from available microphones
+	// TODO: Include external microphone placements
+	auto scripts = createSoundImageScripts(speakers, mics, play_time, idle_time, Config::get<string>("white_noise"));
+	
+	vector<string> all_ips(speakers);
+	all_ips.insert(all_ips.end(), mics.begin(), mics.end());
+	
+	if (!sendSSHFile(speakers, "data/" + Config::get<string>("white_noise"), "/tmp/"))
+		return vector<pair<string, double>>();
+	
+	// Send scripts
+	printSSHOutput(runSSHScript(all_ips, scripts));
+	
+	// Get resulting files
+	vector<string> from;
+	vector<string> to;
+	
+	for (auto& ip : mics) {
+		from.push_back("/tmp/cap" + ip + ".wav");
+		to.push_back("results");
+	}
+	
+	if (!getSSHFile(mics, from, to))
+		return vector<pair<string, double>>();
+		
+	vector<pair<string, double>> final_result;
+	size_t normalized_noise = 0;
+		
+	for (size_t i = 0; i < mics.size(); i++) {
+		string filename = "results/cap" + mics.at(i) + ".wav";
+		
+		vector<short> data;
+		WavReader::read(filename, data);
+		
+		if (data.empty())
+			return vector<pair<string, double>>();
+			
+		size_t noise_start = idle_time + play_time * 2;
+		noise_start *= 48000;
+		size_t noise_level = getRMS(data, noise_start, data.size());
+		
+		if (normalized_noise == 0)
+			normalized_noise = noise_level;
+			
+		cout << "Debug: noise_level " << noise_level << endl;
+		cout << "Debug: normalized_noise " << normalized_noise << endl;
+			
+		double normalize = (double)normalized_noise / noise_level;
+		
+		cout << "Debug: normalize " << normalize << endl;
+		
+		size_t sound_start = ((double)idle_time + 0.3) * 48000;
+		size_t sound_average = getRMS(data, sound_start, sound_start + (48000 / 2));
+		size_t sound_average_normalized = sound_average * normalize;
+		
+		cout << "Debug: sound_average " << sound_average << endl;
+		cout << "Debug: sound_average_normalized " << sound_average_normalized << endl;
+		
+		double db = 20 * log10(sound_average_normalized / (double)SHRT_MAX);
+		
+		cout << "Debug: db " << db << endl;
+		
+		final_result.push_back({ mics.at(i), db });
+	}	
+		
+	return final_result;
 }
