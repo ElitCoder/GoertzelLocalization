@@ -1,5 +1,7 @@
 #!/bin/bash
 
+cores=`grep --count ^processor /proc/cpuinfo`
+
 function build {
 	cd Server/
 	
@@ -7,7 +9,7 @@ function build {
 		make clean
 	fi
 	
-	make -j 9
+	make -j $cores
 
 	if [ $? -ne 0 ]; then
 		exit 1
@@ -19,7 +21,7 @@ function build {
 		make clean
 	fi
 	
-	make -j 9
+	make -j $cores
 
 	if [ $? -ne 0 ]; then
 		exit 1
@@ -35,7 +37,7 @@ else
 		build clean
 	else
 		cd $1
-		make -j 9
+		make -j $cores
 		
 		if [ $? -ne 0 ]; then
 			exit 1
