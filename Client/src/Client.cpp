@@ -33,7 +33,8 @@ static NetworkCommunication* g_network;
 // Horn IP: 172.25.11.98
 // Våning 3
 static vector<string> g_ips = { "172.25.9.38",
-							 	"172.25.11.186" };
+							 	"172.25.11.186", "172.25.13.200",
+												"172.25.14.27" };
 // J0
 /*
 static vector<string> g_ips = { "172.25.45.152",
@@ -46,8 +47,7 @@ static vector<string> g_ips = { "172.25.45.152",
 								*/
 								
 // External microphones
-static vector<string> g_external_microphones = { "172.25.13.200",
-												 "172.25.14.27" };// "172.25.13.200" };	
+static vector<string> g_external_microphones = { };// "172.25.13.200" };	
 												 
 static vector<float> g_normalization;					
 
