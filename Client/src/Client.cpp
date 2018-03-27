@@ -30,9 +30,9 @@ enum {
 static NetworkCommunication* g_network;
 
 // Speakers
-static vector<string> g_ips = { "172.25.14.27", "172.25.13.200", "172.25.9.38", "172.25.11.186" };
+static vector<string> g_ips = { "172.25.14.27", "172.25.13.200" };
 // External microphones
-static vector<string> g_external_microphones = {};
+static vector<string> g_external_microphones = { "172.25.9.38", "172.25.11.186" };
 
 Packet createSetSpeakerSettings(const vector<string>& ips, const vector<int>& volumes, const vector<int>& captures, const vector<int>& boosts) {
 	Packet packet;
