@@ -74,8 +74,9 @@ SSHOutput Handle::handleSetSpeakerVolumeAndCapture(const vector<string>& ips, co
 		string capture = to_string(static_cast<int>(round(captures.at(i))));
 		string boost = to_string(boosts.at(i));
 		
-		string command = "amixer -c1 sset 'Headphone' " + volume + " && ";
-		command += "amixer -c1 sset 'Capture' " + capture + " && ";
+		string command = "amixer -c1 sset 'Headphone' " + volume + "; wait; ";
+		command += "amixer -c1 sset 'Capture' " + capture + "; wait; ";
+		command += "dspd -s -m; wait; dspd -s -u limiter; wait; dspd -s -u static; wait; ";
 		command += "amixer -c1 sset 'PGA Boost' " + boost + "; wait";
 		
 		cout << "Debug: sending command " << command << " to " << ips.at(i) << endl;

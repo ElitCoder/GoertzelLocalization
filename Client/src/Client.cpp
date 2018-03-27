@@ -19,13 +19,14 @@ enum {
 
 enum {
 	SPEAKER_MIN_VOLUME = 0,				// 0 = -57 dB
-	SPEAKER_MAX_VOLUME = 57,			// 57 = 0 dB
+	SPEAKER_MAX_VOLUME = 51,			// 57 = 0 dB
 	SPEAKER_MAX_VOLUME_SAFE = 51,		// 51 = -6 dB
 	SPEAKER_MIN_CAPTURE = 0,			// 0 = -12 dB
 	SPEAKER_MAX_CAPTURE = 63,			// 63 = 35.25 dB
 	SPEAKER_CAPTURE_BOOST_MUTE = 0,		// -inf dB
 	SPEAKER_CAPTURE_BOOST_NORMAL = 1,	// 0 dB
-	SPEAKER_CAPTURE_BOOST_ENABLED = 2	// +20 dB
+	SPEAKER_CAPTURE_BOOST_ENABLED = 1
+	//SPEAKER_CAPTURE_BOOST_ENABLED = 2	// +20 dB
 };
 
 static NetworkCommunication* g_network;
@@ -284,7 +285,7 @@ Packet createSpeakerdB(vector<string>& ips, vector<string>& external_ips) {
 }
 
 void speakerdB() {
-	setMaxSpeakerSettings(SPEAKER_MAX_VOLUME_SAFE, SPEAKER_MAX_CAPTURE, SPEAKER_CAPTURE_BOOST_ENABLED);
+	setMaxSpeakerSettings(SPEAKER_MAX_VOLUME, SPEAKER_MAX_CAPTURE, SPEAKER_CAPTURE_BOOST_ENABLED);
 	
 	/*
 	cout << "Setting all speakers to -10 dB.. " << flush;
@@ -393,55 +394,7 @@ Packet createSpeakerSoundImage(const vector<string>& play_ips, const vector<stri
 	return packet;
 }
 
-void iterateUntilGoodSoundImage() {
-	// Set max microphones
-	setMaxSpeakerSettings(SPEAKER_MAX_VOLUME_SAFE, SPEAKER_MAX_CAPTURE, SPEAKER_CAPTURE_BOOST_ENABLED);
-	
-	size_t iteration = 1;
-	
-	for (int first = SPEAKER_MAX_VOLUME_SAFE; first >= SPEAKER_MIN_VOLUME; first--) {
-		setSpeakerSettings(g_ips.at(0), first, SPEAKER_MAX_CAPTURE, SPEAKER_CAPTURE_BOOST_ENABLED);
-		
-		for (int second = SPEAKER_MAX_VOLUME_SAFE; second >= SPEAKER_MIN_VOLUME; second--) {
-			cout << "Running iteration " << iteration << ".. ";
-			setSpeakerSettings(g_ips.at(1), second, SPEAKER_MAX_CAPTURE, SPEAKER_CAPTURE_BOOST_ENABLED);
-			g_network->pushOutgoingPacket(createSpeakerSoundImage(g_ips, g_external_microphones));
-			Packet answer = g_network->waitForIncomingPacket();
-			answer.getByte();
-			int num_speakers = answer.getInt();
-			
-			vector<double> dbs;
-			
-			for (int i = 0; i < num_speakers; i++) {
-				answer.getString();
-				dbs.push_back(answer.getFloat());
-			}
-			
-			double error = 0;
-		
-			for (size_t i = 0; i < dbs.size(); i++) {
-				for (size_t j = 0; j < dbs.size(); j++) {
-					if (j == i)
-						continue;
-						
-					error += abs(dbs.at(i) - dbs.at(j));
-				}
-			}
-			
-			cout << "done, got " << error << " as error\n";
-			
-			iteration++;
-		}
-	}
-	
-	cout << endl;
-}
-
 void checkCurrentSoundImage() {
-	iterateUntilGoodSoundImage();
-	
-	return;
-	
 	/*
 	if (g_normalization.empty()) {
 		cout << "Please run 11. Check own sound level to calibrate the sound levels\n\n";
@@ -450,7 +403,7 @@ void checkCurrentSoundImage() {
 	}
 	*/
 	
-	setMaxSpeakerSettings(SPEAKER_MAX_VOLUME_SAFE, SPEAKER_MAX_CAPTURE, SPEAKER_CAPTURE_BOOST_ENABLED);
+	setMaxSpeakerSettings(SPEAKER_MAX_VOLUME, SPEAKER_MAX_CAPTURE, SPEAKER_CAPTURE_BOOST_ENABLED);
 	//setSpeakerSettings("172.25.9.38", SPEAKER_MAX_VOLUME_SAFE - 18, SPEAKER_MAX_CAPTURE, SPEAKER_CAPTURE_BOOST_ENABLED);
 	
 	cout << "Running remote scripts and collecting data.. " << flush;
@@ -466,17 +419,6 @@ void checkCurrentSoundImage() {
 		double db = answer.getFloat();
 		
 		cout << ip << " hears\t " << db /* Server should do this to get the right value * g_normalization.at(i) */ << " dB\n";
-		
-		/*
-		int num_db = answer.getInt();
-		
-		for (int j = 0; j < num_db; j++) {
-			string playing_ip = answer.getString();
-			double db = answer.getFloat();
-			
-			cout << ip << " <- " << playing_ip << "\t: " << db << " dB\n";
-		}
-		*/
 	}
 	
 	cout << endl;
