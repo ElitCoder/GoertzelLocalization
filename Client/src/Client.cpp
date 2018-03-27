@@ -33,9 +33,11 @@ static NetworkCommunication* g_network;
 
 // Horn IP: 172.25.11.98
 // Våning 3
-static vector<string> g_ips = { "172.25.9.38",
-							 	"172.25.11.186", "172.25.13.200",
-												"172.25.14.27" };
+//static vector<string> g_ips = { "172.25.9.38",
+//							 	"172.25.11.186", "172.25.13.200",
+//												"172.25.14.27" };
+
+static vector<string> g_external_microphones = { "172.25.14.27" };
 // J0
 /*
 static vector<string> g_ips = { "172.25.45.152",
@@ -48,7 +50,7 @@ static vector<string> g_ips = { "172.25.45.152",
 								*/
 								
 // External microphones
-static vector<string> g_external_microphones = { };// "172.25.13.200" };	
+static vector<string> g_ips = { "172.25.13.200", "172.25.9.38", "172.25.11.186" };// "172.25.13.200" };	
 												 
 static vector<float> g_normalization;					
 
@@ -306,12 +308,20 @@ void speakerdB() {
 		string ip = answer.getString();
 		int num_db = answer.getInt();
 		
+		double all_db = 0;
+		
 		for (int j = 0; j < num_db; j++) {
 			string playing_ip = answer.getString();
 			double db = answer.getFloat();
 			
 			cout << ip << " <- " << playing_ip << "\t: " << db << " dB\n";
+			
+			all_db += abs(db);
 		}
+		
+		all_db /= num_db;
+		
+		cout << "Total " << ip << "\t: " << all_db << " dB\n";
 	}
 	
 	cout << endl;
