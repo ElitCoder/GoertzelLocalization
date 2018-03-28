@@ -31,6 +31,7 @@ public:
     int getInt();
     float getFloat();
     std::string getString();
+	bool getBool();
     
     const unsigned char* getData() const;
     unsigned int getSize() const;

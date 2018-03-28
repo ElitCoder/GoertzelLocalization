@@ -71,6 +71,16 @@ void Packet::addFloat(const float nbr) {
     m_packet.insert(m_packet.end(), floatString.begin(), floatString.end());
 }
 
+void Packet::addBool(const bool val) {
+    if(isFinalized()) {
+        cout << "ERROR: can't add anything to a finalized packet\n";
+        
+        return;
+    }
+    
+    m_packet.push_back(val ? 1 : 0);
+}
+
 float Packet::getFloat() {
     unsigned char length = m_packet.at(m_read++);
     

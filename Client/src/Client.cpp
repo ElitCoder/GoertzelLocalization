@@ -166,7 +166,7 @@ void startSpeakerLocalizationAll() {
 	}
 }
 
-Packet createSpeakerdB(vector<string>& ips, vector<string>& external_ips) {
+Packet createSpeakerdB(vector<string>& ips, vector<string>& external_ips, bool normalize) {
 	Packet packet;
 	packet.addHeader(PACKET_TEST_SPEAKER_DBS);
 	packet.addInt(ips.size());
@@ -177,6 +177,7 @@ Packet createSpeakerdB(vector<string>& ips, vector<string>& external_ips) {
 	packet.addInt(1);	// Play time
 	packet.addInt(2);	// Idle time
 	packet.addInt(external_ips.size());
+	packet.addBool(normalize);
 	
 	for (auto& ip : external_ips)
 		packet.addString(ip);
@@ -191,7 +192,7 @@ void speakerdB() {
 	cout << "done\n";
 	
 	cout << "Running decibel test and collecting data.. " << flush;
-	g_network->pushOutgoingPacket(createSpeakerdB(g_ips, g_external_microphones));
+	g_network->pushOutgoingPacket(createSpeakerdB(g_ips, g_external_microphones, true));
 	Packet answer = g_network->waitForIncomingPacket();
 	cout << "done!\n\n";
 	answer.getByte();
@@ -316,6 +317,88 @@ void soundImage() {
 	cout << endl;
 }
 
+using MicrophoneDBs = vector<pair<string, vector<pair<string, double>>>>;
+
+MicrophoneDBs getMicrophoneDBs(Packet& packet) {
+	packet.getByte();
+	
+	int num_speakers = packet.getInt();
+	
+	MicrophoneDBs mic_dbs;
+	
+	for (int i = 0; i < num_speakers; i++) {
+		string ip = packet.getString();
+		int num_db = packet.getInt();
+		
+		vector<pair<string, double>> dbs;
+		
+		for (int j = 0; j < num_db; j++) {
+			string playing_ip = packet.getString();
+			double db = packet.getFloat();
+			
+			dbs.push_back({ playing_ip, db });
+		}
+		
+		mic_dbs.push_back({ ip, dbs });
+	}
+	
+	return mic_dbs;
+}
+
+void checkAttenuation() {
+	cout << "Setting normal speaker settings.. " << flush;
+	setSpeakerSettings(SPEAKER_MAX_VOLUME, SPEAKER_MAX_CAPTURE, SPEAKER_CAPTURE_BOOST_NORMAL);
+	cout << "done\n";
+	
+	cout << "Calculating non-normalized dB for -0 dB speaker settings.. " << flush;
+	g_network->pushOutgoingPacket(createSpeakerdB(g_ips, g_external_microphones, false));
+	Packet answer = g_network->waitForIncomingPacket();
+	auto high = getMicrophoneDBs(answer);
+	cout << "done\n\n";
+	
+	cout << "Setting lower speaker settings.. " << flush;
+	setSpeakerSettings(SPEAKER_MAX_VOLUME - 6, SPEAKER_MAX_CAPTURE, SPEAKER_CAPTURE_BOOST_NORMAL);
+	cout << "done\n";
+	
+	cout << "Calculating non-normalized dB for -6 dB speaker settings.. " << flush;
+	g_network->pushOutgoingPacket(createSpeakerdB(g_ips, g_external_microphones, false));
+	auto answer_low = g_network->waitForIncomingPacket();
+	auto low = getMicrophoneDBs(answer_low);
+	cout << "done\n\n";
+	
+	cout << "Setting lowest speaker settings.. " << flush;
+	setSpeakerSettings(SPEAKER_MAX_VOLUME - 12, SPEAKER_MAX_CAPTURE, SPEAKER_CAPTURE_BOOST_NORMAL);
+	cout << "done\n";
+	
+	cout << "Calculating non-normalized dB for -12 dB speaker settings.. " << flush;
+	g_network->pushOutgoingPacket(createSpeakerdB(g_ips, g_external_microphones, false));
+	auto answer_lower = g_network->waitForIncomingPacket();
+	auto lower = getMicrophoneDBs(answer_lower);
+	cout << "done\n\n";
+	
+	for (size_t i = 0; i < high.size(); i++) {
+		cout << "Microphone " << high.at(i).first << endl;
+		
+		for (size_t j = 0; j < high.at(i).second.size(); j++) {
+			double db_high = high.at(i).second.at(j).second;
+			double db_low = low.at(i).second.at(j).second;
+			double db_lower = lower.at(i).second.at(j).second;
+			
+			double change_lower_low = db_lower - db_low;
+			double change_low_high = db_low - db_high;
+			
+			cout << "Speaker " << high.at(i).second.at(j).first << " ";
+			cout << change_lower_low << " - " << change_low_high << endl;
+			
+			cout << "High: " << db_high << endl;
+			cout << "Low: " << db_low << endl;
+			cout << "Lower: " << db_lower << endl;
+		}
+		
+		cout << endl;
+	}
+}
+
 void run(const string& host, unsigned short port) {
 	cout << "Connecting to server.. ";
 	NetworkCommunication network(host, port);
@@ -330,6 +413,7 @@ void run(const string& host, unsigned short port) {
 		cout << "4. Start speaker localization script (all IPs)\n";
 		cout << "5. Check speaker dB effect (currently normalized on noise)\n";
 		cout << "6. Check sound image (currently normalized on noise)\n";
+		cout << "7. Check attenuation for each speaker to microphone\n";
 		cout << "\n: ";
 		
 		int input;
@@ -354,6 +438,9 @@ void run(const string& host, unsigned short port) {
 				break;
 				
 			case 6: soundImage();
+				break;
+				
+			case 7: checkAttenuation();
 				break;
 				
 			default: cout << "Wrong input format!\n";

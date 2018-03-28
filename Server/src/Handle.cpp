@@ -304,7 +304,10 @@ SpeakerdBs Handle::handleTestSpeakerdBs(const vector<string>& speakers, const ve
 	return handleTestSpeakerdBs(all_ips, play_time, idle_time, mics.size(), false);
 }
 
-SpeakerdBs Handle::handleTestSpeakerdBs(const vector<string>& ips, int play_time, int idle_time, int num_external, bool skip_script) {
+SpeakerdBs Handle::handleTestSpeakerdBs(const vector<string>& ips, int play_time, int idle_time, int num_external, bool skip_script, bool do_normalize) {
+	if (do_normalize)
+		cout << "Debug: normalizing output\n";
+		
 	vector<string> playing_ips = vector<string>(ips.begin(), ips.begin() + (ips.size() - num_external));
 	vector<string> listening_ips = vector<string>(ips.begin() + (ips.size() - num_external), ips.end());
 	
@@ -373,7 +376,10 @@ SpeakerdBs Handle::handleTestSpeakerdBs(const vector<string>& ips, int play_time
 		for (size_t j = 0; j < playing_ips.size(); j++) {
 			size_t record_at = static_cast<double>((idle_time + j * (play_time + 1) + 0.3) * 48000);
 			size_t average = getRMS(data, record_at, record_at + (48000 / 2));
-			size_t average_normalized = average * normalize;
+			size_t average_normalized = average;
+			
+			if (do_normalize)
+				average_normalized *= normalize;
 			
 			cout << "Debug: sound_average " << average << endl;
 			cout << "Debug: sound_average_normalized " << average_normalized << endl;

@@ -116,6 +116,10 @@ void Packet::addBool(const bool val) {
     m_packet.push_back(val ? 1 : 0);
 }
 
+bool Packet::getBool() {
+	return m_packet.at(m_read++) == 1 ? true : false;
+}
+
 void Packet::addFloat(const float nbr) {
     if(isFinalized()) {
         cout << "ERROR: can't add anything to a finalized packet\n";
