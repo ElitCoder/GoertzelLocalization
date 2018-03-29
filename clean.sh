@@ -10,5 +10,7 @@ cd Server/
 make clean
 cd ../Client/
 make clean
+
+# Clean dependencies
 cd ../dependencies/
 ./clean.sh
