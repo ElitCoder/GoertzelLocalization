@@ -18,4 +18,4 @@ degree_accuracy: 10
 point_accuracy: 1
 fast: 1
 # timeout in seconds
-timeout: 30
+timeout: 15
