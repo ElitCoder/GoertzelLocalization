@@ -1,5 +1,5 @@
 Build essentials:
-sudo apt-get install g++ unar cmake libssl-dev zlib1g-dev
+sudo apt-get install g++ unar cmake libssl-dev zlib1g-dev libcurl4-openssl-dev
 
 Install libraries:
 ./install.sh
