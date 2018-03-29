@@ -407,7 +407,7 @@ void run(const string& host, unsigned short port) {
 	g_network = &network;
 	
 	while (true) {
-		cout << "1. Check if speakers are online\n";
+		cout << "1. Check if speakers are online (also enables SSH)\n";
 		cout << "2. Reparse server config\n";
 		cout << "3. Start speaker localization script (only speakers)\n";
 		cout << "4. Start speaker localization script (all IPs)\n";
