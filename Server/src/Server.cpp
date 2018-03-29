@@ -6,6 +6,9 @@
 #include <iostream>
 #include <algorithm>
 
+// libcurlpp
+#include <curlpp/cURLpp.hpp>
+
 using namespace std;
 
 enum {
@@ -245,6 +248,9 @@ static void start(unsigned short port) {
 }
 
 int main() {
+	// Initialize curlpp
+	curlpp::initialize();
+	
 	Config::parse("config");
 	
 	cout << "Starting server at port " << Config::get<unsigned short>("port") << endl;

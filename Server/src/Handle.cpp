@@ -6,6 +6,11 @@
 
 #include <libnessh/SSHMaster.h>
 
+// libcurlpp
+#include <curlpp/cURLpp.hpp>
+#include <curlpp/Options.hpp>
+#include <curlpp/Easy.hpp>
+
 #include <sstream>
 #include <iostream>
 #include <fstream>
@@ -397,9 +402,33 @@ SpeakerdBs Handle::handleTestSpeakerdBs(const vector<string>& ips, int play_time
 	return results;
 }
 
+static void enableSSH(const vector<string>& ips) {
+	for (auto& ip : ips) {
+		curlpp::Cleanup clean;
+		string disable_string = "http://";
+		disable_string += ip;
+		disable_string += "/axis-cgi/admin/param.cgi?action=update&Network.SSH.Enabled=yes";
+		
+		curlpp::Easy request;
+		ostringstream stream;
+		
+		request.setOpt(curlpp::options::Url(disable_string)); 
+		request.setOpt(curlpp::options::UserPwd(string("root:pass")));
+		request.setOpt(curlpp::options::HttpAuth(CURLAUTH_ANY));
+		request.setOpt(curlpp::options::WriteStream(&stream));
+		
+		request.perform();
+				
+		if (stream.str() != "OK")
+			cout << "Warning: could not enable SSH in speaker " << ip << ", wrong username & password set?\n";
+	}
+}
+
 vector<bool> Handle::checkSpeakerOnline(const vector<string>& ips) {
-	SSHMaster master;
+	// Enable SSH on every device first
+	enableSSH(ips);
 	
+	SSHMaster master;
 	return master.connectResult(ips, "pass");
 }
 
