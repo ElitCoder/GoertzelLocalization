@@ -2,7 +2,7 @@
 port: 10200
 
 # Files
-white_noise: white_noise_2.wav
+white_noise: 9_band_1s.wav
 goertzel: testTone.wav
 
 # Testing
@@ -18,4 +18,4 @@ degree_accuracy: 10
 point_accuracy: 1
 fast: 1
 # timeout in seconds
-timeout: 15
+timeout: 10
