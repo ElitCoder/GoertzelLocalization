@@ -30,9 +30,9 @@ enum {
 static NetworkCommunication* g_network;
 
 // Speakers
-static vector<string> g_ips = { "172.25.14.27", "172.25.11.186" };
+static vector<string> g_ips = { "172.25.13.200", "172.25.9.38" };
 // External microphones
-static vector<string> g_external_microphones = { "172.25.9.38", "172.25.13.200", "172.25.11.47", "172.25.12.99" };
+static vector<string> g_external_microphones = { "172.25.11.47", "172.25.12.99" };
 
 Packet createSetSpeakerSettings(const vector<string>& ips, const vector<int>& volumes, const vector<int>& captures, const vector<int>& boosts) {
 	Packet packet;
@@ -412,7 +412,7 @@ void run(const string& host, unsigned short port) {
 		cout << "3. Start speaker localization script (only speakers)\n";
 		cout << "4. Start speaker localization script (all IPs)\n";
 		cout << "5. Check speaker dB effect (currently normalized on noise)\n";
-		cout << "6. Check sound image (currently normalized on noise)\n";
+		cout << "6. Check sound image\n";
 		cout << "7. Check attenuation for each speaker to microphone\n";
 		cout << "\n: ";
 		

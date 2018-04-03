@@ -446,7 +446,7 @@ static vector<string> createSoundImageScripts(const vector<string>& speakers, co
 	
 	for (size_t i = 0; i < mics.size(); i++) {
 		string script = "systemctl stop audio*\n";
-		script +=		"arecord -D audiosource -r 48000 -f S16_LE -c 1 -d " + to_string(idle_time * 4 + play_time);
+		script +=		"arecord -D audiosource -r 48000 -f S16_LE -c 1 -d " + to_string(idle_time * 2 + play_time);
 		script +=		" /tmp/cap";
 		script +=		mics.at(i);
 		script +=		".wav\n";
@@ -516,7 +516,7 @@ vector<pair<string, double>> Handle::handleSoundImage(const vector<string>& spea
 		
 		size_t sound_start = ((double)idle_time + 0.3) * 48000;
 		size_t sound_average = getRMS(data, sound_start, sound_start + (48000 / 2));
-		size_t sound_average_normalized = sound_average * normalize;
+		size_t sound_average_normalized = sound_average;//sound_average * normalize;
 		
 		cout << "Debug: sound_average " << sound_average << endl;
 		cout << "Debug: sound_average_normalized " << sound_average_normalized << endl;
