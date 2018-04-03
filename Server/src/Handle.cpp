@@ -95,7 +95,7 @@ bool Handle::handleSetSpeakerVolumeAndCapture(const vector<string>& ips, const v
 		
 		string command = "amixer -c1 sset 'Headphone' " + volume + "; wait; ";
 		command += "amixer -c1 sset 'Capture' " + capture + "; wait; ";
-		command += "dspd -s -m; wait; dspd -s -u limiter; wait; dspd -s -u static; wait; ";
+		command += "dspd -s -m; wait; dspd -s -u limiter; wait; ";
 		command += "amixer -c1 sset 'PGA Boost' " + boost + "; wait\n";
 		
 		commands.push_back(command);
