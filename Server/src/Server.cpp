@@ -19,7 +19,8 @@ enum {
 	PACKET_PARSE_SERVER_CONFIG,
 	PACKET_CHECK_SPEAKERS_ONLINE,
 	PACKET_CHECK_SOUND_IMAGE,
-	PACKET_CHECK_OWN_SOUND_LEVEL
+	PACKET_CHECK_OWN_SOUND_LEVEL,
+	PACKET_SET_EQ
 };
 
 static void handle(NetworkCommunication& network, Connection& connection, Packet& input_packet) {
@@ -209,6 +210,28 @@ static void handle(NetworkCommunication& network, Connection& connection, Packet
 			}
 			
 			packet.finalize();
+			network.addOutgoingPacket(connection.getSocket(), packet);
+			break;
+		}
+		
+		case PACKET_SET_EQ: {
+			vector<string> speakers;
+			vector<double> settings;
+			
+			int num_speakers = input_packet.getInt();
+			
+			for (int i = 0; i < num_speakers; i++)
+				speakers.push_back(input_packet.getString());
+				
+			for (int i = 0; i < 9; i++)
+				settings.push_back(input_packet.getFloat());
+				
+			auto answer = Handle::setEQ(speakers, settings);
+			
+			Packet packet;
+			packet.addHeader(PACKET_SET_EQ);
+			packet.addBool(answer);
+			packet.finalize();	
 			network.addOutgoingPacket(connection.getSocket(), packet);
 			break;
 		}

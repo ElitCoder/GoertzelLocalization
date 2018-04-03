@@ -18,6 +18,7 @@ public:
 	static SpeakerdBs handleTestSpeakerdBs(const std::vector<std::string>& speakers, const std::vector<std::string>& mics, int play_time, int idle_time);
 	static std::vector<bool> checkSpeakerOnline(const std::vector<std::string>& ips);
 	static SoundImageFFT9 handleSoundImage(const std::vector<std::string>& speakers, const std::vector<std::string>& mics, int play_time, int idle_time);
+	static bool setEQ(const std::vector<std::string>& speakers, const std::vector<double>& settings);
 };
 
 #endif

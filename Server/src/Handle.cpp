@@ -96,6 +96,7 @@ bool Handle::handleSetSpeakerVolumeAndCapture(const vector<string>& ips, const v
 		string command = "amixer -c1 sset 'Headphone' " + volume + "; wait; ";
 		command += "amixer -c1 sset 'Capture' " + capture + "; wait; ";
 		command += "dspd -s -m; wait; dspd -s -u limiter; wait; ";
+		command += "dspd -s -u preset; wait; dspd -s -p flat; wait; ";
 		command += "amixer -c1 sset 'PGA Boost' " + boost + "; wait\n";
 		
 		commands.push_back(command);
@@ -575,4 +576,21 @@ SoundImageFFT9 Handle::handleSoundImage(const vector<string>& speakers, const ve
 	}	
 		
 	return final_result;
+}
+
+bool Handle::setEQ(const vector<string>& speakers, const vector<double>& settings) {
+	string command =	"dspd -s -u preset; wait; ";
+	command +=			"dspd -s -e ";
+	
+	for (auto setting : settings)
+		command += to_string(lround(setting)) + ",";
+		
+	command.pop_back();	
+	command +=			"; wait";
+	
+	cout << "Running command: " << command << endl;
+	
+	vector<string> commands(speakers.size(), command);
+	
+	return !runSSHScript(speakers, commands).empty();
 }

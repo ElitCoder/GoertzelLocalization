@@ -14,7 +14,8 @@ enum {
 	PACKET_PARSE_SERVER_CONFIG,
 	PACKET_CHECK_SPEAKERS_ONLINE,
 	PACKET_CHECK_SOUND_IMAGE,
-	PACKET_CHECK_OWN_SOUND_LEVEL
+	PACKET_CHECK_OWN_SOUND_LEVEL,
+	PACKET_SET_EQ
 };
 
 enum {
@@ -42,7 +43,9 @@ static NetworkCommunication* g_network;
 // Speakers
 static vector<string> g_ips = { "172.25.13.200", "172.25.9.38" };
 // External microphones
-static vector<string> g_external_microphones = { "172.25.11.47", "172.25.12.99" };
+static vector<string> g_external_microphones = { "172.25.11.47" }; //, "172.25.12.99" };
+
+static vector<double> g_new_settings(9, 0.0);
 
 Packet createSetSpeakerSettings(const vector<string>& ips, const vector<int>& volumes, const vector<int>& captures, const vector<int>& boosts) {
 	Packet packet;
@@ -304,10 +307,47 @@ Packet createSoundImage(const vector<string>& speakers, const vector<string>& mi
 	return packet;
 }
 
+vector<double> getNewEQSettings(const vector<double>& current_db, double mean) {
+	auto min = min_element(current_db.begin(), current_db.end());
+	auto max = min_element(current_db.begin(), current_db.end());
+	
+	vector<double> new_settings;
+	
+	if (abs(max - min) > 20)
+		cout << "Difference in max - min exceeds 20 dB\n";
+		
+	for (auto& db : current_db)
+		new_settings.push_back(mean - db);
+		
+	return new_settings;	
+}
+
+Packet createSetEQ(const vector<string>& speakers, const vector<double>& settings) {
+	Packet packet;
+	packet.addHeader(PACKET_SET_EQ);
+	packet.addInt(speakers.size());
+	
+	for (auto& ip : speakers)
+		packet.addString(ip);
+	
+	for (auto& setting : settings)
+		packet.addFloat(setting);
+		
+	packet.finalize();
+	return packet;
+}
+
+void setDSPEQ(const vector<double>& settings) {
+	g_network->pushOutgoingPacket(createSetEQ(g_ips, settings));
+	g_network->waitForIncomingPacket();
+}
+
 void soundImage() {
 	cout << "Setting normal speaker settings.. " << flush;
-	setSpeakerSettings(SPEAKER_MAX_VOLUME, SPEAKER_MAX_CAPTURE, SPEAKER_CAPTURE_BOOST_NORMAL);
+	setSpeakerSettings(SPEAKER_MAX_VOLUME - 12, SPEAKER_MAX_CAPTURE, SPEAKER_CAPTURE_BOOST_NORMAL);
 	cout << "done\n";
+	
+	setDSPEQ(g_new_settings);
 	
 	cout << "Trying sound image.. " << flush;
 	g_network->pushOutgoingPacket(createSoundImage(g_ips, g_external_microphones));
@@ -320,6 +360,7 @@ void soundImage() {
 	for (int i = 0; i < num_mics; i++) {
 		string ip = answer.getString();
 		int db_size = answer.getInt();
+		vector<double> fft_db;
 		
 		cout << "Microphone " << ip << endl;
 		double total_db_fft = 0;
@@ -327,14 +368,22 @@ void soundImage() {
 		for (int j = 0; j < db_size - 1; j++) {
 			double db = answer.getFloat();
 			total_db_fft += db;
+			fft_db.push_back(db);
 			
 			cout << "Frequency " << g_freqs[j] << " = " << db << " dB\n";
 		}
 		
 		double total_db = answer.getFloat();
+		double db_fft_mean = total_db_fft / (db_size - 1);
 		
 		cout << "Total mean dB in FFT: " << total_db_fft / (db_size - 1) << " dB\n";
 		cout << "Total dB in time domain: " << total_db << " dB\n\n";
+		
+		// Calculate new settings
+		g_new_settings = getNewEQSettings(fft_db, db_fft_mean);
+		
+		cout << "new settings\n";
+		for_each(g_new_settings.begin(), g_new_settings.end(), [] (double db) { cout << db << endl; });
 	}
 }
 
