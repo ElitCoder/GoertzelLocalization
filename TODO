@@ -1,3 +1,3 @@
-- Use Dt for different speakers
 - Server nonblocking requests (start thread for e.g. SSH)
 - Server more try catch
+- Don't reconnect for every operation on SSH
