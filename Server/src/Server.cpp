@@ -202,7 +202,10 @@ static void handle(NetworkCommunication& network, Connection& connection, Packet
 			
 			for (auto& peer : answer) {
 				packet.addString(peer.first);
-				packet.addFloat(peer.second);
+				packet.addInt(peer.second.size());
+				
+				for (auto& db : peer.second)
+					packet.addFloat(db);
 			}
 			
 			packet.finalize();

@@ -458,38 +458,87 @@ static vector<string> createSoundImageScripts(const vector<string>& speakers, co
 	return scripts;
 }
 
-vector<pair<string, double>> Handle::handleSoundImage(const vector<string>& speakers, const vector<string>& mics, int play_time, int idle_time) {
-	// Not needed?
-	// Get speaker dB in order to normalize sound level
-	//auto speaker_dbs = handleTestSpeakerdBs(speakers, mics, play_time, idle_time);
+// Taken from git/SO
+static double goertzel(int numSamples,float TARGET_FREQUENCY,int SAMPLING_RATE, short* data)
+{
+    int     k,i;
+    float   floatnumSamples;
+    float   omega,sine,cosine,coeff,q0,q1,q2,magnitude,real,imag;
+
+    float   scalingFactor = numSamples / 2.0;
+
+    floatnumSamples = (float) numSamples;
+    k = (int) (0.5 + ((floatnumSamples * TARGET_FREQUENCY) / (float)SAMPLING_RATE));
+    omega = (2.0 * M_PI * k) / floatnumSamples;
+    sine = sin(omega);
+    cosine = cos(omega);
+    coeff = 2.0 * cosine;
+    q0=0;
+    q1=0;
+    q2=0;
+
+    for(i=0; i<numSamples; i++)
+    {
+        q0 = coeff * q1 - q2 + data[i];
+        q2 = q1;
+        q1 = q0;
+    }
+
+    // calculate the real and imaginary results
+    // scaling appropriately
+    real = (q1 - q2 * cosine) / scalingFactor;
+    imag = (q2 * sine) / scalingFactor;
+
+    magnitude = sqrtf(real*real + imag*imag);
+    return magnitude;
+}
+
+static vector<double> getFFT9(const vector<short>& data, size_t start, size_t end) {
+	vector<short> sound(data.begin() + start, data.begin() + end);
 	
-	// Get sound image from available microphones
-	// TODO: Include external microphone placements
-	auto scripts = createSoundImageScripts(speakers, mics, play_time, idle_time, Config::get<string>("white_noise"));
+	// Do FFT here - scratch that, let's do 9 Goertzel calculations instead
+	double freq63 = goertzel(sound.size(), 63, 48000, sound.data());
+	double freq125 = goertzel(sound.size(), 125, 48000, sound.data());
+	double freq250 = goertzel(sound.size(), 250, 48000, sound.data());
+	double freq500 = goertzel(sound.size(), 500, 48000, sound.data());
+	double freq1000 = goertzel(sound.size(), 1000, 48000, sound.data());
+	double freq2000 = goertzel(sound.size(), 2000, 48000, sound.data());
+	double freq4000 = goertzel(sound.size(), 4000, 48000, sound.data());
+	double freq8000 = goertzel(sound.size(), 8000, 48000, sound.data());
+	double freq16000 = goertzel(sound.size(), 16000, 48000, sound.data());
 	
-	vector<string> all_ips(speakers);
-	all_ips.insert(all_ips.end(), mics.begin(), mics.end());
-	
-	if (!sendSSHFile(speakers, "data/" + Config::get<string>("white_noise"), "/tmp/"))
-		return vector<pair<string, double>>();
-	
-	// Send scripts
-	printSSHOutput(runSSHScript(all_ips, scripts));
-	
-	// Get resulting files
-	vector<string> from;
-	vector<string> to;
-	
-	for (auto& ip : mics) {
-		from.push_back("/tmp/cap" + ip + ".wav");
-		to.push_back("results");
-	}
-	
-	if (!getSSHFile(mics, from, to))
-		return vector<pair<string, double>>();
+	return { freq63, freq125, freq250, freq500, freq1000, freq2000, freq4000, freq8000, freq16000 };
+} 
+
+SoundImageFFT9 Handle::handleSoundImage(const vector<string>& speakers, const vector<string>& mics, int play_time, int idle_time) {
+	if (!Config::get<bool>("no_scripts")) {
+		// Get sound image from available microphones
+		// TODO: Include external microphone placements
+		auto scripts = createSoundImageScripts(speakers, mics, play_time, idle_time, Config::get<string>("white_noise"));
 		
-	vector<pair<string, double>> final_result;
-	size_t normalized_noise = 0;
+		vector<string> all_ips(speakers);
+		all_ips.insert(all_ips.end(), mics.begin(), mics.end());
+		
+		if (!sendSSHFile(speakers, "data/" + Config::get<string>("white_noise"), "/tmp/"))
+			return SoundImageFFT9();
+		
+		// Send scripts
+		printSSHOutput(runSSHScript(all_ips, scripts));
+		
+		// Get resulting files
+		vector<string> from;
+		vector<string> to;
+		
+		for (auto& ip : mics) {
+			from.push_back("/tmp/cap" + ip + ".wav");
+			to.push_back("results");
+		}
+		
+		if (!getSSHFile(mics, from, to))
+			return SoundImageFFT9();
+	}
+		
+	SoundImageFFT9 final_result;
 		
 	for (size_t i = 0; i < mics.size(); i++) {
 		string filename = "results/cap" + mics.at(i) + ".wav";
@@ -498,34 +547,31 @@ vector<pair<string, double>> Handle::handleSoundImage(const vector<string>& spea
 		WavReader::read(filename, data);
 		
 		if (data.empty())
-			return vector<pair<string, double>>();
-			
-		size_t noise_start = idle_time + play_time * 2;
-		noise_start *= 48000;
-		size_t noise_level = getRMS(data, noise_start, data.size());
-		
-		if (normalized_noise == 0)
-			normalized_noise = noise_level;
-			
-		cout << "Debug: noise_level " << noise_level << endl;
-		cout << "Debug: normalized_noise " << normalized_noise << endl;
-			
-		double normalize = (double)normalized_noise / noise_level;
-		
-		cout << "Debug: normalize " << normalize << endl;
+			return SoundImageFFT9();
 		
 		size_t sound_start = ((double)idle_time + 0.3) * 48000;
 		size_t sound_average = getRMS(data, sound_start, sound_start + (48000 / 2));
-		size_t sound_average_normalized = sound_average;//sound_average * normalize;
 		
 		cout << "Debug: sound_average " << sound_average << endl;
-		cout << "Debug: sound_average_normalized " << sound_average_normalized << endl;
 		
-		double db = 20 * log10(sound_average_normalized / (double)SHRT_MAX);
+		double db = 20 * log10(sound_average / (double)SHRT_MAX);
 		
 		cout << "Debug: db " << db << endl;
 		
-		final_result.push_back({ mics.at(i), db });
+		// Calculate FFT for 9 band as well
+		auto db_fft = getFFT9(data, sound_start, sound_start + (48000 / 2));
+		vector<double> dbs;
+		
+		for (auto& freq : db_fft) {
+			double db_freq = 20 * log10(freq / (double)SHRT_MAX);
+			
+			dbs.push_back(db_freq);
+		}
+		
+		// 9 band dB first, then time domain dB
+		dbs.push_back(db);
+		
+		final_result.push_back({ mics.at(i), dbs });
 	}	
 		
 	return final_result;

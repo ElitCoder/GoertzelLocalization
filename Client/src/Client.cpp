@@ -27,6 +27,16 @@ enum {
 	SPEAKER_CAPTURE_BOOST_ENABLED = 2	// +20 dB
 };
 
+static vector<string> g_freqs = {	"63",
+									"125",
+									"250",
+									"500",
+									"1000",
+									"2000",
+									"4000",
+									"8000",
+									"16000" };
+
 static NetworkCommunication* g_network;
 
 // Speakers
@@ -309,12 +319,23 @@ void soundImage() {
 	
 	for (int i = 0; i < num_mics; i++) {
 		string ip = answer.getString();
-		double db = answer.getFloat();
+		int db_size = answer.getInt();
 		
-		cout << "Microphone " << ip << " gets " << db << " dB\n";
+		cout << "Microphone " << ip << endl;
+		double total_db_fft = 0;
+		
+		for (int j = 0; j < db_size - 1; j++) {
+			double db = answer.getFloat();
+			total_db_fft += db;
+			
+			cout << "Frequency " << g_freqs[j] << " = " << db << " dB\n";
+		}
+		
+		double total_db = answer.getFloat();
+		
+		cout << "Total mean dB in FFT: " << total_db_fft / (db_size - 1) << " dB\n";
+		cout << "Total dB in time domain: " << total_db << " dB\n\n";
 	}
-	
-	cout << endl;
 }
 
 using MicrophoneDBs = vector<pair<string, vector<pair<string, double>>>>;
@@ -411,7 +432,7 @@ void run(const string& host, unsigned short port) {
 		cout << "2. Reparse server config\n";
 		cout << "3. Start speaker localization script (only speakers)\n";
 		cout << "4. Start speaker localization script (all IPs)\n";
-		cout << "5. Check speaker dB effect (currently normalized on noise)\n";
+		cout << "5. Check speaker dB effect (deprecated by 7)\n";
 		cout << "6. Check sound image\n";
 		cout << "7. Check attenuation for each speaker to microphone\n";
 		cout << "\n: ";

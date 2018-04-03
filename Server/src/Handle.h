@@ -8,6 +8,7 @@
 
 using SpeakerdBs = std::vector<std::pair<std::string, std::vector<std::pair<std::string, double>>>>;
 using SSHOutput = std::vector<std::pair<std::string, std::vector<std::string>>>;
+using SoundImageFFT9 = std::vector<std::pair<std::string, std::vector<double>>>;
 
 class Handle {
 public:
@@ -16,7 +17,7 @@ public:
 	static SpeakerdBs handleTestSpeakerdBs(const std::vector<std::string>& ips, int play_time, int idle_time, int num_external, bool skip_script = false, bool do_normalize = true);
 	static SpeakerdBs handleTestSpeakerdBs(const std::vector<std::string>& speakers, const std::vector<std::string>& mics, int play_time, int idle_time);
 	static std::vector<bool> checkSpeakerOnline(const std::vector<std::string>& ips);
-	static std::vector<std::pair<std::string, double>> handleSoundImage(const std::vector<std::string>& speakers, const std::vector<std::string>& mics, int play_time, int idle_time);
+	static SoundImageFFT9 handleSoundImage(const std::vector<std::string>& speakers, const std::vector<std::string>& mics, int play_time, int idle_time);
 };
 
 #endif
