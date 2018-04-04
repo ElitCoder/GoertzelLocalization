@@ -42,8 +42,6 @@ static vector<string> g_ips = { "172.25.13.200", "172.25.9.38" };
 // External microphones
 static vector<string> g_external_microphones = { "172.25.11.47" }; //, "172.25.12.99" };
 
-static vector<double> g_new_settings(9, 0.0);
-
 Packet createSetSpeakerSettings(const vector<string>& ips, const vector<int>& volumes, const vector<int>& captures, const vector<int>& boosts) {
 	Packet packet;
 	packet.addHeader(PACKET_SET_SPEAKER_VOLUME_AND_CAPTURE);
@@ -85,13 +83,13 @@ static void setMaxSpeakerSettings() {
 	setSpeakerSettings(SPEAKER_MAX_VOLUME, SPEAKER_MAX_CAPTURE, SPEAKER_CAPTURE_BOOST_ENABLED);
 }
 
-void startSpeakerLocalization() {
+void startSpeakerLocalization(const vector<string>& ips) {
 	cout << "Setting max speaker settings.. " << flush;
 	setMaxSpeakerSettings();
 	cout << "done\n";
 	
 	cout << "Running speaker localization script.. " << flush;
-	g_network->pushOutgoingPacket(createStartSpeakerLocalization(g_ips));
+	g_network->pushOutgoingPacket(createStartSpeakerLocalization(ips));
 	
 	auto answer = g_network->waitForIncomingPacket();
 	answer.getByte();
@@ -130,6 +128,12 @@ void startSpeakerLocalization() {
 }
 
 void startSpeakerLocalizationAll() {
+	vector<string> all_ips(g_ips);
+	all_ips.insert(all_ips.end(), g_external_microphones.begin(), g_external_microphones.end());
+	
+	startSpeakerLocalization(all_ips);
+	
+	/*
 	cout << "Setting max speaker settings.. " << flush;
 	setMaxSpeakerSettings();
 	cout << "done\n";
@@ -174,67 +178,8 @@ void startSpeakerLocalizationAll() {
 		
 		cout << endl;	
 	}
+	*/
 }
-
-/*
-Packet createSpeakerdB(vector<string>& ips, vector<string>& external_ips, bool normalize) {
-	Packet packet;
-	packet.addHeader(PACKET_TEST_SPEAKER_DBS);
-	packet.addInt(ips.size());
-	
-	for (auto& ip : ips)
-		packet.addString(ip);
-		
-	packet.addInt(1);	// Play time
-	packet.addInt(2);	// Idle time
-	packet.addInt(external_ips.size());
-	packet.addBool(normalize);
-	
-	for (auto& ip : external_ips)
-		packet.addString(ip);
-		
-	packet.finalize();
-	return packet;
-}
-*/
-
-/*
-void speakerdB() {
-	cout << "Setting normal speaker settings.. " << flush;
-	setSpeakerSettings(SPEAKER_MAX_VOLUME, SPEAKER_MAX_CAPTURE, SPEAKER_CAPTURE_BOOST_NORMAL);
-	cout << "done\n";
-	
-	cout << "Running decibel test and collecting data.. " << flush;
-	g_network->pushOutgoingPacket(createSpeakerdB(g_ips, g_external_microphones, true));
-	Packet answer = g_network->waitForIncomingPacket();
-	cout << "done!\n\n";
-	answer.getByte();
-	
-	int num_speakers = answer.getInt();
-	
-	for (int i = 0; i < num_speakers; i++) {
-		string ip = answer.getString();
-		int num_db = answer.getInt();
-		
-		double all_db = 0;
-		
-		for (int j = 0; j < num_db; j++) {
-			string playing_ip = answer.getString();
-			double db = answer.getFloat();
-			
-			cout << ip << " <- " << playing_ip << "\t: " << db << " dB\n";
-			
-			all_db += db;
-		}
-		
-		all_db /= num_db;
-		
-		cout << "Total " << ip << "\t\t: " << all_db << " dB\n";
-	}
-	
-	cout << endl;
-}
-*/
 
 Packet createParseServerConfig() {
 	Packet packet;
@@ -308,47 +253,10 @@ Packet createSoundImage(const vector<string>& speakers, const vector<string>& mi
 	return packet;
 }
 
-vector<double> getNewEQSettings(const vector<double>& current_db, double mean) {
-	auto min = min_element(current_db.begin(), current_db.end());
-	auto max = min_element(current_db.begin(), current_db.end());
-	
-	vector<double> new_settings;
-	
-	if (abs(max - min) > 20)
-		cout << "Difference in max - min exceeds 20 dB\n";
-		
-	for (auto& db : current_db)
-		new_settings.push_back(mean - db);
-		
-	return new_settings;	
-}
-
-Packet createSetEQ(const vector<string>& speakers, const vector<double>& settings) {
-	Packet packet;
-	packet.addHeader(PACKET_SET_EQ);
-	packet.addInt(speakers.size());
-	
-	for (auto& ip : speakers)
-		packet.addString(ip);
-	
-	for (auto& setting : settings)
-		packet.addFloat(setting);
-		
-	packet.finalize();
-	return packet;
-}
-
-void setDSPEQ(const vector<double>& settings) {
-	g_network->pushOutgoingPacket(createSetEQ(g_ips, settings));
-	g_network->waitForIncomingPacket();
-}
-
 void soundImage() {
 	cout << "Setting normal speaker settings.. " << flush;
-	setSpeakerSettings(SPEAKER_MAX_VOLUME - 12, SPEAKER_MAX_CAPTURE, SPEAKER_CAPTURE_BOOST_NORMAL);
+	setSpeakerSettings(SPEAKER_MAX_VOLUME, SPEAKER_MAX_CAPTURE, SPEAKER_CAPTURE_BOOST_NORMAL);
 	cout << "done\n";
-	
-	setDSPEQ(g_new_settings);
 	
 	cout << "Trying sound image.. " << flush;
 	g_network->pushOutgoingPacket(createSoundImage(g_ips, g_external_microphones));
@@ -377,43 +285,9 @@ void soundImage() {
 		double total_db = answer.getFloat();
 		double db_fft_mean = total_db_fft / (db_size - 1);
 		
-		cout << "Total mean dB in FFT: " << total_db_fft / (db_size - 1) << " dB\n";
+		cout << "Total mean dB in FFT: " << db_fft_mean << " dB\n";
 		cout << "Total dB in time domain: " << total_db << " dB\n\n";
-		
-		// Calculate new settings
-		g_new_settings = getNewEQSettings(fft_db, db_fft_mean);
-		
-		cout << "new settings\n";
-		for_each(g_new_settings.begin(), g_new_settings.end(), [] (double db) { cout << db << endl; });
 	}
-}
-
-using MicrophoneDBs = vector<pair<string, vector<pair<string, double>>>>;
-
-MicrophoneDBs getMicrophoneDBs(Packet& packet) {
-	packet.getByte();
-	
-	int num_speakers = packet.getInt();
-	
-	MicrophoneDBs mic_dbs;
-	
-	for (int i = 0; i < num_speakers; i++) {
-		string ip = packet.getString();
-		int num_db = packet.getInt();
-		
-		vector<pair<string, double>> dbs;
-		
-		for (int j = 0; j < num_db; j++) {
-			string playing_ip = packet.getString();
-			double db = packet.getFloat();
-			
-			dbs.push_back({ playing_ip, db });
-		}
-		
-		mic_dbs.push_back({ ip, dbs });
-	}
-	
-	return mic_dbs;
 }
 
 void run(const string& host, unsigned short port) {
@@ -443,7 +317,7 @@ void run(const string& host, unsigned short port) {
 			case 2: parseServerConfig();
 				break;
 				
-			case 3: startSpeakerLocalization();
+			case 3: startSpeakerLocalization(g_ips);
 				break;
 				
 			case 4: startSpeakerLocalizationAll();

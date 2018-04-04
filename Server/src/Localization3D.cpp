@@ -123,13 +123,22 @@ static bool sortZ(const Point& a, const Point& b) {
 static vector<Point> getSinglePossibles(const Point& point, double actual_distance) {
 	vector<Point> possibles;
 	
-	for (int gamma = 0; gamma < 360; gamma += g_degree_accuracy) {
-		for (int omega = 0; omega < 360; omega += g_degree_accuracy) {
-			double x = point.getX() + actual_distance * cos(radians(gamma)) * sin(radians(omega));
-			double y = point.getY() + actual_distance * sin(radians(gamma)) * sin(radians(omega));
-			double z = g_use_2d ? 0.0 : point.getZ() + actual_distance * cos(omega);
-			
-			possibles.push_back(Point(array<double, 3>({ x, y, z })));
+	if (g_use_2d) {
+		for (int gamma = 0; gamma < 360; gamma += g_degree_accuracy) {
+			double x = point.getX() + actual_distance * cos(radians(gamma));
+			double y = point.getY() + actual_distance * sin(radians(gamma));
+				
+			possibles.push_back(Point(array<double, 3>({ x, y, 0.0 })));
+		}
+	} else {
+		for (int gamma = 0; gamma < 360; gamma += g_degree_accuracy) {
+			for (int omega = 0; omega < 360; omega += g_degree_accuracy) {
+				double x = point.getX() + actual_distance * cos(radians(gamma)) * sin(radians(omega));
+				double y = point.getY() + actual_distance * sin(radians(gamma)) * sin(radians(omega));
+				double z = point.getZ() + actual_distance * cos(omega);
+				
+				possibles.push_back(Point(array<double, 3>({ x, y, z })));
+			}
 		}
 	}
 	
@@ -307,7 +316,6 @@ vector<array<double, 3>> Localization3D::run(const Localization3DInput& input, b
 		
 		g_point_accuracy = Config::get<double>("point_accuracy");
 
-		
 		while (g_point_accuracy > 0) {
 			// Check time limit here
 			if ((chrono::system_clock::now() - g_stopping).count() > 0 && fast_calcuation) {
