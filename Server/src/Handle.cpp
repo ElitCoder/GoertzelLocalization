@@ -275,8 +275,9 @@ static T getMean(const vector<T>& container) {
 	return sum / container.size();	
 }
 
-static double getSoundImageScore(const vector<double>& dbs) {
-	double mean = getMean(dbs);
+static double getSoundImageScore(const vector<double>& dbs, double mean_db) {
+	//double mean = mean_db < 0 ? getMean(dbs) : mean_db;
+	double mean = mean_db < 0 ? getMean(dbs) : getMean(dbs);
 	double score = 0;
 	
 	for (const auto& db : dbs)
@@ -285,7 +286,7 @@ static double getSoundImageScore(const vector<double>& dbs) {
 	return 1 / sqrt(score);
 }
 
-static vector<int> getSoundImageCorrection(vector<double> dbs) {
+static pair<double, vector<int>> getSoundImageCorrection(vector<double> dbs) {
 	// Abs everything
 	for_each(dbs.begin(), dbs.end(), [] (auto& db) { db = abs(db); });
 	
@@ -293,8 +294,11 @@ static vector<int> getSoundImageCorrection(vector<double> dbs) {
 	double mean = getMean(dbs);
 	vector<int> correction_eq;
 	
-	for (auto& db : dbs)
-		correction_eq.push_back(lround(db - mean));
+	for (auto& db : dbs) {
+		double correction = db - mean;
+		
+		correction_eq.push_back(lround(correction));
+	}
 		
 	// Make sure we don't overload the DSP	
 	for (auto& setting : correction_eq) {
@@ -304,7 +308,7 @@ static vector<int> getSoundImageCorrection(vector<double> dbs) {
 			setting = 10;
 	}
 		
-	return correction_eq;
+	return { mean, correction_eq };
 }
 
 static void setCorrectedEQ(const vector<string>& ips) {
@@ -329,10 +333,35 @@ static void setCorrectedEQ(const vector<string>& ips) {
 	Base::system().runScript(ips, commands);
 }
 
+static void setFlatEQ(const vector<string>& ips) {
+	auto speakers = Base::system().getSpeakers(ips);
+	vector<string> commands;
+	
+	for (auto* speaker : speakers) {
+		vector<int> correction_eq(9, 0);
+		speaker->setEQ(correction_eq);
+		
+		string command =	"dspd -s -u preset; wait; ";
+		command +=			"dspd -s -e ";
+		
+		for (auto setting : correction_eq)
+			command += to_string(setting) + ",";
+			
+		command.pop_back();	
+		command +=			"; wait\n";
+		
+		commands.push_back(command);
+	}
+	
+	Base::system().runScript(ips, commands);
+}
+
 SoundImageFFT9 Handle::checkSoundImage(const vector<string>& speakers, const vector<string>& mics, int play_time, int idle_time, bool corrected) {
-	// Set corrected EQ if we're trying the corrected sound image
+	// Set corrected EQ if we're trying the corrected sound image or restore flat settings
 	if (corrected)
 		setCorrectedEQ(speakers);
+	else
+		setFlatEQ(speakers);
 		
 	if (!Config::get<bool>("no_scripts")) {
 		// Get sound image from available microphones
@@ -376,12 +405,29 @@ SoundImageFFT9 Handle::checkSoundImage(const vector<string>& speakers, const vec
 		}
 		
 		// Calculate score
-		auto score = getSoundImageScore(dbs);
+		auto score = getSoundImageScore(dbs, Base::system().getSpeaker(speakers.front()).getTargetMeanDB());
 		
 		// Calculate correction & set it to speakers (alpha)
 		auto correction = getSoundImageCorrection(dbs);
-		for (auto* speaker : Base::system().getSpeakers(speakers))
-			speaker->setCorrectionEQ(correction);
+		
+		for (auto* speaker : Base::system().getSpeakers(speakers)) {
+			if (!corrected) {
+				// Set flat results if not set
+				speaker->setFlatResults(dbs);
+			} else {
+				auto flat = speaker->getFlatResults();
+				auto& set = dbs;
+				
+				// Now - before
+				for (size_t d = 0; d < dbs.size(); d++) {
+					cout << flat.at(d) << " -> " << set.at(d) << "\tdifference: " << (set.at(d) - flat.at(d)) << endl;
+					cout << "Corrected was: " << speaker->getCorrectionEQ().at(d) << endl;
+				}
+			}
+			
+			speaker->setCorrectionEQ(correction.second);
+			speaker->setTargetMeanDB(correction.first);
+		}
 		
 		// 9 band dB first, then time domain dB
 		dbs.push_back(db);

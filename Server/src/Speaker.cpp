@@ -81,8 +81,27 @@ const std::vector<int>& Speaker::getCorrectionEQ() {
 	return correction_eq_;
 }
 
+static void correctMaxEQ(vector<int>& eq) {
+	for (auto& setting : eq) {
+		if (setting < -10)
+			setting = -10;
+		else if (setting > 10)
+			setting = 10;
+	}
+}
+
 void Speaker::setCorrectionEQ(const vector<int>& eq) {
-	correction_eq_ = eq;
+	if (!correction_eq_.empty()) {
+		cout << "Correction EQ was not empty, adding new EQ on top\n";
+		
+		for (size_t i = 0; i < eq.size(); i++)
+			correction_eq_.at(i) += eq.at(i);
+			
+	} else {
+		correction_eq_ = eq;
+	}
+	
+	correctMaxEQ(correction_eq_);
 	
 	cout << "Setting (" << ip_ << ") correction EQ to ";
 	
@@ -90,6 +109,31 @@ void Speaker::setCorrectionEQ(const vector<int>& eq) {
 		cout << setting << ", ";
 		
 	cout << "\n";
+}
+
+void Speaker::setTargetMeanDB(double mean) {
+	mean_db_ = mean;
+}
+
+double Speaker::getTargetMeanDB() const {
+	return mean_db_;
+}
+
+void Speaker::setFlatResults(const vector<double>& dbs) {
+	if (!flat_results_.empty())
+		return;
+		
+	flat_results_ = dbs;	
+}
+
+vector<double> Speaker::getFlatResults() const {
+	if (flat_results_.empty()) {
+		cout << "Server asking for empty flat results, returning 0\n";
+		
+		return vector<double>(9, 0);
+	}
+	
+	return flat_results_;
 }
 
 /*

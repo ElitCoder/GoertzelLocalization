@@ -35,6 +35,8 @@ public:
 	void setMicBoost(int boost);
 	void setOnline(bool status);
 	void setPlacement(const SpeakerPlacement& placement, int placement_id);
+	void setTargetMeanDB(double mean);
+	void setFlatResults(const std::vector<double>& dbs);
 	
 	const std::string& getIP() const;
 	int getPlacementID() const;
@@ -42,12 +44,16 @@ public:
 	bool isOnline() const;
 	bool hasPlacement() const;
 	const std::vector<int>& getCorrectionEQ();
+	double getTargetMeanDB() const;
+	std::vector<double> getFlatResults() const;
 	
 	bool operator==(const std::string& ip);
 	
 private:
 	// Current EQ
 	std::vector<int> eq_;
+	double mean_db_	= -1;
+	std::vector<double> flat_results_;
 	
 	// Correction EQ - make it sound better
 	std::vector<int> correction_eq_;

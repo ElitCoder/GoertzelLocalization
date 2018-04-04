@@ -37,10 +37,24 @@ static vector<string> g_freqs = {	"63",
 
 static NetworkCommunication* g_network;
 
+// Martin & Sofie
+static vector<string> g_ips = { "172.25.13.200", "172.25.9.38", "172.25.11.47", "172.25.12.99", "172.25.11.186" };
+static vector<string> g_external_microphones = {};
+
 // Speakers
-static vector<string> g_ips = { "172.25.13.200" }; //, "172.25.9.38" };
+//static vector<string> g_ips = { "172.25.13.200" }; //, "172.25.9.38" };
 // External microphones
-static vector<string> g_external_microphones = { "172.25.11.47" }; //, "172.25.12.99" };
+//static vector<string> g_external_microphones = { "172.25.11.47" }; //, "172.25.12.99" };
+
+/*
+	Available:
+	
+	172.25.13.200
+	172.25.9.38
+	172.25.11.47
+	172.25.12.99
+	172.25.11.186
+*/
 
 Packet createSetSpeakerSettings(const vector<string>& ips, const vector<int>& volumes, const vector<int>& captures, const vector<int>& boosts) {
 	Packet packet;
@@ -250,7 +264,7 @@ void soundImage(bool corrected) {
 		
 		cout << "Total mean dB in FFT: " << db_fft_mean << " dB\n";
 		cout << "Total dB in time domain: " << total_db << " dB\n\n";
-		cout << "Score (0 - 1, 1 being the best score): " << score << endl;
+		cout << "Score (the higher the better): " << score << endl;
 	}
 }
 
