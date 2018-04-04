@@ -175,23 +175,6 @@ PlacementOutput Handle::runLocalization(const vector<string>& ips, bool skip_scr
 	}
 	
 	return assemblePlacementOutput(Base::system().getSpeakers(ips));
-	
-	/*
-	PlacementOutput speakers;
-	
-	for (size_t i = 0; i < ips.size(); i++) {
-		Speaker::SpeakerPlacement speaker(ips.at(i));
-		auto& master = distances.at(i);
-		
-		for (size_t j = 0; j < master.second.size(); j++)
-			speaker.addDistance(ips.at(j), master.second.at(j));
-
-		speaker.setCoordinates(placement.at(i));
-		speakers.push_back(speaker);
-	}
-	
-	return speakers;
-	*/
 }
 
 vector<bool> Handle::checkSpeakersOnline(const vector<string>& ips) {
@@ -282,7 +265,75 @@ static vector<double> getFFT9(const vector<short>& data, size_t start, size_t en
 	return { freq63, freq125, freq250, freq500, freq1000, freq2000, freq4000, freq8000, freq16000 };
 } 
 
-SoundImageFFT9 Handle::checkSoundImage(const vector<string>& speakers, const vector<string>& mics, int play_time, int idle_time) {
+template<class T>
+static T getMean(const vector<T>& container) {
+	T sum = 0;
+	
+	for(const auto& element : container)
+		sum += element;
+		
+	return sum / container.size();	
+}
+
+static double getSoundImageScore(const vector<double>& dbs) {
+	double mean = getMean(dbs);
+	double score = 0;
+	
+	for (const auto& db : dbs)
+		score += (mean - db) * (mean - db);
+	
+	return 1 / sqrt(score);
+}
+
+static vector<int> getSoundImageCorrection(vector<double> dbs) {
+	// Abs everything
+	for_each(dbs.begin(), dbs.end(), [] (auto& db) { db = abs(db); });
+	
+	// Let's just go for flat right now
+	double mean = getMean(dbs);
+	vector<int> correction_eq;
+	
+	for (auto& db : dbs)
+		correction_eq.push_back(lround(db - mean));
+		
+	// Make sure we don't overload the DSP	
+	for (auto& setting : correction_eq) {
+		if (setting < -10)
+			setting = -10;
+		else if (setting > 10)
+			setting = 10;
+	}
+		
+	return correction_eq;
+}
+
+static void setCorrectedEQ(const vector<string>& ips) {
+	auto speakers = Base::system().getSpeakers(ips);
+	vector<string> commands;
+	
+	for (auto* speaker : speakers) {
+		auto& correction_eq = speaker->getCorrectionEQ();
+		
+		string command =	"dspd -s -u preset; wait; ";
+		command +=			"dspd -s -e ";
+		
+		for (auto setting : correction_eq)
+			command += to_string(setting) + ",";
+			
+		command.pop_back();	
+		command +=			"; wait\n";
+		
+		commands.push_back(command);
+	}
+	
+	Base::system().runScript(ips, commands);
+}
+
+SoundImageFFT9 Handle::checkSoundImage(const vector<string>& speakers, const vector<string>& mics, int play_time, int idle_time, bool corrected) {
+	// Set corrected EQ if we're trying the corrected sound image
+	if (corrected)
+		setCorrectedEQ(speakers);
+		
 	if (!Config::get<bool>("no_scripts")) {
 		// Get sound image from available microphones
 		auto scripts = createSoundImageScripts(speakers, mics, play_time, idle_time, Config::get<string>("white_noise"));
@@ -324,16 +375,30 @@ SoundImageFFT9 Handle::checkSoundImage(const vector<string>& speakers, const vec
 			dbs.push_back(db_freq);
 		}
 		
+		// Calculate score
+		auto score = getSoundImageScore(dbs);
+		
+		// Calculate correction & set it to speakers (alpha)
+		auto correction = getSoundImageCorrection(dbs);
+		for (auto* speaker : Base::system().getSpeakers(speakers))
+			speaker->setCorrectionEQ(correction);
+		
 		// 9 band dB first, then time domain dB
 		dbs.push_back(db);
 		
-		final_result.push_back({ mics.at(i), dbs });
+		final_result.push_back({ mics.at(i), dbs, score });
 	}	
 		
 	return final_result;
 }
 
+#if 0
 bool Handle::setEQ(const vector<string>& speakers, const vector<double>& settings) {
+	cout << "NOT IMPLEMENTED\n";
+	
+	return false;
+	
+	/*
 	string command =	"dspd -s -u preset; wait; ";
 	command +=			"dspd -s -e ";
 	
@@ -344,4 +409,6 @@ bool Handle::setEQ(const vector<string>& speakers, const vector<double>& setting
 	command +=			"; wait";
 	
 	return !Base::system().runScript(speakers, vector<string>(speakers.size(), command)).empty();
+	*/
 }
+#endif

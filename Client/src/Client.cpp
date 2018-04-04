@@ -38,7 +38,7 @@ static vector<string> g_freqs = {	"63",
 static NetworkCommunication* g_network;
 
 // Speakers
-static vector<string> g_ips = { "172.25.13.200", "172.25.9.38" };
+static vector<string> g_ips = { "172.25.13.200" }; //, "172.25.9.38" };
 // External microphones
 static vector<string> g_external_microphones = { "172.25.11.47" }; //, "172.25.12.99" };
 
@@ -189,9 +189,10 @@ void speakersOnline() {
 	cout << endl;
 }
 
-Packet createSoundImage(const vector<string>& speakers, const vector<string>& mics) {
+Packet createSoundImage(const vector<string>& speakers, const vector<string>& mics, bool corrected) {
 	Packet packet;
 	packet.addHeader(PACKET_CHECK_SOUND_IMAGE);
+	packet.addBool(corrected);
 	packet.addInt(speakers.size());
 	packet.addInt(mics.size());
 	packet.addInt(1);	// Play time
@@ -207,13 +208,19 @@ Packet createSoundImage(const vector<string>& speakers, const vector<string>& mi
 	return packet;
 }
 
-void soundImage() {
-	cout << "Setting normal speaker settings.. " << flush;
-	setSpeakerSettings(SPEAKER_MAX_VOLUME, SPEAKER_MAX_CAPTURE, SPEAKER_CAPTURE_BOOST_NORMAL);
-	cout << "done\n";
+void soundImage(bool corrected) {
+	if (!corrected) {
+		cout << "Setting normal speaker settings.. " << flush;
+		setSpeakerSettings(SPEAKER_MAX_VOLUME, SPEAKER_MAX_CAPTURE, SPEAKER_CAPTURE_BOOST_NORMAL);
+		cout << "done\n";
+	}
 	
-	cout << "Trying sound image.. " << flush;
-	g_network->pushOutgoingPacket(createSoundImage(g_ips, g_external_microphones));
+	if (corrected)
+		cout << "Trying corrected sound image... " << flush;
+	else	
+		cout << "Trying sound image... " << flush;
+		
+	g_network->pushOutgoingPacket(createSoundImage(g_ips, g_external_microphones, corrected));
 	auto answer = g_network->waitForIncomingPacket();
 	answer.getByte();
 	cout << "done\n\n";
@@ -239,8 +246,11 @@ void soundImage() {
 		double total_db = answer.getFloat();
 		double db_fft_mean = total_db_fft / (db_size - 1);
 		
+		double score = answer.getFloat();
+		
 		cout << "Total mean dB in FFT: " << db_fft_mean << " dB\n";
 		cout << "Total dB in time domain: " << total_db << " dB\n\n";
+		cout << "Score (0 - 1, 1 being the best score): " << score << endl;
 	}
 }
 
@@ -259,6 +269,7 @@ void run(const string& host, unsigned short port) {
 		cout << "5. Start speaker localization script (all IPs)\n";
 		cout << "6. Start speaker localization script (all IPs, force update)\n\n";
 		cout << "7. Check sound image\n";
+		cout << "8. Check corrected sound image\n";
 		cout << "\n: ";
 		
 		int input;
@@ -285,7 +296,10 @@ void run(const string& host, unsigned short port) {
 			case 6: startSpeakerLocalizationAll(true);
 				break;	
 				
-			case 7: soundImage();
+			case 7: soundImage(false);
+				break;
+				
+			case 8: soundImage(true);
 				break;
 				
 			default: cout << "Wrong input format!\n";

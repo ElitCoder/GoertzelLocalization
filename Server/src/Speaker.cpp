@@ -71,6 +71,27 @@ void Speaker::setMicBoost(int boost) {
 	cout << "Setting (" << ip_ << ") mic boost to " << mic_boost_ << endl;
 }
 
+const std::vector<int>& Speaker::getCorrectionEQ() {
+	if (correction_eq_.empty()) {
+		cout << "Server asking for empty correction EQ! Setting it to flat\n";
+		
+		correction_eq_ = vector<int>(9, 0);
+	}
+	
+	return correction_eq_;
+}
+
+void Speaker::setCorrectionEQ(const vector<int>& eq) {
+	correction_eq_ = eq;
+	
+	cout << "Setting (" << ip_ << ") correction EQ to ";
+	
+	for (auto setting : correction_eq_)
+		cout << setting << ", ";
+		
+	cout << "\n";
+}
+
 /*
 	SpeakerPlacement
 */

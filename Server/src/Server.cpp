@@ -117,6 +117,7 @@ static void handle(NetworkCommunication& network, Connection& connection, Packet
 			vector<string> speakers;
 			vector<string> mics;
 			
+			bool corrected = input_packet.getBool();
 			int num_speakers = input_packet.getInt();
 			int num_mics = input_packet.getInt();
 			int play_time = input_packet.getInt();
@@ -128,22 +129,29 @@ static void handle(NetworkCommunication& network, Connection& connection, Packet
 			for (int i = 0; i < num_mics; i++)
 				mics.push_back(input_packet.getString());
 				
-			auto answer = Handle::checkSoundImage(speakers, mics, play_time, idle_time);
-
+			auto answer = Handle::checkSoundImage(speakers, mics, play_time, idle_time, corrected);
+			
 			packet.addInt(answer.size());
 			
 			for (auto& peer : answer) {
-				packet.addString(peer.first);
-				packet.addInt(peer.second.size());
+				packet.addString(get<0>(peer));
+				packet.addInt(get<1>(peer).size());
 				
-				for (auto& db : peer.second)
+				for (auto& db : get<1>(peer))
 					packet.addFloat(db);
+					
+				packet.addFloat(get<2>(peer));
 			}
 
 			break;
 		}
 		
 		case PACKET_SET_EQ: {
+			cout << "NOT IMPLEMENTED\n";
+			
+			break;
+			
+			/*
 			vector<string> speakers;
 			vector<double> settings;
 			
@@ -159,6 +167,7 @@ static void handle(NetworkCommunication& network, Connection& connection, Packet
 			
 			packet.addBool(answer);
 			break;
+			*/
 		}
 		
 		default: cout << "Debug: got some random packet, answering with empty packet\n";

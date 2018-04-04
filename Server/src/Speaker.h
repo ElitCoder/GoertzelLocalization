@@ -29,6 +29,7 @@ public:
 	
 	void setIP(const std::string& ip);
 	void setEQ(const std::vector<int>& eq);
+	void setCorrectionEQ(const std::vector<int>& eq);
 	void setVolume(int volume);
 	void setMicVolume(int volume);
 	void setMicBoost(int boost);
@@ -40,11 +41,16 @@ public:
 	SpeakerPlacement& getPlacement();
 	bool isOnline() const;
 	bool hasPlacement() const;
+	const std::vector<int>& getCorrectionEQ();
 	
 	bool operator==(const std::string& ip);
 	
 private:
+	// Current EQ
 	std::vector<int> eq_;
+	
+	// Correction EQ - make it sound better
+	std::vector<int> correction_eq_;
 	
 	std::string ip_	= "not set";
 	int volume_		= 0;
