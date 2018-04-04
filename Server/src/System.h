@@ -18,12 +18,12 @@ public:
 	bool getRecordings(const std::vector<std::string>& ips);
 	bool checkConnection(const std::vector<std::string>& ips);
 
-private:
-	void enableSSH(const std::vector<std::string>& ips);
-	
-	Speaker& addSpeaker(Speaker& speaker);
 	Speaker& getSpeaker(const std::string& ip);
 	std::vector<Speaker*> getSpeakers(const std::vector<std::string>& ips);
+	
+private:
+	void enableSSH(const std::vector<std::string>& ips);
+	Speaker& addSpeaker(Speaker& speaker);
 	
 	std::vector<Speaker> speakers_;
 	SSHMaster ssh_;

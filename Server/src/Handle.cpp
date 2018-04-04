@@ -94,7 +94,36 @@ void printSSHOutput(SSHOutput outputs) {
 			cout << "SSH (" << output.first << "): " << line << endl;
 }
 
-vector<SpeakerPlacement> Handle::runLocalization(const vector<string>& ips, bool skip_script) {
+static PlacementOutput assemblePlacementOutput(const vector<Speaker*> speakers) {
+	PlacementOutput output;
+	
+	for (auto* speaker : speakers) {
+		auto ip = speaker->getIP();
+		const auto& coordinates = speaker->getPlacement().getCoordinates();
+		const auto& distances = speaker->getPlacement().getDistances();
+		
+		output.push_back({ ip, coordinates, distances });
+	}
+	
+	return output;
+}
+
+PlacementOutput Handle::runLocalization(const vector<string>& ips, bool skip_script) {
+	if (ips.empty())
+		return PlacementOutput();
+
+	// Does the server already have relevant positions?
+	vector<int> placement_ids;
+	
+	for (auto& ip : ips)
+		placement_ids.push_back(Base::system().getSpeaker(ip).getPlacementID());
+	
+	if (adjacent_find(placement_ids.begin(), placement_ids.end(), not_equal_to<int>()) == placement_ids.end() && placement_ids.front() >= 0) {
+		cout << "Server already have relevant position info, returning that\n";
+		
+		return assemblePlacementOutput(Base::system().getSpeakers(ips));
+	}
+	
 	if (!skip_script) {
 		// Create scripts
 		int play_time = Config::get<int>("speaker_play_length");
@@ -104,20 +133,41 @@ vector<SpeakerPlacement> Handle::runLocalization(const vector<string>& ips, bool
 		auto scripts = createRunLocalizationScripts(ips, play_time, idle_time, extra_recording, Config::get<string>("goertzel"));
 		
 		if (runBasicScript(ips, scripts, "data/" + Config::get<string>("goertzel"), "/tmp/").empty())
-			return vector<SpeakerPlacement>();
+			return PlacementOutput();
 	}
 	
 	auto distances = Goertzel::runGoertzel(ips);
 	
 	if (distances.empty())
-		return vector<SpeakerPlacement>();
+		return PlacementOutput();
 	
 	auto placement = Localization3D::run(distances, Config::get<bool>("fast"));
 	
-	vector<SpeakerPlacement> speakers;
+	// Keep track of which localization this is
+	static int placement_id = -1;
+	placement_id++;
+	
+	cout << "Setting placement ID to " << placement_id << endl;
 	
 	for (size_t i = 0; i < ips.size(); i++) {
-		SpeakerPlacement speaker(ips.at(i));
+		Speaker::SpeakerPlacement speaker_placement(ips.at(i));
+		auto& master = distances.at(i);
+		
+		for (size_t j = 0; j < master.second.size(); j++)
+			speaker_placement.addDistance(ips.at(j), master.second.at(j));
+
+		speaker_placement.setCoordinates(placement.at(i));
+		
+		Base::system().getSpeaker(ips.at(i)).setPlacement(speaker_placement, placement_id);
+	}
+	
+	return assemblePlacementOutput(Base::system().getSpeakers(ips));
+	
+	/*
+	PlacementOutput speakers;
+	
+	for (size_t i = 0; i < ips.size(); i++) {
+		Speaker::SpeakerPlacement speaker(ips.at(i));
 		auto& master = distances.at(i);
 		
 		for (size_t j = 0; j < master.second.size(); j++)
@@ -128,6 +178,7 @@ vector<SpeakerPlacement> Handle::runLocalization(const vector<string>& ips, bool
 	}
 	
 	return speakers;
+	*/
 }
 
 vector<bool> Handle::checkSpeakersOnline(const vector<string>& ips) {

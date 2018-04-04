@@ -132,53 +132,6 @@ void startSpeakerLocalizationAll() {
 	all_ips.insert(all_ips.end(), g_external_microphones.begin(), g_external_microphones.end());
 	
 	startSpeakerLocalization(all_ips);
-	
-	/*
-	cout << "Setting max speaker settings.. " << flush;
-	setMaxSpeakerSettings();
-	cout << "done\n";
-	
-	cout << "Running speaker localization script.. " << flush;
-	vector<string> all_ips(g_ips);
-	all_ips.insert(all_ips.end(), g_external_microphones.begin(), g_external_microphones.end());
-	
-	g_network->pushOutgoingPacket(createStartSpeakerLocalization(all_ips));
-	
-	auto answer = g_network->waitForIncomingPacket();
-	answer.getByte();
-	cout << "done\n\n";
-	
-	// Parse data
-	int num_speakers = answer.getInt();
-	
-	for (int i = 0; i < num_speakers; i++) {
-		string own_ip = answer.getString();
-		cout << own_ip << ": ";
-		
-		int num_dimensions = answer.getInt();
-		
-		cout << "(";
-		for (int j = 0; j < num_dimensions; j++) {
-			cout << answer.getFloat();
-			
-			if (j + 1 != num_dimensions)
-				cout << ", ";
-		}
-		cout << ")\n";
-			
-		cout << "With distances:\n";
-		int num_distances = answer.getInt();
-		
-		for (int j = 0; j < num_distances; j++) {
-			string ip = answer.getString();
-			double distance = answer.getFloat();
-			
-			cout << own_ip << " -> " << ip << "\t= " << distance << " m\n";
-		}
-		
-		cout << endl;	
-	}
-	*/
 }
 
 Packet createParseServerConfig() {

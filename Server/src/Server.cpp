@@ -1,6 +1,5 @@
 #include "NetworkCommunication.h"
 #include "Handle.h"
-#include "SpeakerPlacement.h"
 #include "Config.h"
 
 #include <iostream>
@@ -65,18 +64,18 @@ static void handle(NetworkCommunication& network, Connection& connection, Packet
 			for (int i = 0; i < num_ips; i++)
 				ips.push_back(input_packet.getString());
 				
-			vector<SpeakerPlacement> placements = Handle::runLocalization(ips, Config::get<bool>("no_scripts"));
+			auto placements = Handle::runLocalization(ips, Config::get<bool>("no_scripts"));
 			
 			packet.addInt(placements.size());
 			
 			for (auto& speaker : placements) {
-				packet.addString(speaker.getIp());
+				packet.addString(get<0>(speaker));
 				
-				auto& coordinates = speaker.getCoordinates();
+				auto& coordinates = get<1>(speaker);
 				packet.addInt(coordinates.size());
 				for_each(coordinates.begin(), coordinates.end(), [&packet] (double c) { packet.addFloat(c); });
 				
-				auto& distances = speaker.getDistances();
+				auto& distances = get<2>(speaker);
 				packet.addInt(distances.size());
 				for_each(distances.begin(), distances.end(), [&packet] (const pair<string, double>& peer) {
 					packet.addString(peer.first);
