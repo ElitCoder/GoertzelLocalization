@@ -59,12 +59,13 @@ static void handle(NetworkCommunication& network, Connection& connection, Packet
 		
 		case PACKET_START_LOCALIZATION: {
 			vector<string> ips;
+			bool force_update = input_packet.getBool();
 			int num_ips = input_packet.getInt();
 			
 			for (int i = 0; i < num_ips; i++)
 				ips.push_back(input_packet.getString());
 				
-			auto placements = Handle::runLocalization(ips, Config::get<bool>("no_scripts"));
+			auto placements = Handle::runLocalization(ips, Config::get<bool>("no_scripts"), force_update);
 			
 			packet.addInt(placements.size());
 			

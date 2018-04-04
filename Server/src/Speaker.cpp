@@ -1,6 +1,7 @@
 #include "Speaker.h"
 
 #include <algorithm>
+#include <iostream>
 
 using namespace std;
 
@@ -39,6 +40,35 @@ int Speaker::getPlacementID() const {
 
 Speaker::SpeakerPlacement& Speaker::getPlacement() {
 	return placement_;
+}
+
+void Speaker::setEQ(const vector<int>& eq) {
+	eq_ = eq;
+	
+	cout << "Setting (" << ip_ << ") EQ to ";
+	
+	for (auto setting : eq_)
+		cout << setting << ", ";
+		
+	cout << "\n";
+}
+
+void Speaker::setVolume(int volume) {
+	volume_ = volume;
+	
+	cout << "Setting (" << ip_ << ") volume to " << volume_ << endl;
+}
+
+void Speaker::setMicVolume(int volume) {
+	mic_volume_ = volume;
+	
+	cout << "Setting (" << ip_ << ") mic volume to " << mic_volume_ << endl;
+}
+
+void Speaker::setMicBoost(int boost) {
+	mic_boost_ = boost;
+	
+	cout << "Setting (" << ip_ << ") mic boost to " << mic_boost_ << endl;
 }
 
 /*

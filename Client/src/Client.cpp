@@ -59,9 +59,10 @@ Packet createSetSpeakerSettings(const vector<string>& ips, const vector<int>& vo
 }
 
 // Should this include microphones?
-Packet createStartSpeakerLocalization(const vector<string>& ips) {
+Packet createStartSpeakerLocalization(const vector<string>& ips, bool force) {
 	Packet packet;
 	packet.addHeader(PACKET_START_LOCALIZATION);
+	packet.addBool(force);
 	packet.addInt(ips.size());
 	
 	for (auto& ip : ips)
@@ -83,13 +84,13 @@ static void setMaxSpeakerSettings() {
 	setSpeakerSettings(SPEAKER_MAX_VOLUME, SPEAKER_MAX_CAPTURE, SPEAKER_CAPTURE_BOOST_ENABLED);
 }
 
-void startSpeakerLocalization(const vector<string>& ips) {
+void startSpeakerLocalization(const vector<string>& ips, bool force) {
 	cout << "Setting max speaker settings.. " << flush;
 	setMaxSpeakerSettings();
 	cout << "done\n";
 	
 	cout << "Running speaker localization script.. " << flush;
-	g_network->pushOutgoingPacket(createStartSpeakerLocalization(ips));
+	g_network->pushOutgoingPacket(createStartSpeakerLocalization(ips, force));
 	
 	auto answer = g_network->waitForIncomingPacket();
 	answer.getByte();
@@ -127,11 +128,11 @@ void startSpeakerLocalization(const vector<string>& ips) {
 	}
 }
 
-void startSpeakerLocalizationAll() {
+void startSpeakerLocalizationAll(bool force) {
 	vector<string> all_ips(g_ips);
 	all_ips.insert(all_ips.end(), g_external_microphones.begin(), g_external_microphones.end());
 	
-	startSpeakerLocalization(all_ips);
+	startSpeakerLocalization(all_ips, force);
 }
 
 Packet createParseServerConfig() {
@@ -252,10 +253,12 @@ void run(const string& host, unsigned short port) {
 	
 	while (true) {
 		cout << "1. Check if speakers are online (also enables SSH)\n";
-		cout << "2. Reparse server config\n";
+		cout << "2. Reparse server config\n\n";
 		cout << "3. Start speaker localization script (only speakers)\n";
-		cout << "4. Start speaker localization script (all IPs)\n";
-		cout << "5. Check sound image\n";
+		cout << "4. Start speaker localization script (only speakers, force update)\n\n";
+		cout << "5. Start speaker localization script (all IPs)\n";
+		cout << "6. Start speaker localization script (all IPs, force update)\n\n";
+		cout << "7. Check sound image\n";
 		cout << "\n: ";
 		
 		int input;
@@ -270,13 +273,19 @@ void run(const string& host, unsigned short port) {
 			case 2: parseServerConfig();
 				break;
 				
-			case 3: startSpeakerLocalization(g_ips);
+			case 3: startSpeakerLocalization(g_ips, false);
 				break;
 				
-			case 4: startSpeakerLocalizationAll();
+			case 4: startSpeakerLocalization(g_ips, true);
+				break;	
+				
+			case 5: startSpeakerLocalizationAll(false);
 				break;
 				
-			case 5: soundImage();
+			case 6: startSpeakerLocalizationAll(true);
+				break;	
+				
+			case 7: soundImage();
 				break;
 				
 			default: cout << "Wrong input format!\n";

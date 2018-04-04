@@ -59,7 +59,20 @@ bool Handle::setSpeakerAudioSettings(const vector<string>& ips, const vector<int
 		commands.push_back(command);
 	}
 	
-	return !Base::system().runScript(ips, commands).empty();
+	auto status = !Base::system().runScript(ips, commands).empty();
+	
+	if (status) {
+		for (size_t i = 0; i < ips.size(); i++) {
+			auto& speaker = Base::system().getSpeaker(ips.at(i));
+			
+			speaker.setVolume(volumes.at(i));
+			speaker.setMicVolume(captures.at(i));
+			speaker.setMicBoost(boosts.at(i));
+			speaker.setEQ(vector<int>(9, 0));
+		}	
+	}
+	
+	return status;
 }
 
 static vector<string> createRunLocalizationScripts(const vector<string>& ips, int play_time, int idle_time, int extra_recording, const string& file) {
@@ -108,7 +121,7 @@ static PlacementOutput assemblePlacementOutput(const vector<Speaker*> speakers) 
 	return output;
 }
 
-PlacementOutput Handle::runLocalization(const vector<string>& ips, bool skip_script) {
+PlacementOutput Handle::runLocalization(const vector<string>& ips, bool skip_script, bool force_update) {
 	if (ips.empty())
 		return PlacementOutput();
 
@@ -118,7 +131,7 @@ PlacementOutput Handle::runLocalization(const vector<string>& ips, bool skip_scr
 	for (auto& ip : ips)
 		placement_ids.push_back(Base::system().getSpeaker(ip).getPlacementID());
 	
-	if (adjacent_find(placement_ids.begin(), placement_ids.end(), not_equal_to<int>()) == placement_ids.end() && placement_ids.front() >= 0) {
+	if (adjacent_find(placement_ids.begin(), placement_ids.end(), not_equal_to<int>()) == placement_ids.end() && placement_ids.front() >= 0 && !force_update) {
 		cout << "Server already have relevant position info, returning that\n";
 		
 		return assemblePlacementOutput(Base::system().getSpeakers(ips));
