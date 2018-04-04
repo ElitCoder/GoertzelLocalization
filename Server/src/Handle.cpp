@@ -115,7 +115,7 @@ static PlacementOutput assemblePlacementOutput(const vector<Speaker*> speakers) 
 		const auto& coordinates = speaker->getPlacement().getCoordinates();
 		const auto& distances = speaker->getPlacement().getDistances();
 		
-		output.push_back({ ip, coordinates, distances });
+		output.push_back(make_tuple(ip, coordinates, distances));
 	}
 	
 	return output;
@@ -432,7 +432,7 @@ SoundImageFFT9 Handle::checkSoundImage(const vector<string>& speakers, const vec
 		// 9 band dB first, then time domain dB
 		dbs.push_back(db);
 		
-		final_result.push_back({ mics.at(i), dbs, score });
+		final_result.push_back(make_tuple(mics.at(i), dbs, score));
 	}	
 		
 	return final_result;
