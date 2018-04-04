@@ -60,8 +60,12 @@ if [ $# -ne 0 ]; then
 	fi
 	
 	exit 0
-fi 		
+fi
 
+# build dependencies
+sudo apt-get update && sudo apt-get install g++ unar cmake libssl-dev zlib1g-dev libcurl4-openssl-dev
+
+# build all programs
 build_libssh
 build_curlpp
 build_nessh
