@@ -6,7 +6,7 @@
 
 class Recording {
 public:
-	Recording(const std::string& ip);
+	Recording(const std::string& ip, int id);
 	
 	std::vector<short>& getData();
 	void addDistance(int id, double distance);

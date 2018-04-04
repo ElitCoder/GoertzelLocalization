@@ -12,14 +12,11 @@
 using namespace std;
 
 enum {
-	PACKET_GET_SPEAKER_VOLUME_AND_CAPTURE = 1,
-	PACKET_SET_SPEAKER_VOLUME_AND_CAPTURE,
+	PACKET_SET_SPEAKER_VOLUME_AND_CAPTURE = 1,
 	PACKET_START_LOCALIZATION,
-	PACKET_TEST_SPEAKER_DBS,
 	PACKET_PARSE_SERVER_CONFIG,
 	PACKET_CHECK_SPEAKERS_ONLINE,
 	PACKET_CHECK_SOUND_IMAGE,
-	PACKET_CHECK_OWN_SOUND_LEVEL,
 	PACKET_SET_EQ
 };
 
@@ -28,20 +25,15 @@ static void handle(NetworkCommunication& network, Connection& connection, Packet
 	
 	printf("Debug: got packet with header %02X\n", header);
 	
+	Packet packet;
+	packet.addHeader(header);
+	
 	switch (header) {
 		case 0x00: {
 			string name = input_packet.getString();
-			
 			cout << "Information: client name is " << name << endl;
-			
-			Packet returning_packet;
-			returning_packet.addHeader(0x00);
-			returning_packet.addBool(true);
-			returning_packet.finalize();
-			
-			network.addOutgoingPacket(connection.getSocket(), returning_packet);
-			cout << "Information: returned OKAY\n";
-			
+	
+			packet.addBool(true);
 			break;
 		}
 		
@@ -60,14 +52,9 @@ static void handle(NetworkCommunication& network, Connection& connection, Packet
 				boosts.push_back(input_packet.getInt());
 			}
 			
-			auto status = Handle::handleSetSpeakerVolumeAndCapture(ips, volumes, captures, boosts);
+			auto status = Handle::setSpeakerAudioSettings(ips, volumes, captures, boosts);
 			
-			Packet packet;
-			packet.addHeader(PACKET_SET_SPEAKER_VOLUME_AND_CAPTURE);
 			packet.addBool(status);
-			packet.finalize();
-			
-			network.addOutgoingPacket(connection.getSocket(), packet);
 			break;
 		}
 		
@@ -78,10 +65,8 @@ static void handle(NetworkCommunication& network, Connection& connection, Packet
 			for (int i = 0; i < num_ips; i++)
 				ips.push_back(input_packet.getString());
 				
-			vector<SpeakerPlacement> placements = Handle::handleRunLocalization(ips, Config::get<bool>("no_scripts"));
+			vector<SpeakerPlacement> placements = Handle::runLocalization(ips, Config::get<bool>("no_scripts"));
 			
-			Packet packet;
-			packet.addHeader(PACKET_START_LOCALIZATION);
 			packet.addInt(placements.size());
 			
 			for (auto& speaker : placements) {
@@ -99,61 +84,13 @@ static void handle(NetworkCommunication& network, Connection& connection, Packet
 				});
 			}
 			
-			packet.finalize();
-			
-			network.addOutgoingPacket(connection.getSocket(), packet);
 			break;
-		}
-		
-		case PACKET_TEST_SPEAKER_DBS: {
-			vector<string> ips;
-			int num_ips = input_packet.getInt();
-			
-			for (int i = 0; i < num_ips; i++)
-				ips.push_back(input_packet.getString());
-				
-			int play_time = input_packet.getInt();
-			int idle_time = input_packet.getInt();
-			int num_external = input_packet.getInt();
-			bool normalize = input_packet.getBool();
-			
-			for (int i = 0; i < num_external; i++)
-				ips.push_back(input_packet.getString());
-				
-			auto results = Handle::handleTestSpeakerdBs(ips, play_time, idle_time, num_external, Config::get<bool>("no_scripts"), normalize);
-			
-			Packet packet;
-			packet.addHeader(PACKET_TEST_SPEAKER_DBS);
-			packet.addInt(results.size());
-			
-			for (size_t i = 0; i < results.size(); i++) {
-				auto& listening_ip = results.at(i).first;
-				auto& result = results.at(i).second;
-				
-				packet.addString(listening_ip);
-				packet.addInt(result.size());
-				
-				for (auto& db : result) {
-					packet.addString(db.first);
-					packet.addFloat(db.second);
-				}
-			}
-			
-			packet.finalize();
-			
-			network.addOutgoingPacket(connection.getSocket(), packet);
-			break;	
 		}
 		
 		case PACKET_PARSE_SERVER_CONFIG: {
 			Config::clear();
 			Config::parse("config");
 			
-			Packet packet;
-			packet.addHeader(PACKET_PARSE_SERVER_CONFIG);
-			packet.finalize();
-			
-			network.addOutgoingPacket(connection.getSocket(), packet);
 			break;
 		}
 		
@@ -164,10 +101,8 @@ static void handle(NetworkCommunication& network, Connection& connection, Packet
 			for (int i = 0; i < num_speakers; i++)
 				ips.push_back(input_packet.getString());
 				
-			auto answer = Handle::checkSpeakerOnline(ips);
-			
-			Packet packet;
-			packet.addHeader(PACKET_CHECK_SPEAKERS_ONLINE);
+			auto answer = Handle::checkSpeakersOnline(ips);
+
 			packet.addInt(num_speakers);
 			
 			for (int i = 0; i < num_speakers; i++) {
@@ -175,8 +110,6 @@ static void handle(NetworkCommunication& network, Connection& connection, Packet
 				packet.addBool(answer.at(i));
 			}
 			
-			packet.finalize();
-			network.addOutgoingPacket(connection.getSocket(), packet);
 			break;
 		}
 		
@@ -195,10 +128,8 @@ static void handle(NetworkCommunication& network, Connection& connection, Packet
 			for (int i = 0; i < num_mics; i++)
 				mics.push_back(input_packet.getString());
 				
-			auto answer = Handle::handleSoundImage(speakers, mics, play_time, idle_time);
-			
-			Packet packet;
-			packet.addHeader(PACKET_CHECK_SOUND_IMAGE);
+			auto answer = Handle::checkSoundImage(speakers, mics, play_time, idle_time);
+
 			packet.addInt(answer.size());
 			
 			for (auto& peer : answer) {
@@ -208,9 +139,7 @@ static void handle(NetworkCommunication& network, Connection& connection, Packet
 				for (auto& db : peer.second)
 					packet.addFloat(db);
 			}
-			
-			packet.finalize();
-			network.addOutgoingPacket(connection.getSocket(), packet);
+
 			break;
 		}
 		
@@ -228,25 +157,15 @@ static void handle(NetworkCommunication& network, Connection& connection, Packet
 				
 			auto answer = Handle::setEQ(speakers, settings);
 			
-			Packet packet;
-			packet.addHeader(PACKET_SET_EQ);
 			packet.addBool(answer);
-			packet.finalize();	
-			network.addOutgoingPacket(connection.getSocket(), packet);
 			break;
 		}
 		
-		default: {
-			cout << "Debug: got some random packet, answering with empty packet\n";
-			
-			Packet packet;
-			packet.addHeader(0x00);
-			packet.finalize();
-			
-			network.addOutgoingPacket(connection.getSocket(), packet);
-			break;
-		}
+		default: cout << "Debug: got some random packet, answering with empty packet\n";
 	}
+	
+	packet.finalize();
+	network.addOutgoingPacket(connection.getSocket(), packet);
 }
 
 static void start(unsigned short port) {

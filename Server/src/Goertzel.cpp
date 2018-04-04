@@ -11,7 +11,7 @@ using namespace std;
 static const int FREQ_N = 16;
 static const int FREQ_FREQ = 4000;
 static const double FREQ_REDUCING = 0.001;
-static const double FREQ_THRESHOLD = 0.05;
+static const double FREQ_THRESHOLD = 0.01;
 
 static double calculateDistance(Recording& master, Recording& recording) {
 	long long r12 = recording.getTonePlayingWhen(master.getId());
@@ -36,32 +36,23 @@ static double calculateDistance(Recording& master, Recording& recording) {
 	return abs(Tp_sec * 343);
 }
 
-static vector<Recording> analyzeSound(const vector<string>& filenames, const vector<string>& ips) {
-	vector<Recording> recordings;
-	
+static void analyzeSound(const vector<string>& filenames, const vector<string>& ips, vector<Recording>& recordings) {
 	for (size_t i = 0; i < filenames.size(); i++) {
 		string filename = filenames.at(i);
 		
-		recordings.push_back(Recording(ips.at(i)));
+		recordings.push_back(Recording(ips.at(i), i));
 		
 		Recording& recording = recordings.back();
 		WavReader::read(filename, recording.getData());
 		
 		if (recording.getData().empty())
-			return vector<Recording>();
-		
-		//cout << "Playing length: " << (Config::get<int>("speaker_play_length") + 1) * 48000 << endl;
-		
+			return;
+				
 		recording.findStartingTones(filenames.size(), FREQ_N, FREQ_THRESHOLD, FREQ_REDUCING, FREQ_FREQ, (Config::get<int>("speaker_play_length") + 1) * 48000, Config::get<int>("idle_time"));
 	}
-	
-	return recordings;
 }
 
 static Localization3DInput runDistanceCalculation(const vector<string>& ips, vector<Recording>& recordings) {
-	//cout << recordings.size() << endl;
-	//cout << ips.size() << endl;
-	
 	Localization3DInput output;
 	
 	for (size_t i = 0; i < recordings.size(); i++) {
@@ -96,19 +87,12 @@ static Localization3DInput runDistanceCalculation(const vector<string>& ips, vec
 	}
 	
 	return output;
-	
-	/*
-	writeLocalization(recordings);
-	writeLocalization3D(recordings);
-	
-	if (g_settings.has("-ws"))
-		writeServerResults(recordings);
-		*/
 }
 
 namespace Goertzel {
 	Localization3DInput runGoertzel(const vector<string>& ips) {
 		vector<string> filenames;
+		vector<Recording> recordings;
 		
 		for (auto& ip : ips) {
 			string filename = "results/cap";
@@ -118,7 +102,7 @@ namespace Goertzel {
 			filenames.push_back(filename);
 		}
 		
-		auto recordings = analyzeSound(filenames, ips);
+		analyzeSound(filenames, ips, recordings);
 		
 		if (recordings.empty())
 			return Localization3DInput();

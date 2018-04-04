@@ -8,10 +8,11 @@
 
 using namespace std;
 
-Recording::Recording(const string& ip) :
+Recording::Recording(const string& ip, int id) :
 	ip_(ip) {
-	static int id;
-	id_ = id++;
+	id_ = id;
+	
+	cout << "Setting Recording ID to " << id_ << endl;
 }
 
 vector<short>& Recording::getData() {
@@ -72,13 +73,31 @@ static double goertzel(int numSamples,float TARGET_FREQUENCY,int SAMPLING_RATE, 
     return magnitude;
 }
 
+static short getRMS(const vector<short>& data, size_t start, size_t end) {
+	unsigned long long sum = 0;
+	
+	for (size_t i = start; i < end; i++)
+		sum += (data.at(i) * data.at(i));
+		
+	sum /= (end - start);
+	
+	return sqrt(sum);
+}
+
 void Recording::findStartingTones(int num_recordings, const int N, double threshold, double reducing, int frequency, int total_play_time_frames, int idle_time) {
 	double dft;
 	double orig_threshold = threshold;
 	size_t current_i = idle_time * 48000 - 0.5 * (double)48000; // Should start at g_playingLength - 0.5 sec
 	size_t frame_ending = ((double)idle_time - 0.5) * 48000 + total_play_time_frames;
 	
-	//cout << "Checking first tone at " << current_i / (double)48000 << " to " << frame_ending / (double)48000 << "\n";
+	cout << "Checking first tone at " << current_i / (double)48000 << " to " << frame_ending / (double)48000 << "\n";
+	
+	// Check noise level
+	short noise = getRMS(data_, 0, (1.5 * 48000));
+	double noise_dft = goertzel(1.5 * 48000, frequency, 48000, data_.data()) / static_cast<double>(SHRT_MAX);
+	
+	cout << "Noise level: " << noise << endl;
+	cout << "Noise goertzel: " << noise_dft << endl;
 	
 	for (int i = 0; i < num_recordings; i++) {
 		threshold = orig_threshold;
@@ -99,7 +118,8 @@ void Recording::findStartingTones(int num_recordings, const int N, double thresh
 					
 					//cout << "delta_current " << delta_current << endl;
 					
-					//cout << "Found tone, checking " << current_i / (double)48000 << " to " << frame_ending / (double)48000 << " now\n";
+					if (i + 1 != num_recordings)
+						cout << "Found tone, checking " << current_i / (double)48000 << " to " << frame_ending / (double)48000 << " now\n";
 					
 					found = true;
 					break;

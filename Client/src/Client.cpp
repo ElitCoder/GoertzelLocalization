@@ -7,14 +7,11 @@
 using namespace std;
 
 enum {
-	PACKET_GET_SPEAKER_VOLUME_AND_CAPTURE = 1,
-	PACKET_SET_SPEAKER_VOLUME_AND_CAPTURE,
+	PACKET_SET_SPEAKER_VOLUME_AND_CAPTURE = 1,
 	PACKET_START_LOCALIZATION,
-	PACKET_TEST_SPEAKER_DBS,
 	PACKET_PARSE_SERVER_CONFIG,
 	PACKET_CHECK_SPEAKERS_ONLINE,
 	PACKET_CHECK_SOUND_IMAGE,
-	PACKET_CHECK_OWN_SOUND_LEVEL,
 	PACKET_SET_EQ
 };
 
@@ -179,6 +176,7 @@ void startSpeakerLocalizationAll() {
 	}
 }
 
+/*
 Packet createSpeakerdB(vector<string>& ips, vector<string>& external_ips, bool normalize) {
 	Packet packet;
 	packet.addHeader(PACKET_TEST_SPEAKER_DBS);
@@ -198,7 +196,9 @@ Packet createSpeakerdB(vector<string>& ips, vector<string>& external_ips, bool n
 	packet.finalize();
 	return packet;
 }
+*/
 
+/*
 void speakerdB() {
 	cout << "Setting normal speaker settings.. " << flush;
 	setSpeakerSettings(SPEAKER_MAX_VOLUME, SPEAKER_MAX_CAPTURE, SPEAKER_CAPTURE_BOOST_NORMAL);
@@ -234,6 +234,7 @@ void speakerdB() {
 	
 	cout << endl;
 }
+*/
 
 Packet createParseServerConfig() {
 	Packet packet;
@@ -415,60 +416,6 @@ MicrophoneDBs getMicrophoneDBs(Packet& packet) {
 	return mic_dbs;
 }
 
-void checkAttenuation() {
-	cout << "Setting normal speaker settings.. " << flush;
-	setSpeakerSettings(SPEAKER_MAX_VOLUME, SPEAKER_MAX_CAPTURE, SPEAKER_CAPTURE_BOOST_NORMAL);
-	cout << "done\n";
-	
-	cout << "Calculating non-normalized dB for -0 dB speaker settings.. " << flush;
-	g_network->pushOutgoingPacket(createSpeakerdB(g_ips, g_external_microphones, false));
-	Packet answer = g_network->waitForIncomingPacket();
-	auto high = getMicrophoneDBs(answer);
-	cout << "done\n\n";
-	
-	cout << "Setting lower speaker settings.. " << flush;
-	setSpeakerSettings(SPEAKER_MAX_VOLUME - 6, SPEAKER_MAX_CAPTURE, SPEAKER_CAPTURE_BOOST_NORMAL);
-	cout << "done\n";
-	
-	cout << "Calculating non-normalized dB for -6 dB speaker settings.. " << flush;
-	g_network->pushOutgoingPacket(createSpeakerdB(g_ips, g_external_microphones, false));
-	auto answer_low = g_network->waitForIncomingPacket();
-	auto low = getMicrophoneDBs(answer_low);
-	cout << "done\n\n";
-	
-	cout << "Setting lowest speaker settings.. " << flush;
-	setSpeakerSettings(SPEAKER_MAX_VOLUME - 12, SPEAKER_MAX_CAPTURE, SPEAKER_CAPTURE_BOOST_NORMAL);
-	cout << "done\n";
-	
-	cout << "Calculating non-normalized dB for -12 dB speaker settings.. " << flush;
-	g_network->pushOutgoingPacket(createSpeakerdB(g_ips, g_external_microphones, false));
-	auto answer_lower = g_network->waitForIncomingPacket();
-	auto lower = getMicrophoneDBs(answer_lower);
-	cout << "done\n\n";
-	
-	for (size_t i = 0; i < high.size(); i++) {
-		cout << "Microphone " << high.at(i).first << endl;
-		
-		for (size_t j = 0; j < high.at(i).second.size(); j++) {
-			double db_high = high.at(i).second.at(j).second;
-			double db_low = low.at(i).second.at(j).second;
-			double db_lower = lower.at(i).second.at(j).second;
-			
-			double change_lower_low = db_lower - db_low;
-			double change_low_high = db_low - db_high;
-			
-			cout << "Speaker " << high.at(i).second.at(j).first << " ";
-			cout << change_lower_low << " - " << change_low_high << endl;
-			
-			cout << "High: " << db_high << endl;
-			cout << "Low: " << db_low << endl;
-			cout << "Lower: " << db_lower << endl;
-		}
-		
-		cout << endl;
-	}
-}
-
 void run(const string& host, unsigned short port) {
 	cout << "Connecting to server.. ";
 	NetworkCommunication network(host, port);
@@ -481,9 +428,7 @@ void run(const string& host, unsigned short port) {
 		cout << "2. Reparse server config\n";
 		cout << "3. Start speaker localization script (only speakers)\n";
 		cout << "4. Start speaker localization script (all IPs)\n";
-		cout << "5. Check speaker dB effect (deprecated by 7)\n";
-		cout << "6. Check sound image\n";
-		cout << "7. Check attenuation for each speaker to microphone\n";
+		cout << "5. Check sound image\n";
 		cout << "\n: ";
 		
 		int input;
@@ -504,13 +449,7 @@ void run(const string& host, unsigned short port) {
 			case 4: startSpeakerLocalizationAll();
 				break;
 				
-			case 5: speakerdB();
-				break;
-				
-			case 6: soundImage();
-				break;
-				
-			case 7: checkAttenuation();
+			case 5: soundImage();
 				break;
 				
 			default: cout << "Wrong input format!\n";

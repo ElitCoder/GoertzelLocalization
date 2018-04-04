@@ -3,89 +3,46 @@
 #include "Config.h"
 #include "Localization3D.h"
 #include "Goertzel.h"
+#include "Base.h"
 
-#include <libnessh/SSHMaster.h>
-
-// libcurlpp
-#include <curlpp/cURLpp.hpp>
-#include <curlpp/Options.hpp>
-#include <curlpp/Easy.hpp>
-
-#include <sstream>
 #include <iostream>
-#include <fstream>
 #include <cmath>
-#include <memory>
 #include <algorithm>
 #include <climits>
-#include <cassert>
-#include <thread>
 
 using namespace std;
 
-static SSHOutput runSSHScript(const vector<string>& ips, const vector<string>& commands) {
-	if (ips.size() != commands.size()) {
-		cout << "Error: ips.size() != commands.size()\n";
-		
+static SSHOutput runBasicScriptExternal(const vector<string>& speakers, const vector<string>& mics, const vector<string>& all_ips, const vector<string>& scripts, const string& send_from, const string& send_to) {
+	if (!Base::system().sendFile(speakers, send_from, send_to))
 		return SSHOutput();
-	}
+		
+	auto output = Base::system().runScript(all_ips, scripts);
 	
-	SSHMaster master;
-	
-	cout << "SSH: connecting to clients.. " << flush;
-	if (!master.connect(ips, "pass"))
+	if (output.empty())
+		return output;
+		
+	if (!Base::system().getRecordings(mics))
 		return SSHOutput();
-	cout << "done\n";
-	
-	for (size_t i = 0; i < ips.size(); i++) {
-		cout << "SSH: running command (" << ips.at(i) << ")\n**************\n";
-		cout << commands.at(i) << "**************\n\n";
-	}
-	
-	cout << "SSH: running commands.. " << flush;	
-	master.setSetting(SETTING_ENABLE_SSH_OUTPUT_VECTOR_STYLE, true);
-	auto outputs = master.command(ips, commands);
-	master.setSetting(SETTING_ENABLE_SSH_OUTPUT_VECTOR_STYLE, false);
-	cout << "done\n";
-	
-	return outputs;	
+		
+	return output;
 }
 
-static bool sendSSHFile(const vector<string>& ips, string from, string to) {
-	SSHMaster master;
-	
-	cout << "SSH: connecting to clients.. " << flush;
-	if (!master.connect(ips, "pass"))
-		return false;
-	cout << "done\n";
-		
-	vector<string> froms(ips.size(), from);
-	vector<string> tos(ips.size(), to);
-		
-	cout << "SSH: transferring to remote.. " << flush;
-	auto status = master.transferRemote(ips, froms, tos);
-	cout << "done\n";
-	
-	return status;
+static SSHOutput runBasicScript(const vector<string>& ips, const vector<string>& scripts, const string& send_from, const string& send_to) {
+	return runBasicScriptExternal(ips, ips, ips, scripts, send_from, send_to);
 }
 
-static bool getSSHFile(const vector<string>& ips, vector<string>& from, vector<string>& to) {
-	SSHMaster master;
+static short getRMS(const vector<short>& data, size_t start, size_t end) {
+	unsigned long long sum = 0;
 	
-	cout << "SSH: connecting to clients.. " << flush;
-	if (!master.connect(ips, "pass"))
-		return false;
-	cout << "done\n";
+	for (size_t i = start; i < end; i++)
+		sum += (data.at(i) * data.at(i));
 		
-	cout << "SSH: transferring to local.. " << flush;
-	auto status = master.transferLocal(ips, from, to, true);
-	cout << "done\n";
+	sum /= (end - start);
 	
-	return status;
+	return sqrt(sum);
 }
 
-// TODO: this should be done async later on (if necessary)
-bool Handle::handleSetSpeakerVolumeAndCapture(const vector<string>& ips, const vector<int>& volumes, const vector<int>& captures, const vector<int>& boosts) {
+bool Handle::setSpeakerAudioSettings(const vector<string>& ips, const vector<int>& volumes, const vector<int>& captures, const vector<int>& boosts) {
 	vector<string> commands;
 	
 	for (size_t i = 0; i < volumes.size(); i++) {
@@ -102,7 +59,7 @@ bool Handle::handleSetSpeakerVolumeAndCapture(const vector<string>& ips, const v
 		commands.push_back(command);
 	}
 	
-	return !runSSHScript(ips, commands).empty();
+	return !Base::system().runScript(ips, commands).empty();
 }
 
 static vector<string> createRunLocalizationScripts(const vector<string>& ips, int play_time, int idle_time, int extra_recording, const string& file) {
@@ -111,7 +68,7 @@ static vector<string> createRunLocalizationScripts(const vector<string>& ips, in
 	for (size_t i = 0; i < ips.size(); i++) {
 		string script =	"systemctl stop audio*\n";
 		script +=		"arecord -D audiosource -r 48000 -f S16_LE -c 1 -d ";
-		script +=		to_string(idle_time * 2 + ips.size() * (1 + play_time) + extra_recording);
+		script +=		to_string(idle_time * 2 + ips.size() * (1 + play_time) + extra_recording - 1 /* no need for one extra second */);
 		script +=		" /tmp/cap";
 		script +=		ips.at(i);
 		script +=		".wav &\n";
@@ -137,7 +94,7 @@ void printSSHOutput(SSHOutput outputs) {
 			cout << "SSH (" << output.first << "): " << line << endl;
 }
 
-vector<SpeakerPlacement> Handle::handleRunLocalization(const vector<string>& ips, bool skip_script) {
+vector<SpeakerPlacement> Handle::runLocalization(const vector<string>& ips, bool skip_script) {
 	if (!skip_script) {
 		// Create scripts
 		int play_time = Config::get<int>("speaker_play_length");
@@ -146,23 +103,7 @@ vector<SpeakerPlacement> Handle::handleRunLocalization(const vector<string>& ips
 		
 		auto scripts = createRunLocalizationScripts(ips, play_time, idle_time, extra_recording, Config::get<string>("goertzel"));
 		
-		// Transfer test file
-		if (!sendSSHFile(ips, "data/" + Config::get<string>("goertzel"), "/tmp/"))
-			return vector<SpeakerPlacement>();
-		
-		// Send scripts
-		printSSHOutput(runSSHScript(ips, scripts));
-		
-		// Get recordings
-		vector<string> from;
-		vector<string> to;
-		
-		for (auto& ip : ips) {
-			from.push_back("/tmp/cap" + ip + ".wav");
-			to.push_back("results");
-		}
-		
-		if (!getSSHFile(ips, from, to))
+		if (runBasicScript(ips, scripts, "data/" + Config::get<string>("goertzel"), "/tmp/").empty())
 			return vector<SpeakerPlacement>();
 	}
 	
@@ -179,12 +120,9 @@ vector<SpeakerPlacement> Handle::handleRunLocalization(const vector<string>& ips
 		SpeakerPlacement speaker(ips.at(i));
 		auto& master = distances.at(i);
 		
-		for (size_t j = 0; j < master.second.size(); j++) {
-		//	cout << "Add distance from " << ips.at(i) << " to " << ips.at(j) << " at " << master.second.at(j) << endl;
-			
+		for (size_t j = 0; j < master.second.size(); j++)
 			speaker.addDistance(ips.at(j), master.second.at(j));
-		}
-		
+
 		speaker.setCoordinates(placement.at(i));
 		speakers.push_back(speaker);
 	}
@@ -192,245 +130,14 @@ vector<SpeakerPlacement> Handle::handleRunLocalization(const vector<string>& ips
 	return speakers;
 }
 
-static vector<string> createTestSpeakerdBsScripts(const vector<string>& ips, int play_time, int idle_time, const string& file) {
-	vector<string> scripts;
+vector<bool> Handle::checkSpeakersOnline(const vector<string>& ips) {
+	vector<bool> online;
 	
-	for (size_t i = 0; i < ips.size(); i++) {
-		string script =	"systemctl stop audio*\n";
-		script +=		"arecord -D audiosource -r 48000 -f S16_LE -c 1 -d ";
-		script +=		to_string(idle_time * 3 + ips.size() * (1 + play_time));
-		script +=		" /tmp/cap";
-		script +=		ips.at(i);
-		script +=		".wav &\n";
-		script +=		"proc1=$1\n";
-		script +=		"sleep ";
-		script +=		to_string(idle_time + i * (play_time + 1));
-		script +=		"\n";
-		script +=		"aplay -D localhw_0 -r 48000 -f S16_LE /tmp/";
-		script +=		file;
-		script +=		"\n";
-		script +=		"wait $proc1\n";
-		script +=		"systemctl start audio-conf; wait\n";
-		
-		scripts.push_back(script);
-	}
+	for_each(ips.begin(), ips.end(), [&online] (auto& ip) {
+		online.push_back(Base::system().checkConnection({ ip }));
+	});
 	
-	return scripts;
-}
-
-static short getRMS(const vector<short>& data, size_t start, size_t end) {
-	unsigned long long sum = 0;
-	
-	for (size_t i = start; i < end; i++)
-		sum += (data.at(i) * data.at(i));
-		
-	sum /= (end - start);
-	
-	return sqrt(sum);
-}
-
-static vector<string> createTestSpeakerdBsListeningScripts(const vector<string>& listening_ips, int num_playing, int play_time, int idle_time) {
-	vector<string> scripts;
-	
-	for (size_t i = 0; i < listening_ips.size(); i++) {
-		string script =	"systemctl stop audio*\n";
-		script +=		"arecord -D audiosource -r 48000 -f S16_LE -c 1 -d ";
-		script +=		to_string(idle_time * 3 + num_playing * (1 + play_time));
-		script +=		" /tmp/cap";
-		script +=		listening_ips.at(i);
-		script +=		".wav\n";
-		script +=		"systemctl start audio-conf; wait\n";
-		
-		scripts.push_back(script);
-	}
-	
-	return scripts;
-}
-
-static vector<string> createTestSpeakerdBsPlayingScripts(const vector<string>& playing_ips, int play_time, int idle_time, const string& filename) {
-	vector<string> scripts;
-	
-	for (size_t i = 0; i < playing_ips.size(); i++) {
-		string script =	"systemctl stop audio*\n";
-		script +=		"sleep ";
-		script +=		to_string(idle_time + i * (play_time + 1));
-		script +=		"\n";
-		script +=		"aplay -D localhw_0 -r 48000 -f S16_LE /tmp/";
-		script +=		filename;
-		script +=		"\n";
-		script +=		"systemctl start audio-conf; wait\n";
-		
-		scripts.push_back(script);
-	}
-	
-	return scripts;
-}
-
-static void testSpeakerdBsExternal(const vector<string>& playing_ips, const vector<string>& listening_ips, int play_time, int idle_time) {
-	cout << "Playing IPs:\n";
-	for_each(playing_ips.begin(), playing_ips.end(), [] (const string& ip) { cout << ip << endl; });
-	cout << "Listening IPs:\n";
-	for_each(listening_ips.begin(), listening_ips.end(), [] (const string& ip) { cout << ip << endl; });
-	
-	auto listening_scripts = createTestSpeakerdBsListeningScripts(listening_ips, playing_ips.size(), play_time, idle_time);
-	auto playing_scripts = createTestSpeakerdBsPlayingScripts(playing_ips, play_time, idle_time, Config::get<string>("white_noise"));
-	
-	// Combine all scripts into one SSHMaster call
-	vector<string> all_ips;
-	all_ips.insert(all_ips.end(), playing_ips.begin(), playing_ips.end());
-	all_ips.insert(all_ips.end(), listening_ips.begin(), listening_ips.end());
-	
-	vector<string> all_commands;
-	all_commands.insert(all_commands.end(), playing_scripts.begin(), playing_scripts.end());
-	all_commands.insert(all_commands.end(), listening_scripts.begin(), listening_scripts.end());
-	
-	// Send test tone to playing IPs
-	if (!sendSSHFile(playing_ips, "data/" + Config::get<string>("white_noise"), "/tmp/"))
-		return;
-		
-	printSSHOutput(runSSHScript(all_ips, all_commands));
-	
-	// Get resulting files
-	vector<string> from;
-	vector<string> to;
-	
-	for (auto& ip : listening_ips) {
-		from.push_back("/tmp/cap" + ip + ".wav");
-		to.push_back("results");
-	}
-	
-	if (!getSSHFile(listening_ips, from, to))
-		return;
-}
-
-SpeakerdBs Handle::handleTestSpeakerdBs(const vector<string>& speakers, const vector<string>& mics, int play_time, int idle_time) {
-	vector<string> all_ips(speakers);
-	all_ips.insert(all_ips.end(), mics.begin(), mics.end());
-	
-	return handleTestSpeakerdBs(all_ips, play_time, idle_time, mics.size(), false);
-}
-
-SpeakerdBs Handle::handleTestSpeakerdBs(const vector<string>& ips, int play_time, int idle_time, int num_external, bool skip_script, bool do_normalize) {
-	if (do_normalize)
-		cout << "Debug: normalizing output\n";
-		
-	vector<string> playing_ips = vector<string>(ips.begin(), ips.begin() + (ips.size() - num_external));
-	vector<string> listening_ips = vector<string>(ips.begin() + (ips.size() - num_external), ips.end());
-	
-	if (!skip_script) {
-		if (num_external > 0) {
-			testSpeakerdBsExternal(playing_ips, listening_ips, play_time, idle_time);
-		} else {
-			auto scripts = createTestSpeakerdBsScripts(ips, play_time, idle_time, Config::get<string>("white_noise"));
-			
-			// Transfer test file
-			if (!sendSSHFile(ips, "data/" + Config::get<string>("white_noise"), "/tmp/"))
-				return SpeakerdBs();
-			
-			// Send scripts
-			printSSHOutput(runSSHScript(ips, scripts));
-			
-			// Get resulting files
-			vector<string> from;
-			vector<string> to;
-			
-			for (auto& ip : ips) {
-				from.push_back("/tmp/cap" + ip + ".wav");
-				to.push_back("results");
-			}
-			
-			if (!getSSHFile(ips, from, to))
-				return SpeakerdBs();
-		}
-	}
-	
-	// Make sure only the listening IPs are used in the calculation
-	if (num_external == 0)
-		listening_ips = playing_ips;
-	
-	// TODO: maybe noise levels are more accurate to use since they represent how loud the mic is supposedly recording
-	//		 instead of normalizing on own speaker volume which is recorded
-	// Analyze files
-	SpeakerdBs results;
-	size_t normalized_noise = 0;
-	
-	for (size_t i = 0; i < listening_ips.size(); i++) {
-		string filename = "results/cap" + listening_ips.at(i) + ".wav";
-		
-		vector<short> data;
-		WavReader::read(filename, data);
-		
-		if (data.empty())
-			return SpeakerdBs();
-
-		size_t noise_start = idle_time + playing_ips.size() * (play_time + 1);
-		noise_start *= 48000;
-		size_t noise_level = getRMS(data, noise_start, data.size());
-		
-		if (normalized_noise == 0)
-			normalized_noise = noise_level;
-		
-		cout << "Debug: noise_level " << noise_level << endl;
-		cout << "Debug: normalized_noise " << normalized_noise << endl;
-			
-		double normalize = (double)normalized_noise / noise_level;
-		
-		cout << "Debug: normalize " << normalize << endl;
-			
-		vector<pair<string, double>> decibels;		
-			
-		for (size_t j = 0; j < playing_ips.size(); j++) {
-			size_t record_at = static_cast<double>((idle_time + j * (play_time + 1) + 0.3) * 48000);
-			size_t average = getRMS(data, record_at, record_at + (48000 / 2));
-			size_t average_normalized = average;
-			
-			if (do_normalize)
-				average_normalized *= normalize;
-			
-			cout << "Debug: sound_average " << average << endl;
-			cout << "Debug: sound_average_normalized " << average_normalized << endl;
-			
-			double db = 20 * log10(average_normalized / (double)SHRT_MAX);
-			
-			cout << "IP " << listening_ips.at(i) << " hears " << playing_ips.at(j) << " at " << db << " dB\n";
-			
-			decibels.push_back({ playing_ips.at(j), db });
-		}
-		
-		results.push_back({ listening_ips.at(i), decibels });
-	}
-	
-	return results;
-}
-
-static void enableSSH(const vector<string>& ips) {
-	for (auto& ip : ips) {
-		curlpp::Cleanup clean;
-		string disable_string = "http://";
-		disable_string += ip;
-		disable_string += "/axis-cgi/admin/param.cgi?action=update&Network.SSH.Enabled=yes";
-		
-		curlpp::Easy request;
-		ostringstream stream;
-		
-		request.setOpt(curlpp::options::Url(disable_string)); 
-		request.setOpt(curlpp::options::UserPwd(string("root:pass")));
-		request.setOpt(curlpp::options::HttpAuth(CURLAUTH_ANY));
-		request.setOpt(curlpp::options::WriteStream(&stream));
-		
-		request.perform();
-				
-		if (stream.str() != "OK")
-			cout << "Warning: could not enable SSH in speaker " << ip << ", wrong username & password set?\n";
-	}
-}
-
-vector<bool> Handle::checkSpeakerOnline(const vector<string>& ips) {
-	// Enable SSH on every device first
-	enableSSH(ips);
-	
-	SSHMaster master;
-	return master.connectResult(ips, "pass");
+	return online;
 }
 
 static vector<string> createSoundImageScripts(const vector<string>& speakers, const vector<string>& mics, int play_time, int idle_time, const string& filename) {
@@ -511,31 +218,15 @@ static vector<double> getFFT9(const vector<short>& data, size_t start, size_t en
 	return { freq63, freq125, freq250, freq500, freq1000, freq2000, freq4000, freq8000, freq16000 };
 } 
 
-SoundImageFFT9 Handle::handleSoundImage(const vector<string>& speakers, const vector<string>& mics, int play_time, int idle_time) {
+SoundImageFFT9 Handle::checkSoundImage(const vector<string>& speakers, const vector<string>& mics, int play_time, int idle_time) {
 	if (!Config::get<bool>("no_scripts")) {
 		// Get sound image from available microphones
-		// TODO: Include external microphone placements
 		auto scripts = createSoundImageScripts(speakers, mics, play_time, idle_time, Config::get<string>("white_noise"));
 		
 		vector<string> all_ips(speakers);
 		all_ips.insert(all_ips.end(), mics.begin(), mics.end());
 		
-		if (!sendSSHFile(speakers, "data/" + Config::get<string>("white_noise"), "/tmp/"))
-			return SoundImageFFT9();
-		
-		// Send scripts
-		printSSHOutput(runSSHScript(all_ips, scripts));
-		
-		// Get resulting files
-		vector<string> from;
-		vector<string> to;
-		
-		for (auto& ip : mics) {
-			from.push_back("/tmp/cap" + ip + ".wav");
-			to.push_back("results");
-		}
-		
-		if (!getSSHFile(mics, from, to))
+		if (runBasicScriptExternal(speakers, mics, all_ips, scripts, "data/" + Config::get<string>("white_noise"), "/tmp/").empty())
 			return SoundImageFFT9();
 	}
 		
@@ -588,9 +279,5 @@ bool Handle::setEQ(const vector<string>& speakers, const vector<double>& setting
 	command.pop_back();	
 	command +=			"; wait";
 	
-	cout << "Running command: " << command << endl;
-	
-	vector<string> commands(speakers.size(), command);
-	
-	return !runSSHScript(speakers, commands).empty();
+	return !Base::system().runScript(speakers, vector<string>(speakers.size(), command)).empty();
 }

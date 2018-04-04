@@ -17,7 +17,6 @@ void WavReader::read(const string &filename, vector<short>& output) {
 		
 		return;
 	}
-	//ERROR("unable to open file %s", filename.c_str());
 		
 	header_size = fread(&header, sizeof(WavHeader), 1, file);
 	
@@ -25,10 +24,9 @@ void WavReader::read(const string &filename, vector<short>& output) {
 		cout << "Warning: could not read header from WAV\n";
 		
 		return;
-		//ERROR("could not read header");
 	}
 	
-	short			tmp;
+	short tmp;
 	
 	while (fread(&tmp, sizeof(short), 1, file) > 0)
 		output.push_back(tmp);

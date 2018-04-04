@@ -14,6 +14,8 @@ using namespace std;
 auto g_stopping = chrono::system_clock::now();
 bool g_fast_calculation = false;
 
+bool g_use_2d = false;
+
 // Needed by Point
 static bool equal(double a, double b);
 
@@ -125,7 +127,7 @@ static vector<Point> getSinglePossibles(const Point& point, double actual_distan
 		for (int omega = 0; omega < 360; omega += g_degree_accuracy) {
 			double x = point.getX() + actual_distance * cos(radians(gamma)) * sin(radians(omega));
 			double y = point.getY() + actual_distance * sin(radians(gamma)) * sin(radians(omega));
-			double z = point.getZ() + actual_distance * cos(omega);
+			double z = g_use_2d ? 0.0 : point.getZ() + actual_distance * cos(omega);
 			
 			possibles.push_back(Point(array<double, 3>({ x, y, z })));
 		}
@@ -296,16 +298,15 @@ vector<array<double, 3>> Localization3D::run(const Localization3DInput& input, b
 	g_stopping = chrono::system_clock::now() + chrono::seconds(Config::get<int>("timeout"));
 	g_fast_calculation = fast_calcuation;
 	
+	g_use_2d = Config::get<bool>("use_2d");
+	
 	bool stop = false;
 	
 	while (g_degree_accuracy > 0) {
 		cout << "Debug: trying degree " << g_degree_accuracy << endl;
 		
 		g_point_accuracy = Config::get<double>("point_accuracy");
-		
-		// Too slow with lower degree accuracy
-		if ((unsigned int)g_degree_accuracy < points.size())
-			break;
+
 		
 		while (g_point_accuracy > 0) {
 			// Check time limit here

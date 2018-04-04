@@ -99,7 +99,7 @@ static void transferLocalThreaded(SSHMaster& connections, const string& ip, cons
 	connections.setThreadedConnectionStatus(false);
 }
 
-bool SSHMaster::transferLocal(const vector<string>& ips, vector<string>& from, vector<string>& to, bool threading) {
+bool SSHMaster::transferLocal(const vector<string>& ips, const vector<string>& from, const vector<string>& to, bool threading) {
 	if (ips.empty())
 		return false;
 		
@@ -145,7 +145,7 @@ static void transferRemoteThreaded(SSHMaster& connections, const string& ip, con
 	connections.setThreadedConnectionStatus(false);
 }
 
-bool SSHMaster::transferRemote(const vector<string>& ips, vector<string>& from, vector<string>& to) {
+bool SSHMaster::transferRemote(const vector<string>& ips, const vector<string>& from, const vector<string>& to) {
 	if (ips.empty())
 		return false;
 		
