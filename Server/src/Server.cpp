@@ -132,7 +132,7 @@ static void handle(NetworkCommunication& network, Connection& connection, Packet
 			
 			SoundImageFFT9 answer;
 			
-			for (int i = 0; i < 10; i++) {
+			for (int i = 0; i < 1; i++) {
 				answer = Handle::checkSoundImage(speakers, mics, play_time, idle_time, corrected);
 				
 				if (!corrected)

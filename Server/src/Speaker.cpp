@@ -78,10 +78,6 @@ static T getMean(const vector<T>& container) {
 	for(const auto& element : container)
 		sum += element;
 		
-	cout << "sum " << sum << endl;
-	cout << "sum divided " << sum / container.size() << endl;
-	cout << "container size " << container.size() << endl;
-		
 	return lround(sum / container.size());	
 }
 
@@ -91,18 +87,18 @@ static void correctMaxEQ(vector<int>& eq) {
 	for (auto& setting : eq)
 		setting -= mean_db;
 		
-	cout << "Lower setting with " << mean_db << endl;
+	//cout << "Lower setting with " << mean_db << endl;
 	
 	// See if > max and < min
 	int min = *min_element(eq.begin(), eq.end());
 	
 	if (min > DSP_MIN_EQ) {
-		cout << "min lower is " << min << endl;
+		//cout << "min lower is " << min << endl;
 
 		// Move everything lower to fit curve
 		int delta = min - DSP_MIN_EQ;
 		
-		cout << "delta is " << delta << endl;
+		//cout << "delta is " << delta << endl;
 		
 		for (auto& setting : eq)
 			setting -= delta;
@@ -154,24 +150,18 @@ vector<int> Speaker::getBestEQ() {
 
 // Returns current EQ
 vector<int> Speaker::setCorrectionEQ(const vector<int>& eq, double score) {
-	// Only update best EQ if the score is better
+	printEQ(ip_, eq, "input");
 		
 	if (correction_eq_.empty())
 		correction_eq_ = vector<int>(9, 0);
 		
+	// Only update best EQ if the score is better
 	if (score > score_) {
 		current_best_eq = correction_eq_;
 		score_ = score;
 	}
 	
-	printEQ(ip_, correction_eq_, "old correction");
-	
-	if (!unlimited_eq_.empty()) {
-		for (size_t i = 0; i < eq.size(); i++)
-			unlimited_eq_.at(i) += eq.at(i);
-	} else {
-		unlimited_eq_ = eq;
-	}
+	//printEQ(ip_, correction_eq_, "old correction");
 	
 	if (!correction_eq_.empty()) {
 		cout << "Correction EQ was not empty, adding new EQ on top\n";
@@ -182,28 +172,19 @@ vector<int> Speaker::setCorrectionEQ(const vector<int>& eq, double score) {
 		correction_eq_ = eq;
 	}
 	
-	printEQ(ip_, correction_eq_, "new correction");
+	//printEQ(ip_, correction_eq_, "new correction");
 	
 	std::vector<int> actual_eq = correction_eq_; //unlimited_eq_;
 	correctMaxEQ(actual_eq);
 	
-	printEQ(ip_, eq, "desired adding");
-	printEQ(ip_, unlimited_eq_, "unlimited");
-	printEQ(ip_, actual_eq, "actual");
+	//printEQ(ip_, eq, "desired adding");
+	printEQ(ip_, actual_eq, "setting");
 	
 	correction_eq_ = actual_eq;
 	
-	printEQ(ip_, correction_eq_, "final correction");
+	//printEQ(ip_, correction_eq_, "final correction");
 	
 	return correction_eq_;
-}
-
-void Speaker::setTargetMeanDB(double mean) {
-	mean_db_ = mean;
-}
-
-double Speaker::getTargetMeanDB() const {
-	return mean_db_;
 }
 
 void Speaker::setFlatResults(const vector<double>& dbs) {
@@ -221,6 +202,32 @@ vector<double> Speaker::getFlatResults() const {
 	}
 	
 	return flat_results_;
+}
+
+void Speaker::setFrequencyResponseFrom(const string& ip, const vector<double>& dbs) {
+	auto iterator = find_if(mic_frequency_responses_.begin(), mic_frequency_responses_.end(), [&ip] (auto& peer) {
+		return peer.first == ip;
+	});
+	
+	if (iterator == mic_frequency_responses_.end())
+		mic_frequency_responses_.push_back({ ip, dbs });
+	else
+		(*iterator) = { ip, dbs };
+		
+	cout << "Frequency response from: " << ip << " is ";
+	for_each(dbs.begin(), dbs.end(), [] (auto& value) { cout << value << " "; });
+	cout << endl;
+}
+
+vector<double> Speaker::getFrequencyResponseFrom(const string& ip) const {
+	auto iterator = find_if(mic_frequency_responses_.begin(), mic_frequency_responses_.end(), [&ip] (auto& peer) {
+		return peer.first == ip;
+	});
+	
+	if (iterator == mic_frequency_responses_.end())
+		return vector<double>();
+	else
+		return iterator->second;
 }
 
 /*

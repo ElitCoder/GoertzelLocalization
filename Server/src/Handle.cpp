@@ -42,20 +42,6 @@ static short getRMS(const vector<short>& data, size_t start, size_t end) {
 	return sqrt(sum);
 }
 
-constexpr char hexmap[] = { '0', '1', '2', '3', '4', '5', '6', '7',
-                           '8', '9', 'a', 'b', 'c', 'd', 'e', 'f' };
-
-static string hexStr(unsigned char *data, int len) {
-	string s(len * 2, ' ');
-	
-	for (int i = 0; i < len; ++i) {
-		s[2 * i]     = hexmap[(data[i] & 0xF0) >> 4];
-		s[2 * i + 1] = hexmap[data[i] & 0x0F];
-	}
-	
-	return s;
-}
-
 /* converts dB to linear gain */
 double dB_to_linear_gain(double x) {
     return pow(10,x/20);
@@ -255,6 +241,32 @@ static vector<string> createSoundImageScripts(const vector<string>& speakers, co
 	return scripts;
 }
 
+static vector<string> createSoundImageIndividualScripts(const vector<string>& speakers, const vector<string>& mics, int play_time, int idle_time, const string& filename) {
+	vector<string> scripts;
+	
+	for (size_t i = 0; i < speakers.size(); i++) {
+		string script = "systemctl stop audio*\n";
+		script +=		"sleep " + to_string(idle_time + i * (play_time + 1)) + "\n";
+		script +=		"aplay -D localhw_0 -r 48000 -f S16_LE /tmp/" + filename + "\n";
+		script +=		"systemctl start audio-conf; wait\n";
+		
+		scripts.push_back(script);
+	}
+	
+	for (size_t i = 0; i < mics.size(); i++) {
+		string script = "systemctl stop audio*\n";
+		script +=		"arecord -D audiosource -r 48000 -f S16_LE -c 1 -d " + to_string(idle_time + speakers.size() * (play_time + 1));
+		script +=		" /tmp/cap";
+		script +=		mics.at(i);
+		script +=		".wav\n";
+		script +=		"systemctl start audio-conf; wait\n";
+		
+		scripts.push_back(script);
+	}
+	
+	return scripts;
+}
+
 // Taken from git/SO
 static double goertzel(int numSamples,float TARGET_FREQUENCY,int SAMPLING_RATE, short* data)
 {
@@ -317,9 +329,8 @@ static T getMean(const vector<T>& container) {
 	return sum / container.size();	
 }
 
-static double getSoundImageScore(const vector<double>& dbs, double mean_db) {
-	//double mean = mean_db < 0 ? getMean(dbs) : mean_db;
-	double mean = mean_db < 0 ? getMean(dbs) : getMean(dbs);
+static double getSoundImageScore(const vector<double>& dbs) {
+	double mean = getMean(dbs);
 	double score = 0;
 	
 	vector<double> dbs_above_63(dbs.begin(), dbs.end());
@@ -342,29 +353,6 @@ static vector<int> getSoundImageCorrection(vector<double> dbs) {
 		
 		correction_eq.push_back(lround(correction));
 	}
-	
-	/*
-	// Let's just go for flat right now
-	double mean = getMean(dbs);
-	vector<int> correction_eq;
-	
-	for (auto& db : dbs) {
-		double correction = db - mean;
-		
-		correction_eq.push_back(lround(correction));
-	}
-	*/
-	
-	// Fixed in Speaker
-	/*
-	// Make sure we don't overload the DSP	
-	for (auto& setting : correction_eq) {
-		if (setting < -10)
-			setting = -10;
-		else if (setting > 10)
-			setting = 10;
-	}
-	*/
 		
 	return correction_eq;
 }
@@ -455,7 +443,12 @@ SoundImageFFT9 Handle::checkSoundImage(const vector<string>& speakers, const vec
 	
 	if (!Config::get<bool>("no_scripts")) {
 		// Get sound image from available microphones
-		auto scripts = createSoundImageScripts(speakers, mics, play_time, idle_time, Config::get<string>("white_noise"));
+		vector<string> scripts;
+		
+		if (corrected)
+			scripts = createSoundImageScripts(speakers, mics, play_time, idle_time, Config::get<string>("white_noise"));
+		else
+			scripts = createSoundImageIndividualScripts(speakers, mics, play_time, idle_time, Config::get<string>("white_noise"));
 		
 		vector<string> all_ips(speakers);
 		all_ips.insert(all_ips.end(), mics.begin(), mics.end());
@@ -475,56 +468,123 @@ SoundImageFFT9 Handle::checkSoundImage(const vector<string>& speakers, const vec
 		if (data.empty())
 			return SoundImageFFT9();
 		
-		size_t sound_start = ((double)idle_time + 0.3) * 48000;
-		size_t sound_average = getRMS(data, sound_start, sound_start + (48000 / 2));
-		
-		//cout << "Debug: sound_average " << sound_average << endl;
-		
-		double db = 20 * log10(sound_average / (double)SHRT_MAX);
-		
-		//cout << "Debug: db " << db << endl;
-		
-		// Calculate FFT for 9 band as well
-		auto db_fft = getFFT9(data, sound_start, sound_start + (48000 / 2));
-		vector<double> dbs;
-		
-		for (auto& freq : db_fft) {
-			double db_freq = 20 * log10(freq / (double)SHRT_MAX);
+		if (corrected) {
+			size_t sound_start = ((double)idle_time + 0.3) * 48000;
+			size_t sound_average = getRMS(data, sound_start, sound_start + (48000 / 2));
 			
-			dbs.push_back(db_freq);
-		}
-		
-		// Calculate score
-		auto score = getSoundImageScore(dbs, Base::system().getSpeaker(speakers.front()).getTargetMeanDB());
-		
-		// Calculate correction & set it to speakers (alpha)
-		auto correction = getSoundImageCorrection(dbs);
-		
-		for (auto* speaker : Base::system().getSpeakers(speakers)) {
-			if (!corrected) {
-				// Set flat results if not set
-				speaker->setFlatResults(dbs);
-			} else {
-				auto flat = speaker->getFlatResults();
-				auto& set = dbs;
+			//cout << "Debug: sound_average " << sound_average << endl;
+			
+			double db = 20 * log10(sound_average / (double)SHRT_MAX);
+			
+			//cout << "Debug: db " << db << endl;
+			
+			// Calculate FFT for 9 band as well
+			auto db_fft = getFFT9(data, sound_start, sound_start + (48000 / 2));
+			vector<double> dbs;
+			
+			//for (auto& freq : db_fft) {
+			for (size_t z = 0; z < db_fft.size(); z++) {
+				auto& freq = db_fft.at(z);
+				double db_freq = 20 * log10(freq / (double)SHRT_MAX);
 				
-				// Now - before
-				for (size_t d = 0; d < dbs.size(); d++) {
-					cout << flat.at(d) << " -> " << set.at(d) << "\tdifference: " << (set.at(d) - flat.at(d)) << endl;
-					cout << "Corrected was: " << speaker->getCorrectionEQ().at(d) << endl;
+				dbs.push_back(db_freq);
+			}
+			
+			// Calculate score
+			auto score = getSoundImageScore(dbs);
+			
+			// Calculate correction & set it to speakers (alpha)
+			auto correction = getSoundImageCorrection(dbs);
+			
+			// Correct EQ
+			vector<vector<double>> incoming_dbs;
+			vector<vector<int>> corrected_dbs(speakers.size());
+			
+			// See all relative DBs
+			for (size_t k = 0; k < speakers.size(); k++)
+				incoming_dbs.push_back(Base::system().getSpeaker(mics.at(i)).getFrequencyResponseFrom(speakers.at(k)));
+				
+			// Go through all frequency bands	
+			for (int d = 0; d < 9; d++) {
+				double total = 0;
+				
+				for (auto& incoming_db : incoming_dbs)
+					total += incoming_db.at(d);
+					
+				cout << "Total DB: " << total << endl;
+					
+				for (size_t e = 0; e < corrected_dbs.size(); e++) {
+					double percent = incoming_dbs.at(e).at(d) / total;
+					
+					cout << "Percent: " << percent << endl;
+					
+					corrected_dbs.at(e).push_back(lround((double)correction.at(d) * percent));
+					
+					cout << "Which means " << ((double)correction.at(d) * percent) << " of sound\n";
 				}
 			}
 			
-			auto actual_new_eq = speaker->setCorrectionEQ(correction, score);
-			//speaker->setTargetMeanDB(correction.first);
+			// Set EQs
+			auto actual_speakers = Base::system().getSpeakers(speakers);
+			
+			for (size_t d = 0; d < actual_speakers.size(); d++)
+				actual_speakers.at(d)->setCorrectionEQ(corrected_dbs.at(d), score);
+			
+			#if 0
+			for (auto* speaker : Base::system().getSpeakers(speakers)) {
+				if (!corrected) {
+					// Set flat results if not set
+					speaker->setFlatResults(dbs);
+				} else {
+					auto flat = speaker->getFlatResults();
+					auto& set = dbs;
+					
+					/*
+					// Now - before
+					for (size_t d = 0; d < dbs.size(); d++) {
+						cout << flat.at(d) << " -> " << set.at(d) << "\tdifference: " << (set.at(d) - flat.at(d)) << endl;
+						cout << "Corrected was: " << speaker->getCorrectionEQ().at(d) << endl;
+					}*/
+				}
+				
+				auto actual_new_eq = speaker->setCorrectionEQ(correction, score);
+				//speaker->setTargetMeanDB(correction.first);
+			}
+			#endif
+			
+			cout << "Current score: " << score << endl;
+			
+			// 9 band dB first, then time domain dB
+			dbs.push_back(db);
+			
+			final_result.push_back(make_tuple(mics.at(i), dbs, score));
+		} else {
+			for (size_t j = 0; j < speakers.size(); j++) {
+				size_t sound_start = ((double)idle_time + j * (play_time + 1) + 0.3) * 48000;
+				size_t sound_average = getRMS(data, sound_start, sound_start + (48000 / 2));
+				
+				//cout << "Debug: sound_average " << sound_average << endl;
+				
+				double db = 20 * log10(sound_average / (double)SHRT_MAX);
+				
+				cout << "Debug: db from " << speakers.at(j) << " is " << db << endl;
+				
+				// Calculate FFT for 9 band as well
+				auto db_fft = getFFT9(data, sound_start, sound_start + (48000 / 2));
+				vector<double> dbs;
+				
+				//for (auto& freq : db_fft) {
+				for (size_t z = 0; z < db_fft.size(); z++) {
+					auto& freq = db_fft.at(z);
+					double db_freq = 20 * log10(freq / (double)SHRT_MAX);
+					
+					dbs.push_back(db_freq);
+				}
+				
+				//DBs is vector of the current speaker with all it's frequency dBs
+				Base::system().getSpeaker(mics.at(i)).setFrequencyResponseFrom(speakers.at(j), dbs);
+			}
 		}
-		
-		cout << "Current score: " << score << endl;
-		
-		// 9 band dB first, then time domain dB
-		dbs.push_back(db);
-		
-		final_result.push_back(make_tuple(mics.at(i), dbs, score));
 	}	
 		
 	return final_result;
