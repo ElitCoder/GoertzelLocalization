@@ -42,17 +42,6 @@ Speaker::SpeakerPlacement& Speaker::getPlacement() {
 	return placement_;
 }
 
-void Speaker::setEQ(const vector<int>& eq) {
-	eq_ = eq;
-	
-	cout << "Setting (" << ip_ << ") EQ to ";
-	
-	for (auto setting : eq_)
-		cout << setting << ", ";
-		
-	cout << "\n";
-}
-
 void Speaker::setVolume(int volume) {
 	volume_ = volume;
 	
@@ -82,15 +71,61 @@ const std::vector<int>& Speaker::getCorrectionEQ() {
 }
 
 static void correctMaxEQ(vector<int>& eq) {
+	// See if > max and < min
+	int max = *max_element(eq.begin(), eq.end());
+	int min = *min_element(eq.begin(), eq.end());
+	
+	if (max > DSP_MAX_EQ && min > DSP_MIN_EQ) {
+		// Move everything lower to fit curve
+		int delta = min - DSP_MIN_EQ;
+		
+		for (auto& setting : eq)
+			setting -= delta;
+	} else if (min < DSP_MIN_EQ && max < DSP_MAX_EQ) {
+		// Move everything higher to fit curve
+		int delta = max - DSP_MAX_EQ;
+		
+		for (auto& setting : eq)
+			setting -= delta;
+	}
+	
 	for (auto& setting : eq) {
-		if (setting < -10)
-			setting = -10;
-		else if (setting > 10)
-			setting = 10;
+		if (setting < DSP_MIN_EQ)
+			setting = DSP_MIN_EQ;
+		else if (setting > DSP_MAX_EQ)
+			setting = DSP_MAX_EQ;
 	}
 }
 
-void Speaker::setCorrectionEQ(const vector<int>& eq) {
+static void printEQ(const string& ip, const vector<int>& eq, const string& name) {
+	cout << "Setting (" << ip << ") " << name << " EQ to\t";
+	
+	for (auto setting : eq)
+		cout << setting << ", ";
+		
+	cout << "\n";
+}
+
+// Returns reference EQ (flat)
+void Speaker::setEQ(const vector<int>& eq) {
+	eq_ = eq;
+	
+	//printEQ(ip_, eq, "flat");
+	
+	/*
+	cout << "Setting (" << ip_ << ") EQ to ";
+	
+	for (auto setting : eq_)
+		cout << setting << ", ";
+		
+	cout << "\n";
+	*/
+}
+
+// Returns current EQ
+vector<int> Speaker::setCorrectionEQ(const vector<int>& eq) {
+	printEQ(ip_, correction_eq_, "old correction");
+	
 	if (!correction_eq_.empty()) {
 		cout << "Correction EQ was not empty, adding new EQ on top\n";
 		
@@ -103,12 +138,10 @@ void Speaker::setCorrectionEQ(const vector<int>& eq) {
 	
 	correctMaxEQ(correction_eq_);
 	
-	cout << "Setting (" << ip_ << ") correction EQ to ";
+	printEQ(ip_, eq, "desired adding");
+	printEQ(ip_, correction_eq_, "new correction");
 	
-	for (auto setting : correction_eq_)
-		cout << setting << ", ";
-		
-	cout << "\n";
+	return correction_eq_;
 }
 
 void Speaker::setTargetMeanDB(double mean) {

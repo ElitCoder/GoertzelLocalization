@@ -42,7 +42,7 @@ static NetworkCommunication* g_network;
 //static vector<string> g_external_microphones = {};
 
 // Speakers
-static vector<string> g_ips = { "172.25.13.200" }; //, "172.25.9.38" };
+static vector<string> g_ips = { "172.25.9.38" }; //, "172.25.9.38" };
 // External microphones
 static vector<string> g_external_microphones = { "172.25.12.99" }; //, "172.25.12.99" };
 
@@ -210,7 +210,7 @@ Packet createSoundImage(const vector<string>& speakers, const vector<string>& mi
 	packet.addInt(speakers.size());
 	packet.addInt(mics.size());
 	packet.addInt(1);	// Play time
-	packet.addInt(2);	// Idle time
+	packet.addInt(1);	// Idle time
 	
 	for (auto& ip : speakers)
 		packet.addString(ip);

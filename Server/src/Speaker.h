@@ -5,6 +5,11 @@
 #include <vector>
 #include <array>
 
+enum {
+	DSP_MAX_EQ = 10,
+	DSP_MIN_EQ = -10
+};
+
 class Speaker {
 public:
 	// For placing speakers
@@ -29,7 +34,7 @@ public:
 	
 	void setIP(const std::string& ip);
 	void setEQ(const std::vector<int>& eq);
-	void setCorrectionEQ(const std::vector<int>& eq);
+	std::vector<int> setCorrectionEQ(const std::vector<int>& eq);
 	void setVolume(int volume);
 	void setMicVolume(int volume);
 	void setMicBoost(int boost);

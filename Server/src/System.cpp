@@ -44,10 +44,12 @@ SSHOutput System::runScript(const vector<string>& ips, const vector<string>& scr
 	// Make sure all speakers are connected
 	checkConnection(ips);
 	
+	/*
 	for (size_t i = 0; i < ips.size(); i++) {
 		cout << "SSH: running script (" << ips.at(i) << ")\n**************\n";
 		cout << scripts.at(i) << "**************\n\n";
 	}
+	*/
 	
 	cout << "Running SSH commands... " << flush;
 	
@@ -104,7 +106,7 @@ bool System::getFile(const vector<string>& ips, const vector<string>& from, cons
 	
 	cout << "Retrieving files from SSH... " << flush;
 	auto status = ssh_.transferLocal(ips, from, to, true);
-	cout << (status ? "done\n" : "ERROR\n");
+	cout << (status ? "done\n" : "ERROR\n") << flush;
 	
 	return status;
 }

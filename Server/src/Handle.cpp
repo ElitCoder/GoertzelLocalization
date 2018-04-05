@@ -286,10 +286,20 @@ static double getSoundImageScore(const vector<double>& dbs, double mean_db) {
 	return 1 / sqrt(score);
 }
 
-static pair<double, vector<int>> getSoundImageCorrection(vector<double> dbs) {
+static vector<int> getSoundImageCorrection(vector<double> dbs) {
 	// Abs everything
 	for_each(dbs.begin(), dbs.end(), [] (auto& db) { db = abs(db); });
 	
+	double min = *min_element(dbs.begin(), dbs.end());
+	vector<int> correction_eq;
+	
+	for (auto& db : dbs) {
+		double correction = db - min;
+		
+		correction_eq.push_back(lround(correction));
+	}
+	
+	/*
 	// Let's just go for flat right now
 	double mean = getMean(dbs);
 	vector<int> correction_eq;
@@ -299,7 +309,10 @@ static pair<double, vector<int>> getSoundImageCorrection(vector<double> dbs) {
 		
 		correction_eq.push_back(lround(correction));
 	}
-		
+	*/
+	
+	// Fixed in Speaker
+	/*
 	// Make sure we don't overload the DSP	
 	for (auto& setting : correction_eq) {
 		if (setting < -10)
@@ -307,8 +320,9 @@ static pair<double, vector<int>> getSoundImageCorrection(vector<double> dbs) {
 		else if (setting > 10)
 			setting = 10;
 	}
+	*/
 		
-	return { mean, correction_eq };
+	return correction_eq;
 }
 
 static void setCorrectedEQ(const vector<string>& ips) {
@@ -316,8 +330,8 @@ static void setCorrectedEQ(const vector<string>& ips) {
 	vector<string> commands;
 	
 	for (auto* speaker : speakers) {
-		//auto& correction_eq = speaker->getCorrectionEQ();
-		vector<int> correction_eq = { 3, 0, 0, 0, 0, 0, 0, 0, 0 };
+		auto& correction_eq = speaker->getCorrectionEQ();
+		//vector<int> correction_eq = { 9, -10, 0, 0, 0, 0, 0, 0, 0 };
 		
 		string command =	"dspd -s -u preset; wait; ";
 		command +=			"dspd -s -e ";
@@ -342,6 +356,9 @@ static void setFlatEQ(const vector<string>& ips) {
 		vector<int> correction_eq(9, 0);
 		speaker->setEQ(correction_eq);
 		
+		// Also set correction EQ to flat since we're restarting
+		speaker->setCorrectionEQ(correction_eq);
+		
 		string command =	"dspd -s -u preset; wait; ";
 		command +=			"dspd -s -e ";
 		
@@ -362,7 +379,7 @@ SoundImageFFT9 Handle::checkSoundImage(const vector<string>& speakers, const vec
 	if (corrected) {
 		setCorrectedEQ(speakers);
 	} else {
-		setFlatEQ(speakers);		
+		setFlatEQ(speakers);
 	}
 	
 	if (!Config::get<bool>("no_scripts")) {
@@ -390,11 +407,11 @@ SoundImageFFT9 Handle::checkSoundImage(const vector<string>& speakers, const vec
 		size_t sound_start = ((double)idle_time + 0.3) * 48000;
 		size_t sound_average = getRMS(data, sound_start, sound_start + (48000 / 2));
 		
-		cout << "Debug: sound_average " << sound_average << endl;
+		//cout << "Debug: sound_average " << sound_average << endl;
 		
 		double db = 20 * log10(sound_average / (double)SHRT_MAX);
 		
-		cout << "Debug: db " << db << endl;
+		//cout << "Debug: db " << db << endl;
 		
 		// Calculate FFT for 9 band as well
 		auto db_fft = getFFT9(data, sound_start, sound_start + (48000 / 2));
@@ -427,9 +444,11 @@ SoundImageFFT9 Handle::checkSoundImage(const vector<string>& speakers, const vec
 				}
 			}
 			
-			speaker->setCorrectionEQ(correction.second);
-			speaker->setTargetMeanDB(correction.first);
+			auto actual_new_eq = speaker->setCorrectionEQ(correction);
+			//speaker->setTargetMeanDB(correction.first);
 		}
+		
+		cout << "Current score: " << score << endl;
 		
 		// 9 band dB first, then time domain dB
 		dbs.push_back(db);
