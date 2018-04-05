@@ -129,8 +129,15 @@ static void handle(NetworkCommunication& network, Connection& connection, Packet
 				
 			for (int i = 0; i < num_mics; i++)
 				mics.push_back(input_packet.getString());
+			
+			SoundImageFFT9 answer;
+			
+			for (int i = 0; i < 10; i++) {
+				answer = Handle::checkSoundImage(speakers, mics, play_time, idle_time, corrected);
 				
-			auto answer = Handle::checkSoundImage(speakers, mics, play_time, idle_time, corrected);
+				if (!corrected)
+					break;
+			}
 			
 			packet.addInt(answer.size());
 			

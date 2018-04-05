@@ -56,6 +56,11 @@ static string hexStr(unsigned char *data, int len) {
 	return s;
 }
 
+/* converts dB to linear gain */
+double dB_to_linear_gain(double x) {
+    return pow(10,x/20);
+}
+
 void to_523(double param_dec, unsigned char * param_hex) {
 	long param223;
 	long param227;
@@ -77,16 +82,9 @@ void to_523(double param_dec, unsigned char * param_hex) {
 bool Handle::setSpeakerAudioSettings(const vector<string>& ips, const vector<int>& volumes, const vector<int>& captures, const vector<int>& boosts) {
 	vector<string> commands;
 	
-	unsigned char* dsp_gain = new unsigned char[4];
-	to_523(-12, dsp_gain);
-	
-	for (int i = 0; i < 4; i++)
-		printf("%02X", dsp_gain[i]);
-	
-	printf("\n");
-	string dsp_gain_string = hexStr(dsp_gain, 4);
-	cout << dsp_gain_string << endl;
-	delete[] dsp_gain;
+	// -12 dB = 002026f3
+	//vector<unsigned char> dsp_gain(100);
+	//to_523(dB_to_linear_gain(-12), dsp_gain.data());
 	
 	for (size_t i = 0; i < volumes.size(); i++) {
 		string volume = to_string(volumes.at(i));
@@ -96,9 +94,8 @@ bool Handle::setSpeakerAudioSettings(const vector<string>& ips, const vector<int
 		string command = "amixer -c1 sset 'Headphone' " + volume + "; wait; ";
 		command += "amixer -c1 sset 'Capture' " + capture + "; wait; ";
 		command += "dspd -s -m; wait; dspd -s -u limiter; wait; ";
-		command += "dspd -s -u static; wait; ";
+		//command += "dspd -s -u static; wait; ";
 		command += "dspd -s -u preset; wait; dspd -s -p flat; wait; ";
-		//command += "amixer -c1 cget numid=170 " + dsp_gain_string + "; wait ";
 		command += "amixer -c1 sset 'PGA Boost' " + boost + "; wait\n";
 		
 		commands.push_back(command);
@@ -325,7 +322,9 @@ static double getSoundImageScore(const vector<double>& dbs, double mean_db) {
 	double mean = mean_db < 0 ? getMean(dbs) : getMean(dbs);
 	double score = 0;
 	
-	for (const auto& db : dbs)
+	vector<double> dbs_above_63(dbs.begin(), dbs.end());
+	
+	for (const auto& db : dbs_above_63)
 		score += (mean - db) * (mean - db);
 	
 	return 1 / sqrt(score);
@@ -379,6 +378,7 @@ static void setSpeakersBestEQ(const vector<string>& ips) {
 		//vector<int> correction_eq = { 9, -10, 0, 0, 0, 0, 0, 0, 0 };
 		
 		string command =	"dspd -s -u preset; wait; ";
+		command +=			"amixer -c1 cset numid=170 0x00,0x80,0x00,0x00; wait; ";
 		command +=			"dspd -s -e ";
 		
 		for (auto setting : correction_eq)
@@ -388,6 +388,8 @@ static void setSpeakersBestEQ(const vector<string>& ips) {
 		command +=			"; wait\n";
 		
 		commands.push_back(command);
+		
+		cout << "Best score: " << speaker->getBestScore() << endl;
 	}
 	
 	Base::system().runScript(ips, commands);
@@ -428,6 +430,7 @@ static void setFlatEQ(const vector<string>& ips) {
 		speaker->setCorrectionEQ(correction_eq, 0);
 		
 		string command =	"dspd -s -u preset; wait; ";
+		command += 			"amixer -c1 cset numid=170 0x00,0x20,0x26,0xf3; wait; ";
 		command +=			"dspd -s -e ";
 		
 		for (auto setting : correction_eq)

@@ -52,6 +52,7 @@ public:
 	double getTargetMeanDB() const;
 	std::vector<double> getFlatResults() const;
 	std::vector<int> getBestEQ();
+	double getBestScore() const;
 	
 	bool operator==(const std::string& ip);
 	

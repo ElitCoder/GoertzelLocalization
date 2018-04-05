@@ -141,6 +141,10 @@ void Speaker::setEQ(const vector<int>& eq) {
 	*/
 }
 
+double Speaker::getBestScore() const {
+	return score_;
+}
+
 vector<int> Speaker::getBestEQ() {
 	if (current_best_eq.empty())
 		current_best_eq = vector<int>(9, 0);
