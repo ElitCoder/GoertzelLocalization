@@ -44,12 +44,10 @@ SSHOutput System::runScript(const vector<string>& ips, const vector<string>& scr
 	// Make sure all speakers are connected
 	checkConnection(ips);
 	
-	/*
 	for (size_t i = 0; i < ips.size(); i++) {
 		cout << "SSH: running script (" << ips.at(i) << ")\n**************\n";
 		cout << scripts.at(i) << "**************\n\n";
 	}
-	*/
 	
 	cout << "Running SSH commands... " << flush;
 	

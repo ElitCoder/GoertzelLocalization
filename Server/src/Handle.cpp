@@ -42,8 +42,51 @@ static short getRMS(const vector<short>& data, size_t start, size_t end) {
 	return sqrt(sum);
 }
 
+constexpr char hexmap[] = { '0', '1', '2', '3', '4', '5', '6', '7',
+                           '8', '9', 'a', 'b', 'c', 'd', 'e', 'f' };
+
+static string hexStr(unsigned char *data, int len) {
+	string s(len * 2, ' ');
+	
+	for (int i = 0; i < len; ++i) {
+		s[2 * i]     = hexmap[(data[i] & 0xF0) >> 4];
+		s[2 * i + 1] = hexmap[data[i] & 0x0F];
+	}
+	
+	return s;
+}
+
+void to_523(double param_dec, unsigned char * param_hex) {
+	long param223;
+	long param227;
+
+	//multiply decimal number by 2^23
+	param223 = param_dec * (1<<23);
+	// convert to positive binary
+	param227 = param223 + (1<<27);
+
+	param_hex[3] = param227 & 0xFF;       //byte 3 (LSB) of parameter value
+	param_hex[2] = (param227>>8) & 0xFF;  //byte 2 of parameter value
+	param_hex[1] = (param227>>16) & 0xFF; //byte 1 of parameter value
+	param_hex[0] = (param227>>24) & 0xFF; //byte 0 (MSB) of parameter value
+
+	// invert sign bit to get correct sign
+	param_hex[0] = param_hex[0] ^ 0x08;
+}
+
 bool Handle::setSpeakerAudioSettings(const vector<string>& ips, const vector<int>& volumes, const vector<int>& captures, const vector<int>& boosts) {
 	vector<string> commands;
+	
+	unsigned char* dsp_gain = new unsigned char[4];
+	to_523(-12, dsp_gain);
+	
+	for (int i = 0; i < 4; i++)
+		printf("%02X", dsp_gain[i]);
+	
+	printf("\n");
+	string dsp_gain_string = hexStr(dsp_gain, 4);
+	cout << dsp_gain_string << endl;
+	delete[] dsp_gain;
 	
 	for (size_t i = 0; i < volumes.size(); i++) {
 		string volume = to_string(volumes.at(i));
@@ -53,7 +96,9 @@ bool Handle::setSpeakerAudioSettings(const vector<string>& ips, const vector<int
 		string command = "amixer -c1 sset 'Headphone' " + volume + "; wait; ";
 		command += "amixer -c1 sset 'Capture' " + capture + "; wait; ";
 		command += "dspd -s -m; wait; dspd -s -u limiter; wait; ";
+		command += "dspd -s -u static; wait; ";
 		command += "dspd -s -u preset; wait; dspd -s -p flat; wait; ";
+		//command += "amixer -c1 cget numid=170 " + dsp_gain_string + "; wait ";
 		command += "amixer -c1 sset 'PGA Boost' " + boost + "; wait\n";
 		
 		commands.push_back(command);
@@ -325,6 +370,29 @@ static vector<int> getSoundImageCorrection(vector<double> dbs) {
 	return correction_eq;
 }
 
+static void setSpeakersBestEQ(const vector<string>& ips) {
+	auto speakers = Base::system().getSpeakers(ips);
+	vector<string> commands;
+	
+	for (auto* speaker : speakers) {
+		auto correction_eq = speaker->getBestEQ();
+		//vector<int> correction_eq = { 9, -10, 0, 0, 0, 0, 0, 0, 0 };
+		
+		string command =	"dspd -s -u preset; wait; ";
+		command +=			"dspd -s -e ";
+		
+		for (auto setting : correction_eq)
+			command += to_string(setting) + ",";
+			
+		command.pop_back();	
+		command +=			"; wait\n";
+		
+		commands.push_back(command);
+	}
+	
+	Base::system().runScript(ips, commands);
+}
+
 static void setCorrectedEQ(const vector<string>& ips) {
 	auto speakers = Base::system().getSpeakers(ips);
 	vector<string> commands;
@@ -357,7 +425,7 @@ static void setFlatEQ(const vector<string>& ips) {
 		speaker->setEQ(correction_eq);
 		
 		// Also set correction EQ to flat since we're restarting
-		speaker->setCorrectionEQ(correction_eq);
+		speaker->setCorrectionEQ(correction_eq, 0);
 		
 		string command =	"dspd -s -u preset; wait; ";
 		command +=			"dspd -s -e ";
@@ -444,7 +512,7 @@ SoundImageFFT9 Handle::checkSoundImage(const vector<string>& speakers, const vec
 				}
 			}
 			
-			auto actual_new_eq = speaker->setCorrectionEQ(correction);
+			auto actual_new_eq = speaker->setCorrectionEQ(correction, score);
 			//speaker->setTargetMeanDB(correction.first);
 		}
 		
@@ -457,6 +525,10 @@ SoundImageFFT9 Handle::checkSoundImage(const vector<string>& speakers, const vec
 	}	
 		
 	return final_result;
+}
+
+void Handle::setBestEQ(const vector<string>& speakers) {
+	setSpeakersBestEQ(speakers);
 }
 
 #if 0

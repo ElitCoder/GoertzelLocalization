@@ -16,6 +16,7 @@ public:
 	static std::vector<bool> checkSpeakersOnline(const std::vector<std::string>& ips);
 	static SoundImageFFT9 checkSoundImage(const std::vector<std::string>& speakers, const std::vector<std::string>& mics, int play_time, int idle_time, bool corrected);
 	//static bool setEQ(const std::vector<std::string>& speakers, const std::vector<double>& settings);
+	static void setBestEQ(const std::vector<std::string>& speakers);
 };
 
 #endif

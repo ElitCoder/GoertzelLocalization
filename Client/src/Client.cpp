@@ -12,7 +12,8 @@ enum {
 	PACKET_PARSE_SERVER_CONFIG,
 	PACKET_CHECK_SPEAKERS_ONLINE,
 	PACKET_CHECK_SOUND_IMAGE,
-	PACKET_SET_EQ
+	PACKET_SET_EQ,
+	PACKET_SET_BEST_EQ
 };
 
 enum {
@@ -268,6 +269,25 @@ void soundImage(bool corrected) {
 	}
 }
 
+Packet createBestEQ(const vector<string>& ips) {
+	Packet packet;
+	packet.addHeader(PACKET_SET_BEST_EQ);
+	packet.addInt(ips.size());
+	
+	for (auto& ip : ips)
+		packet.addString(ip);
+		
+	packet.finalize();
+	return packet;
+}
+
+void bestEQ() {
+	cout << "Setting best EQ... " << flush;
+	g_network->pushOutgoingPacket(createBestEQ(g_ips));
+	g_network->waitForIncomingPacket();
+	cout << "done\n\n" << flush;
+}
+
 void run(const string& host, unsigned short port) {
 	cout << "Connecting to server.. ";
 	NetworkCommunication network(host, port);
@@ -284,6 +304,7 @@ void run(const string& host, unsigned short port) {
 		cout << "6. Start speaker localization script (all IPs, force update)\n\n";
 		cout << "7. Check sound image\n";
 		cout << "8. Check corrected sound image\n";
+		cout << "9. Set best EQ\n";
 		cout << "\n: ";
 		
 		int input;
@@ -314,6 +335,9 @@ void run(const string& host, unsigned short port) {
 				break;
 				
 			case 8: soundImage(true);
+				break;
+				
+			case 9: bestEQ();
 				break;
 				
 			default: cout << "Wrong input format!\n";

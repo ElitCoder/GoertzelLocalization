@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <iostream>
+#include <cmath>
 
 using namespace std;
 
@@ -70,20 +71,38 @@ const std::vector<int>& Speaker::getCorrectionEQ() {
 	return correction_eq_;
 }
 
+template<class T>
+static T getMean(const vector<T>& container) {
+	double sum = 0;
+	
+	for(const auto& element : container)
+		sum += element;
+		
+	cout << "sum " << sum << endl;
+	cout << "sum divided " << sum / container.size() << endl;
+	cout << "container size " << container.size() << endl;
+		
+	return lround(sum / container.size());	
+}
+
 static void correctMaxEQ(vector<int>& eq) {
+	int mean_db = getMean(eq);
+	
+	for (auto& setting : eq)
+		setting -= mean_db;
+		
+	cout << "Lower setting with " << mean_db << endl;
+	
 	// See if > max and < min
-	int max = *max_element(eq.begin(), eq.end());
 	int min = *min_element(eq.begin(), eq.end());
 	
-	if (max > DSP_MAX_EQ && min > DSP_MIN_EQ) {
+	if (min > DSP_MIN_EQ) {
+		cout << "min lower is " << min << endl;
+
 		// Move everything lower to fit curve
 		int delta = min - DSP_MIN_EQ;
 		
-		for (auto& setting : eq)
-			setting -= delta;
-	} else if (min < DSP_MIN_EQ && max < DSP_MAX_EQ) {
-		// Move everything higher to fit curve
-		int delta = max - DSP_MAX_EQ;
+		cout << "delta is " << delta << endl;
 		
 		for (auto& setting : eq)
 			setting -= delta;
@@ -122,24 +141,55 @@ void Speaker::setEQ(const vector<int>& eq) {
 	*/
 }
 
+vector<int> Speaker::getBestEQ() {
+	if (current_best_eq.empty())
+		current_best_eq = vector<int>(9, 0);
+		
+	return current_best_eq;
+}
+
 // Returns current EQ
-vector<int> Speaker::setCorrectionEQ(const vector<int>& eq) {
+vector<int> Speaker::setCorrectionEQ(const vector<int>& eq, double score) {
+	// Only update best EQ if the score is better
+		
+	if (correction_eq_.empty())
+		correction_eq_ = vector<int>(9, 0);
+		
+	if (score > score_) {
+		current_best_eq = correction_eq_;
+		score_ = score;
+	}
+	
 	printEQ(ip_, correction_eq_, "old correction");
+	
+	if (!unlimited_eq_.empty()) {
+		for (size_t i = 0; i < eq.size(); i++)
+			unlimited_eq_.at(i) += eq.at(i);
+	} else {
+		unlimited_eq_ = eq;
+	}
 	
 	if (!correction_eq_.empty()) {
 		cout << "Correction EQ was not empty, adding new EQ on top\n";
 		
 		for (size_t i = 0; i < eq.size(); i++)
 			correction_eq_.at(i) += eq.at(i);
-			
 	} else {
 		correction_eq_ = eq;
 	}
 	
-	correctMaxEQ(correction_eq_);
+	printEQ(ip_, correction_eq_, "new correction");
+	
+	std::vector<int> actual_eq = correction_eq_; //unlimited_eq_;
+	correctMaxEQ(actual_eq);
 	
 	printEQ(ip_, eq, "desired adding");
-	printEQ(ip_, correction_eq_, "new correction");
+	printEQ(ip_, unlimited_eq_, "unlimited");
+	printEQ(ip_, actual_eq, "actual");
+	
+	correction_eq_ = actual_eq;
+	
+	printEQ(ip_, correction_eq_, "final correction");
 	
 	return correction_eq_;
 }

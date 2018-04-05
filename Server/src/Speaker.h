@@ -6,8 +6,8 @@
 #include <array>
 
 enum {
-	DSP_MAX_EQ = 10,
-	DSP_MIN_EQ = -10
+	DSP_MAX_EQ = 12,
+	DSP_MIN_EQ = -12
 };
 
 class Speaker {
@@ -34,7 +34,7 @@ public:
 	
 	void setIP(const std::string& ip);
 	void setEQ(const std::vector<int>& eq);
-	std::vector<int> setCorrectionEQ(const std::vector<int>& eq);
+	std::vector<int> setCorrectionEQ(const std::vector<int>& eq, double score);
 	void setVolume(int volume);
 	void setMicVolume(int volume);
 	void setMicBoost(int boost);
@@ -51,6 +51,7 @@ public:
 	const std::vector<int>& getCorrectionEQ();
 	double getTargetMeanDB() const;
 	std::vector<double> getFlatResults() const;
+	std::vector<int> getBestEQ();
 	
 	bool operator==(const std::string& ip);
 	
@@ -62,6 +63,11 @@ private:
 	
 	// Correction EQ - make it sound better
 	std::vector<int> correction_eq_;
+	std::vector<int> current_best_eq;
+	double score_ = 0.0;
+	
+	// Unlimited correction EQ
+	std::vector<int> unlimited_eq_;
 	
 	std::string ip_	= "not set";
 	int volume_		= 0;
