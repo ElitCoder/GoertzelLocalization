@@ -316,7 +316,8 @@ static void setCorrectedEQ(const vector<string>& ips) {
 	vector<string> commands;
 	
 	for (auto* speaker : speakers) {
-		auto& correction_eq = speaker->getCorrectionEQ();
+		//auto& correction_eq = speaker->getCorrectionEQ();
+		vector<int> correction_eq = { 3, 0, 0, 0, 0, 0, 0, 0, 0 };
 		
 		string command =	"dspd -s -u preset; wait; ";
 		command +=			"dspd -s -e ";
@@ -358,11 +359,12 @@ static void setFlatEQ(const vector<string>& ips) {
 
 SoundImageFFT9 Handle::checkSoundImage(const vector<string>& speakers, const vector<string>& mics, int play_time, int idle_time, bool corrected) {
 	// Set corrected EQ if we're trying the corrected sound image or restore flat settings
-	if (corrected)
+	if (corrected) {
 		setCorrectedEQ(speakers);
-	else
-		setFlatEQ(speakers);
-		
+	} else {
+		setFlatEQ(speakers);		
+	}
+	
 	if (!Config::get<bool>("no_scripts")) {
 		// Get sound image from available microphones
 		auto scripts = createSoundImageScripts(speakers, mics, play_time, idle_time, Config::get<string>("white_noise"));

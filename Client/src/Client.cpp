@@ -225,7 +225,7 @@ Packet createSoundImage(const vector<string>& speakers, const vector<string>& mi
 void soundImage(bool corrected) {
 	if (!corrected) {
 		cout << "Setting normal speaker settings.. " << flush;
-		setSpeakerSettings(SPEAKER_MAX_VOLUME, SPEAKER_MAX_CAPTURE, SPEAKER_CAPTURE_BOOST_NORMAL);
+		setSpeakerSettings(SPEAKER_MAX_VOLUME - 18, SPEAKER_MAX_CAPTURE, SPEAKER_CAPTURE_BOOST_ENABLED);
 		cout << "done\n";
 	}
 	
