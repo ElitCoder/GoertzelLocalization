@@ -13,7 +13,8 @@ enum {
 	PACKET_CHECK_SPEAKERS_ONLINE,
 	PACKET_CHECK_SOUND_IMAGE,
 	PACKET_SET_EQ,
-	PACKET_SET_BEST_EQ
+	PACKET_SET_BEST_EQ,
+	PACKET_SET_EQ_STATUS
 };
 
 enum {
@@ -351,6 +352,26 @@ void bestEQ() {
 	cout << endl;
 }
 
+Packet createSetEQStatus(const vector<string>& ips, bool status) {
+	Packet packet;
+	packet.addHeader(PACKET_SET_EQ_STATUS);
+	packet.addBool(status);
+	packet.addInt(ips.size());
+	
+	for (auto& ip : ips)
+		packet.addString(ip);
+		
+	packet.finalize();
+	return packet;
+}
+
+void setEQStatus(bool status) {
+	cout << (status ? "Enabling" : "Disabling") << " EQ in speakers... \t" << flush;
+	g_network->pushOutgoingPacket(createSetEQStatus(g_ips, status));
+	g_network->waitForIncomingPacket();
+	cout << "done\n\n";
+}
+
 void run(const string& host, unsigned short port) {
 	cout << "Connecting to server.. ";
 	NetworkCommunication network(host, port);
@@ -368,7 +389,10 @@ void run(const string& host, unsigned short port) {
 		//cout << "7. Check sound image\n";
 		//cout << "8. Check corrected sound image\n";
 		cout << "7. Calibrate sound image & run correction tests\n";
-		cout << "8. Set best EQ\n";
+		cout << "8. Set best EQ\n\n";
+		
+		cout << "9. Enable EQ in all speakers\n";
+		cout << "10. Disable EQ in all speakers\n";
 		cout << "\n: ";
 		
 		int input;
@@ -399,6 +423,12 @@ void run(const string& host, unsigned short port) {
 				break;
 				
 			case 8: bestEQ();
+				break;
+				
+			case 9: setEQStatus(true);
+				break;
+				
+			case 10: setEQStatus(false);
 				break;
 				
 			default: cout << "Wrong input format!\n";

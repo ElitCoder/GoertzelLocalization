@@ -17,7 +17,8 @@ enum {
 	PACKET_CHECK_SPEAKERS_ONLINE,
 	PACKET_CHECK_SOUND_IMAGE,
 	PACKET_SET_EQ,
-	PACKET_SET_BEST_EQ
+	PACKET_SET_BEST_EQ,
+	PACKET_SET_EQ_STATUS
 };
 
 static void handle(NetworkCommunication& network, Connection& connection, Packet& input_packet) {
@@ -170,6 +171,19 @@ static void handle(NetworkCommunication& network, Connection& connection, Packet
 				packet.addFloat(score);
 				
 			break;
+		}
+		
+		case PACKET_SET_EQ_STATUS: {
+			bool status = input_packet.getBool();
+			int num = input_packet.getInt();
+			vector<string> speakers;
+			
+			for (int i = 0; i < num; i++)
+				speakers.push_back(input_packet.getString());
+				
+			Handle::setEQStatus(speakers, status);
+			
+			break;	
 		}
 		
 		case PACKET_SET_EQ: {

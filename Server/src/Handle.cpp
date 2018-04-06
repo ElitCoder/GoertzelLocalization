@@ -594,6 +594,15 @@ vector<double> Handle::setBestEQ(const vector<string>& speakers) {
 	return setSpeakersBestEQ(speakers);
 }
 
+void Handle::setEQStatus(const vector<string>& ips, bool status) {
+	string command =	"dspd -s -" + string((status ? "u" : "b"));
+	command +=			" preset; wait\n";
+		
+	cout << "Change EQ command: " << command << endl;
+	
+	Base::system().runScript(ips, vector<string>(ips.size(), command));
+}
+
 #if 0
 bool Handle::setEQ(const vector<string>& speakers, const vector<double>& settings) {
 	cout << "NOT IMPLEMENTED\n";
