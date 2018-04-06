@@ -506,15 +506,15 @@ SoundImageFFT9 Handle::checkSoundImage(const vector<string>& speakers, const vec
 				
 			// Go through all frequency bands	
 			for (int d = 0; d < 9; d++) {
-				double total = 0;
+				double total_linear = 0;
 				
 				for (auto& incoming_db : incoming_dbs)
-					total += incoming_db.at(d);
+					total_linear += SHRT_MAX * dB_to_linear_gain(incoming_db.at(d));
 					
-				cout << "Total DB: " << total << endl;
+				cout << "Total linear gain: " << total_linear << endl;
 					
 				for (size_t e = 0; e < corrected_dbs.size(); e++) {
-					double percent = incoming_dbs.at(e).at(d) / total;
+					double percent = (SHRT_MAX * dB_to_linear_gain(incoming_dbs.at(e).at(d))) / total_linear;
 					
 					cout << "Percent: " << percent << endl;
 					
