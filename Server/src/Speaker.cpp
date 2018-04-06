@@ -55,6 +55,32 @@ void Speaker::setMicVolume(int volume) {
 	cout << "Setting (" << ip_ << ") mic volume to " << mic_volume_ << endl;
 }
 
+void Speaker::setLinearGainFrom(const string& ip, double db) {
+	auto iterator = find_if(mic_gain_responses_.begin(), mic_gain_responses_.end(), [&ip] (auto& peer) {
+		return peer.first == ip;
+	});
+	
+	if (iterator == mic_gain_responses_.end())
+		mic_gain_responses_.push_back({ ip, db });
+	else
+		(*iterator) = { ip, db };
+		
+	cout << "Linear gain from: " << ip << " is " << db << endl;
+	//for_each(dbs.begin(), dbs.end(), [] (auto& value) { cout << value << " "; });
+	//cout << endl;
+}
+
+double Speaker::getLinearGainFrom(const string& ip) const {
+	auto iterator = find_if(mic_gain_responses_.begin(), mic_gain_responses_.end(), [&ip] (auto& peer) {
+		return peer.first == ip;
+	});
+	
+	if (iterator == mic_gain_responses_.end())
+		return -100;
+	else
+		return iterator->second;
+}
+
 void Speaker::setMicBoost(int boost) {
 	mic_boost_ = boost;
 	
@@ -90,7 +116,7 @@ static void correctMaxEQ(vector<int>& eq) {
 	//cout << "Lower setting with " << mean_db << endl;
 	
 	// See if > max and < min
-	int min = *min_element(eq.begin(), eq.end());
+	/* int min = *min_element(eq.begin(), eq.end());
 	
 	if (min > DSP_MIN_EQ) {
 		//cout << "min lower is " << min << endl;
@@ -101,9 +127,10 @@ static void correctMaxEQ(vector<int>& eq) {
 		//cout << "delta is " << delta << endl;
 		
 		for (auto& setting : eq)
-			setting -= delta;
-	}
+		setting -= delta;
 	
+	}
+	*/
 	for (auto& setting : eq) {
 		if (setting < DSP_MIN_EQ)
 			setting = DSP_MIN_EQ;
@@ -173,8 +200,14 @@ vector<int> Speaker::setCorrectionEQ(const vector<int>& eq, double score) {
 	if (!correction_eq_.empty()) {
 		cout << "Correction EQ was not empty, adding new EQ on top\n";
 		
-		for (size_t i = 0; i < eq.size(); i++)
+		for (size_t i = 0; i < eq.size(); i++) {
+			// If the EQ wants to lower certain frequencies a lot, make it slower
+			// Same with making them higher
+			//double difference = abs(eq.at(i));
+			//double change = 1 / difference;
+			//correction_eq_.at(i) += lround((double)eq.at(i) * change);
 			correction_eq_.at(i) += eq.at(i);
+		}
 	} else {
 		correction_eq_ = eq;
 	}

@@ -12,6 +12,18 @@
 
 using namespace std;
 
+static vector<string> g_frequencies = {	"63",
+									"125",
+									"250",
+									"500",
+									"1000",
+									"2000",
+									"4000",
+									"8000",
+									"16000" };
+
+static double g_target_mean = -52;
+
 static SSHOutput runBasicScriptExternal(const vector<string>& speakers, const vector<string>& mics, const vector<string>& all_ips, const vector<string>& scripts, const string& send_from, const string& send_to) {
 	if (!Base::system().sendFile(speakers, send_from, send_to))
 		return SSHOutput();
@@ -77,10 +89,10 @@ bool Handle::setSpeakerAudioSettings(const vector<string>& ips, const vector<int
 		string capture = to_string(captures.at(i));
 		string boost = to_string(boosts.at(i));
 		
-		string command = "amixer -c1 sset 'Headphone' " + volume + "; wait; ";
+		string command = "amixer -c1 sset 'Headphone' " + volume + " on; wait; ";
 		command += "amixer -c1 sset 'Capture' " + capture + "; wait; ";
 		command += "dspd -s -m; wait; dspd -s -u limiter; wait; ";
-		//command += "dspd -s -u static; wait; ";
+		command += "dspd -s -u static; wait; ";
 		command += "dspd -s -u preset; wait; dspd -s -p flat; wait; ";
 		command += "amixer -c1 sset 'PGA Boost' " + boost + "; wait\n";
 		
@@ -219,21 +231,17 @@ static vector<string> createSoundImageScripts(const vector<string>& speakers, co
 	vector<string> scripts;
 	
 	for (size_t i = 0; i < speakers.size(); i++) {
-		string script = "systemctl stop audio*\n";
-		script +=		"sleep " + to_string(idle_time) + "\n";
+		string script =	"sleep " + to_string(idle_time) + "\n";
 		script +=		"aplay -D localhw_0 -r 48000 -f S16_LE /tmp/" + filename + "\n";
-		script +=		"systemctl start audio_relayd; wait\n";
 		
 		scripts.push_back(script);
 	}
 	
 	for (size_t i = 0; i < mics.size(); i++) {
-		string script = "systemctl stop audio*\n";
-		script +=		"arecord -D audiosource -r 48000 -f S16_LE -c 1 -d " + to_string(idle_time * 2 + play_time);
+		string script =	"arecord -D audiosource -r 48000 -f S16_LE -c 1 -d " + to_string(idle_time * 2 + play_time);
 		script +=		" /tmp/cap";
 		script +=		mics.at(i);
 		script +=		".wav\n";
-		script +=		"systemctl start audio_relayd; wait\n";
 		
 		scripts.push_back(script);
 	}
@@ -245,26 +253,34 @@ static vector<string> createSoundImageIndividualScripts(const vector<string>& sp
 	vector<string> scripts;
 	
 	for (size_t i = 0; i < speakers.size(); i++) {
-		string script = "systemctl stop audio*\n";
-		script +=		"sleep " + to_string(idle_time + i * (play_time + 1)) + "\n";
+		string script =	"sleep " + to_string(idle_time + i * (play_time + 1)) + "\n";
 		script +=		"aplay -D localhw_0 -r 48000 -f S16_LE /tmp/" + filename + "\n";
-		script +=		"systemctl start audio_relayd; wait\n";
 		
 		scripts.push_back(script);
 	}
 	
 	for (size_t i = 0; i < mics.size(); i++) {
-		string script = "systemctl stop audio*\n";
-		script +=		"arecord -D audiosource -r 48000 -f S16_LE -c 1 -d " + to_string(idle_time + speakers.size() * (play_time + 1));
+		string script =	"arecord -D audiosource -r 48000 -f S16_LE -c 1 -d " + to_string(idle_time + speakers.size() * (play_time + 1));
 		script +=		" /tmp/cap";
 		script +=		mics.at(i);
 		script +=		".wav\n";
-		script +=		"systemctl start audio_relayd; wait\n";
 		
 		scripts.push_back(script);
 	}
 	
 	return scripts;
+}
+
+static vector<string> createDisableAudioSystem(const vector<string>& ips) {
+	string command = "systemctl stop audio*; wait\n";
+	
+	return vector<string>(ips.size(), command);
+}
+
+static vector<string> createEnableAudioSystem(const vector<string>& ips) {
+	string command = "systemctl start audio_relayd; wait\n";
+	
+	return vector<string>(ips.size(), command);
 }
 
 // Taken from git/SO
@@ -341,8 +357,37 @@ static double getSoundImageScore(const vector<double>& dbs) {
 	return 1 / sqrt(score);
 }
 
-static vector<int> getSoundImageCorrection(vector<double> dbs) {
+static vector<int> getSoundImageCorrection(vector<double> dbs, size_t num_speakers) {
+	/*
+	vector<int> eq;
+	
+	double mean = getMean(dbs);
+	
+	for (auto& db : dbs) {
+		double difference = g_target_mean - db;
+		
+		eq.push_back(lround(difference));
+	}
+	
+	return eq;
+	*/
+	
+	#if 0
 	// Abs everything
+	//for_each(dbs.begin(), dbs.end(), [] (auto& db) { db = abs(db); });
+	vector<int> eq;
+	
+	for (auto& db : dbs) {
+		double difference = -(db - g_target_mean);
+	//	double change = 1.0 - 1 / difference;
+	//	difference *= change * 1.5;
+		//difference *= 1.2;
+		eq.push_back(lround(difference));
+	}
+	
+	return eq;
+	#endif
+	
 	for_each(dbs.begin(), dbs.end(), [] (auto& db) { db = abs(db); });
 	
 	double min = *min_element(dbs.begin(), dbs.end());
@@ -434,10 +479,16 @@ static void setFlatEQ(const vector<string>& ips) {
 }
 
 SoundImageFFT9 Handle::checkSoundImage(const vector<string>& speakers, const vector<string>& mics, int play_time, int idle_time, bool corrected) {
+	vector<string> all_ips(speakers);
+	all_ips.insert(all_ips.end(), mics.begin(), mics.end());
+	
 	// Set corrected EQ if we're trying the corrected sound image or restore flat settings
 	if (corrected) {
 		setCorrectedEQ(speakers);
 	} else {
+		auto scripts = createDisableAudioSystem(all_ips);
+		Base::system().runScript(all_ips, scripts);
+		
 		setFlatEQ(speakers);
 	}
 	
@@ -469,8 +520,8 @@ SoundImageFFT9 Handle::checkSoundImage(const vector<string>& speakers, const vec
 			return SoundImageFFT9();
 		
 		if (corrected) {
-			size_t sound_start = ((double)idle_time + 0.3) * 48000;
-			size_t sound_average = getRMS(data, sound_start, sound_start + (48000 / 2));
+			size_t sound_start = ((double)idle_time + 0.5) * 48000;
+			size_t sound_average = getRMS(data, sound_start, sound_start + (48000 / 3));
 			
 			//cout << "Debug: sound_average " << sound_average << endl;
 			
@@ -482,11 +533,14 @@ SoundImageFFT9 Handle::checkSoundImage(const vector<string>& speakers, const vec
 			auto db_fft = getFFT9(data, sound_start, sound_start + (48000 / 2));
 			vector<double> dbs;
 			
+			cout << "Microphone \t" << mics.at(i) << endl;
+			
 			//for (auto& freq : db_fft) {
 			for (size_t z = 0; z < db_fft.size(); z++) {
 				auto& freq = db_fft.at(z);
 				double db_freq = 20 * log10(freq / (double)SHRT_MAX);
 				
+				cout << "Frequency " << g_frequencies.at(z) << ": \t" << db_freq << endl;
 				dbs.push_back(db_freq);
 			}
 			
@@ -494,33 +548,57 @@ SoundImageFFT9 Handle::checkSoundImage(const vector<string>& speakers, const vec
 			auto score = getSoundImageScore(dbs);
 			
 			// Calculate correction & set it to speakers (alpha)
-			auto correction = getSoundImageCorrection(dbs);
+			auto correction = getSoundImageCorrection(dbs, speakers.size());
 			
 			// Correct EQ
 			vector<vector<double>> incoming_dbs;
+			//vector<double> incoming_gains;
 			vector<vector<int>> corrected_dbs(speakers.size());
 			
 			// See all relative DBs
 			for (size_t k = 0; k < speakers.size(); k++)
 				incoming_dbs.push_back(Base::system().getSpeaker(mics.at(i)).getFrequencyResponseFrom(speakers.at(k)));
+				//incoming_gains.push_back(Base::system().getSpeaker(mics.at(i)).getLinearGainFrom(speakers.at(k)));
 				
-			// Go through all frequency bands	
+			
+			/*
+			// All energy	
+			double total_gain = 0;
+			
+			for (auto& gain : incoming_gains)
+				total_gain += gain;
+				
+				
+			for (size_t s = 0; s < speakers.size(); s++){
+				auto gain = Base::system().getSpeaker(mics.at(i)).getLinearGainFrom(speakers.at(s));
+				double percent = gain / total_gain;
+				vector<int> eq;
+				for (int e = 0; e < 9; e++)
+					eq.push_back(lround(percent*correction.at(e)));
+				corrected_dbs.push_back(eq);
+			}
+			*/
+			
+		
+			// Go through all frequency bands
 			for (int d = 0; d < 9; d++) {
 				double total_linear = 0;
 				
 				for (auto& incoming_db : incoming_dbs)
 					total_linear += SHRT_MAX * dB_to_linear_gain(incoming_db.at(d));
 					
-				cout << "Total linear gain: " << total_linear << endl;
+				//cout << "Total linear gain: " << total_linear << endl;
 					
 				for (size_t e = 0; e < corrected_dbs.size(); e++) {
 					double percent = (SHRT_MAX * dB_to_linear_gain(incoming_dbs.at(e).at(d))) / total_linear;
+					//percent = 1 - percent;
+					//double percent = 1.0 / speakers.size();
 					
-					cout << "Percent: " << percent << endl;
+					//cout << "Percent: " << percent << endl;
 					
 					corrected_dbs.at(e).push_back(lround((double)correction.at(d) * percent));
 					
-					cout << "Which means " << ((double)correction.at(d) * percent) << " of sound\n";
+					//cout << "Which means " << ((double)correction.at(d) * percent) << " of sound\n";
 				}
 			}
 			
@@ -581,8 +659,11 @@ SoundImageFFT9 Handle::checkSoundImage(const vector<string>& speakers, const vec
 					dbs.push_back(db_freq);
 				}
 				
-				//DBs is vector of the current speaker with all it's frequency dBs
+				// DBs is vector of the current speaker with all it's frequency dBs
 				Base::system().getSpeaker(mics.at(i)).setFrequencyResponseFrom(speakers.at(j), dbs);
+				
+				// Set linear gain from speaker to mic
+				Base::system().getSpeaker(mics.at(i)).setLinearGainFrom(speakers.at(j), dB_to_linear_gain(db) * SHRT_MAX); 
 			}
 		}
 	}	
@@ -591,6 +672,10 @@ SoundImageFFT9 Handle::checkSoundImage(const vector<string>& speakers, const vec
 }
 
 vector<double> Handle::setBestEQ(const vector<string>& speakers) {
+	// Enable audio system again
+	auto scripts = createEnableAudioSystem(speakers);
+	Base::system().runScript(speakers, scripts);
+	
 	return setSpeakersBestEQ(speakers);
 }
 
