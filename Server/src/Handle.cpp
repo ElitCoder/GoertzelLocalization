@@ -121,7 +121,7 @@ static vector<string> createRunLocalizationScripts(const vector<string>& ips, in
 		script += 		file;
 		script +=		"\n";
 		script +=		"wait $proc1\n";
-		script +=		"systemctl start audio-conf; wait\n";
+		script +=		"systemctl start audio_relayd; wait\n";
 		
 		scripts.push_back(script);
 	}
@@ -222,7 +222,7 @@ static vector<string> createSoundImageScripts(const vector<string>& speakers, co
 		string script = "systemctl stop audio*\n";
 		script +=		"sleep " + to_string(idle_time) + "\n";
 		script +=		"aplay -D localhw_0 -r 48000 -f S16_LE /tmp/" + filename + "\n";
-		script +=		"systemctl start audio-conf; wait\n";
+		script +=		"systemctl start audio_relayd; wait\n";
 		
 		scripts.push_back(script);
 	}
@@ -233,7 +233,7 @@ static vector<string> createSoundImageScripts(const vector<string>& speakers, co
 		script +=		" /tmp/cap";
 		script +=		mics.at(i);
 		script +=		".wav\n";
-		script +=		"systemctl start audio-conf; wait\n";
+		script +=		"systemctl start audio_relayd; wait\n";
 		
 		scripts.push_back(script);
 	}
@@ -248,7 +248,7 @@ static vector<string> createSoundImageIndividualScripts(const vector<string>& sp
 		string script = "systemctl stop audio*\n";
 		script +=		"sleep " + to_string(idle_time + i * (play_time + 1)) + "\n";
 		script +=		"aplay -D localhw_0 -r 48000 -f S16_LE /tmp/" + filename + "\n";
-		script +=		"systemctl start audio-conf; wait\n";
+		script +=		"systemctl start audio_relayd; wait\n";
 		
 		scripts.push_back(script);
 	}
@@ -259,7 +259,7 @@ static vector<string> createSoundImageIndividualScripts(const vector<string>& sp
 		script +=		" /tmp/cap";
 		script +=		mics.at(i);
 		script +=		".wav\n";
-		script +=		"systemctl start audio-conf; wait\n";
+		script +=		"systemctl start audio_relayd; wait\n";
 		
 		scripts.push_back(script);
 	}
@@ -357,9 +357,10 @@ static vector<int> getSoundImageCorrection(vector<double> dbs) {
 	return correction_eq;
 }
 
-static void setSpeakersBestEQ(const vector<string>& ips) {
+static vector<double> setSpeakersBestEQ(const vector<string>& ips) {
 	auto speakers = Base::system().getSpeakers(ips);
 	vector<string> commands;
+	vector<double> scores;
 	
 	for (auto* speaker : speakers) {
 		auto correction_eq = speaker->getBestEQ();
@@ -378,9 +379,12 @@ static void setSpeakersBestEQ(const vector<string>& ips) {
 		commands.push_back(command);
 		
 		cout << "Best score: " << speaker->getBestScore() << endl;
+		scores.push_back(speaker->getBestScore());
 	}
 	
 	Base::system().runScript(ips, commands);
+	
+	return scores;
 }
 
 static void setCorrectedEQ(const vector<string>& ips) {
@@ -411,17 +415,13 @@ static void setFlatEQ(const vector<string>& ips) {
 	vector<string> commands;
 	
 	for (auto* speaker : speakers) {
-		vector<int> correction_eq(9, 0);
-		speaker->setEQ(correction_eq);
-		
-		// Also set correction EQ to flat since we're restarting
-		speaker->setCorrectionEQ(correction_eq, 0);
+		speaker->clearAllEQs();
 		
 		string command =	"dspd -s -u preset; wait; ";
 		command += 			"amixer -c1 cset numid=170 0x00,0x20,0x26,0xf3; wait; ";
 		command +=			"dspd -s -e ";
 		
-		for (auto setting : correction_eq)
+		for (auto setting : vector<int>(9, 0))
 			command += to_string(setting) + ",";
 			
 		command.pop_back();	
@@ -590,8 +590,8 @@ SoundImageFFT9 Handle::checkSoundImage(const vector<string>& speakers, const vec
 	return final_result;
 }
 
-void Handle::setBestEQ(const vector<string>& speakers) {
-	setSpeakersBestEQ(speakers);
+vector<double> Handle::setBestEQ(const vector<string>& speakers) {
+	return setSpeakersBestEQ(speakers);
 }
 
 #if 0

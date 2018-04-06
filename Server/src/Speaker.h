@@ -42,6 +42,7 @@ public:
 	void setPlacement(const SpeakerPlacement& placement, int placement_id);
 	//void setFlatResults(const std::vector<double>& dbs);
 	void setFrequencyResponseFrom(const std::string& ip, const std::vector<double>& dbs);
+	void clearAllEQs();
 	
 	const std::string& getIP() const;
 	int getPlacementID() const;
@@ -63,7 +64,7 @@ private:
 	
 	// Correction EQ - make it sound better
 	std::vector<int> correction_eq_;
-	std::vector<int> current_best_eq;
+	std::vector<int> current_best_eq_;
 	double score_ = 0.0;
 	
 	// Information about frequency response from other speakers

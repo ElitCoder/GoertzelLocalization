@@ -57,6 +57,8 @@ static vector<string> g_external_microphones = { "172.25.12.99" }; //, "172.25.1
 	172.25.11.186
 */
 
+static bool g_calibrated_sound_image = false;
+
 Packet createSetSpeakerSettings(const vector<string>& ips, const vector<int>& volumes, const vector<int>& captures, const vector<int>& boosts) {
 	Packet packet;
 	packet.addHeader(PACKET_SET_SPEAKER_VOLUME_AND_CAPTURE);
@@ -204,7 +206,7 @@ void speakersOnline() {
 	cout << endl;
 }
 
-Packet createSoundImage(const vector<string>& speakers, const vector<string>& mics, bool corrected) {
+Packet createSoundImage(const vector<string>& speakers, const vector<string>& mics, bool corrected, int num_iterations) {
 	Packet packet;
 	packet.addHeader(PACKET_CHECK_SOUND_IMAGE);
 	packet.addBool(corrected);
@@ -212,6 +214,7 @@ Packet createSoundImage(const vector<string>& speakers, const vector<string>& mi
 	packet.addInt(mics.size());
 	packet.addInt(1);	// Play time
 	packet.addInt(1);	// Idle time
+	packet.addInt(num_iterations);
 	
 	for (auto& ip : speakers)
 		packet.addString(ip);
@@ -225,17 +228,66 @@ Packet createSoundImage(const vector<string>& speakers, const vector<string>& mi
 
 void soundImage(bool corrected) {
 	if (!corrected) {
-		cout << "Setting normal speaker settings.. " << flush;
+		cout << "Setting normal speaker settings... \t" << flush;
 		setSpeakerSettings(SPEAKER_MAX_VOLUME, SPEAKER_MAX_CAPTURE, SPEAKER_CAPTURE_BOOST_ENABLED);
 		cout << "done\n";
 	}
 	
+	int num_iterations = 1;
+	
+	if (corrected) {
+		cout << "Number of correction iterations: ";
+		cin >> num_iterations;
+		
+		// If flat is not determined, run calibration first
+		if (!g_calibrated_sound_image)
+			soundImage(false);
+		
+		for (int i = 0; i < num_iterations; i++) {
+			double percent = (i + 1) / (double)num_iterations;
+			
+			cout << "Running sound image tests... " << flush;//" << (percent * 100.0) << "% done\n" << flush;
+			
+			g_network->pushOutgoingPacket(createSoundImage(g_ips, g_external_microphones, corrected, 1));
+			auto answer = g_network->waitForIncomingPacket(); 
+			answer.getByte();
+			
+			// Check current score
+			int num_mics = answer.getInt();
+			
+			cout << lround(percent * 100.0) << "% done \tscores: ";
+			
+			for (int j = 0; j < num_mics; j++) {
+				auto ip = answer.getString();
+				auto num_dbs = answer.getInt();
+				
+				for (int k = 0; k < num_dbs; k++)
+					answer.getFloat();
+					
+				auto score = answer.getFloat();
+				
+				cout << score << " ";
+			}
+			
+			cout << "\n";
+		}
+		
+		cout << "\nDone, use set best EQ to set all speakers to optimal settings!\n\n";
+	} else {
+		cout << "Resetting sound image to flat... \t" << flush;
+		g_network->pushOutgoingPacket(createSoundImage(g_ips, g_external_microphones, corrected, 1));
+		g_network->waitForIncomingPacket();
+		cout << "done\n\n";
+		
+		g_calibrated_sound_image = true;
+	}
+	/*
 	if (corrected)
 		cout << "Trying corrected sound image... " << flush;
 	else	
 		cout << "Trying sound image... " << flush;
 		
-	g_network->pushOutgoingPacket(createSoundImage(g_ips, g_external_microphones, corrected));
+	g_network->pushOutgoingPacket(createSoundImage(g_ips, g_external_microphones, corrected, num_iterations));
 	auto answer = g_network->waitForIncomingPacket();
 	answer.getByte();
 	cout << "done\n\n";
@@ -267,6 +319,7 @@ void soundImage(bool corrected) {
 		cout << "Total dB in time domain: " << total_db << " dB\n\n";
 		cout << "Score (the higher the better): " << score << endl;
 	}
+	*/
 }
 
 Packet createBestEQ(const vector<string>& ips) {
@@ -284,8 +337,18 @@ Packet createBestEQ(const vector<string>& ips) {
 void bestEQ() {
 	cout << "Setting best EQ... " << flush;
 	g_network->pushOutgoingPacket(createBestEQ(g_ips));
-	g_network->waitForIncomingPacket();
+	auto answer = g_network->waitForIncomingPacket();
+	answer.getByte();
 	cout << "done\n\n" << flush;
+	
+	auto num = answer.getInt();
+	
+	for (int i = 0; i < num; i++) {
+		double score = answer.getFloat();
+		cout << "Score speaker index " << i << " \t" << score << endl;
+	}
+	
+	cout << endl;
 }
 
 void run(const string& host, unsigned short port) {
@@ -302,9 +365,10 @@ void run(const string& host, unsigned short port) {
 		cout << "4. Start speaker localization script (only speakers, force update)\n\n";
 		cout << "5. Start speaker localization script (all IPs)\n";
 		cout << "6. Start speaker localization script (all IPs, force update)\n\n";
-		cout << "7. Check sound image\n";
-		cout << "8. Check corrected sound image\n";
-		cout << "9. Set best EQ\n";
+		//cout << "7. Check sound image\n";
+		//cout << "8. Check corrected sound image\n";
+		cout << "7. Calibrate sound image & run correction tests\n";
+		cout << "8. Set best EQ\n";
 		cout << "\n: ";
 		
 		int input;
@@ -331,13 +395,10 @@ void run(const string& host, unsigned short port) {
 			case 6: startSpeakerLocalizationAll(true);
 				break;	
 				
-			case 7: soundImage(false);
+			case 7: soundImage(true);
 				break;
 				
-			case 8: soundImage(true);
-				break;
-				
-			case 9: bestEQ();
+			case 8: bestEQ();
 				break;
 				
 			default: cout << "Wrong input format!\n";

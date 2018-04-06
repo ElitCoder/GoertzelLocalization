@@ -142,10 +142,17 @@ double Speaker::getBestScore() const {
 }
 
 vector<int> Speaker::getBestEQ() {
-	if (current_best_eq.empty())
-		current_best_eq = vector<int>(9, 0);
+	if (current_best_eq_.empty())
+		current_best_eq_ = vector<int>(9, 0);
 		
-	return current_best_eq;
+	return current_best_eq_;
+}
+
+void Speaker::clearAllEQs() {
+	eq_ = vector<int>(9, 0);
+	correction_eq_ = eq_;
+	current_best_eq_ = eq_;
+	score_ = 0;
 }
 
 // Returns current EQ
@@ -157,7 +164,7 @@ vector<int> Speaker::setCorrectionEQ(const vector<int>& eq, double score) {
 		
 	// Only update best EQ if the score is better
 	if (score > score_) {
-		current_best_eq = correction_eq_;
+		current_best_eq_ = correction_eq_;
 		score_ = score;
 	}
 	

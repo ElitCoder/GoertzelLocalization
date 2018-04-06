@@ -123,6 +123,7 @@ static void handle(NetworkCommunication& network, Connection& connection, Packet
 			int num_mics = input_packet.getInt();
 			int play_time = input_packet.getInt();
 			int idle_time = input_packet.getInt();
+			int num_iterations = input_packet.getInt();
 			
 			for (int i = 0; i < num_speakers; i++)
 				speakers.push_back(input_packet.getString());
@@ -132,7 +133,7 @@ static void handle(NetworkCommunication& network, Connection& connection, Packet
 			
 			SoundImageFFT9 answer;
 			
-			for (int i = 0; i < 1; i++) {
+			for (int i = 0; i < num_iterations; i++) {
 				answer = Handle::checkSoundImage(speakers, mics, play_time, idle_time, corrected);
 				
 				if (!corrected)
@@ -161,7 +162,13 @@ static void handle(NetworkCommunication& network, Connection& connection, Packet
 			for (int i = 0; i < num_speakers; i++)
 				speakers.push_back(input_packet.getString());
 				
-			Handle::setBestEQ(speakers);
+			auto eq = Handle::setBestEQ(speakers);
+			
+			packet.addInt(eq.size());
+			
+			for (auto& score : eq)
+				packet.addFloat(score);
+				
 			break;
 		}
 		
