@@ -187,6 +187,7 @@ vector<int> Speaker::setCorrectionEQ(const vector<int>& eq, double score) {
 	return correction_eq_;
 }
 
+/*
 void Speaker::setFlatResults(const vector<double>& dbs) {
 	if (!flat_results_.empty())
 		return;
@@ -203,6 +204,7 @@ vector<double> Speaker::getFlatResults() const {
 	
 	return flat_results_;
 }
+*/
 
 void Speaker::setFrequencyResponseFrom(const string& ip, const vector<double>& dbs) {
 	auto iterator = find_if(mic_frequency_responses_.begin(), mic_frequency_responses_.end(), [&ip] (auto& peer) {

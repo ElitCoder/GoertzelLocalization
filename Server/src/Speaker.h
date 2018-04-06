@@ -40,7 +40,7 @@ public:
 	void setMicBoost(int boost);
 	void setOnline(bool status);
 	void setPlacement(const SpeakerPlacement& placement, int placement_id);
-	void setFlatResults(const std::vector<double>& dbs);
+	//void setFlatResults(const std::vector<double>& dbs);
 	void setFrequencyResponseFrom(const std::string& ip, const std::vector<double>& dbs);
 	
 	const std::string& getIP() const;
@@ -49,7 +49,7 @@ public:
 	bool isOnline() const;
 	bool hasPlacement() const;
 	const std::vector<int>& getCorrectionEQ();
-	std::vector<double> getFlatResults() const;
+	//std::vector<double> getFlatResults() const;
 	std::vector<int> getBestEQ();
 	double getBestScore() const;
 	std::vector<double> getFrequencyResponseFrom(const std::string& ip) const;
@@ -57,9 +57,9 @@ public:
 	bool operator==(const std::string& ip);
 	
 private:
-	// Current EQ
+	// Current flat EQ
 	std::vector<int> eq_;
-	std::vector<double> flat_results_;
+	//std::vector<double> flat_results_;
 	
 	// Correction EQ - make it sound better
 	std::vector<int> correction_eq_;
