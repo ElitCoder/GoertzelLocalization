@@ -107,7 +107,7 @@ static T getMean(const vector<T>& container) {
 	return lround(sum / container.size());	
 }
 
-static void correctMaxEQ(vector<int>& eq) {
+static int correctMaxEQ(vector<int>& eq) {
 	int mean_db = getMean(eq);
 	
 	for (auto& setting : eq)
@@ -116,7 +116,8 @@ static void correctMaxEQ(vector<int>& eq) {
 	//cout << "Lower setting with " << mean_db << endl;
 	
 	// See if > max and < min
-	/* int min = *min_element(eq.begin(), eq.end());
+	/*
+	int min = *min_element(eq.begin(), eq.end());
 	
 	if (min > DSP_MIN_EQ) {
 		//cout << "min lower is " << min << endl;
@@ -131,12 +132,15 @@ static void correctMaxEQ(vector<int>& eq) {
 	
 	}
 	*/
+	
 	for (auto& setting : eq) {
 		if (setting < DSP_MIN_EQ)
 			setting = DSP_MIN_EQ;
 		else if (setting > DSP_MAX_EQ)
 			setting = DSP_MAX_EQ;
 	}
+	
+	return mean_db;
 }
 
 static void printEQ(const string& ip, const vector<int>& eq, const string& name) {
@@ -182,17 +186,26 @@ void Speaker::clearAllEQs() {
 	score_ = 0;
 }
 
+int Speaker::getBestVolume() const {
+	return best_speaker_volume_;
+}
+
+void Speaker::setBestVolume() {
+	volume_ = best_speaker_volume_;
+}
+
 // Returns current EQ
-vector<int> Speaker::setCorrectionEQ(const vector<int>& eq, double score) {
+int Speaker::setCorrectionEQ(const vector<int>& eq, double score) {
 	printEQ(ip_, eq, "input");
 		
 	if (correction_eq_.empty())
 		correction_eq_ = vector<int>(9, 0);
-		
+	
 	// Only update best EQ if the score is better
 	if (score > score_) {
 		current_best_eq_ = correction_eq_;
 		score_ = score;
+		best_speaker_volume_ = volume_;
 	}
 	
 	//printEQ(ip_, correction_eq_, "old correction");
@@ -212,19 +225,20 @@ vector<int> Speaker::setCorrectionEQ(const vector<int>& eq, double score) {
 		correction_eq_ = eq;
 	}
 	
-	//printEQ(ip_, correction_eq_, "new correction");
+	std::vector<int> actual_eq = correction_eq_;
+	auto delta_volume = correctMaxEQ(actual_eq);
 	
-	std::vector<int> actual_eq = correction_eq_; //unlimited_eq_;
-	correctMaxEQ(actual_eq);
+	printEQ(ip_, actual_eq, "next EQ");
 	
-	//printEQ(ip_, eq, "desired adding");
-	printEQ(ip_, actual_eq, "setting");
+	cout << "Want to change mean to: " << delta_volume << endl;
 	
 	correction_eq_ = actual_eq;
 	
-	//printEQ(ip_, correction_eq_, "final correction");
-	
-	return correction_eq_;
+	return delta_volume;
+}
+
+int Speaker::getCurrentVolume() const {
+	return volume_ > 57 ? 57 : volume_;
 }
 
 /*

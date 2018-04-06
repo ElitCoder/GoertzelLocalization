@@ -89,12 +89,13 @@ bool Handle::setSpeakerAudioSettings(const vector<string>& ips, const vector<int
 		string capture = to_string(captures.at(i));
 		string boost = to_string(boosts.at(i));
 		
-		string command = "amixer -c1 sset 'Headphone' " + volume + " on; wait; ";
-		command += "amixer -c1 sset 'Capture' " + capture + "; wait; ";
-		command += "dspd -s -m; wait; dspd -s -u limiter; wait; ";
-		command += "dspd -s -u static; wait; ";
-		command += "dspd -s -u preset; wait; dspd -s -p flat; wait; ";
-		command += "amixer -c1 sset 'PGA Boost' " + boost + "; wait\n";
+		string command = 	"dspd -s -w; wait; ";
+		command +=			"amixer -c1 sset 'Headphone' " + volume + " on; wait; ";
+		command +=			"amixer -c1 sset 'Capture' " + capture + "; wait; ";
+		command +=			"dspd -s -m; wait; dspd -s -u limiter; wait; ";
+		command +=			"dspd -s -u static; wait; ";
+		command +=			"dspd -s -u preset; wait; dspd -s -p flat; wait; ";
+		command +=			"amixer -c1 sset 'PGA Boost' " + boost + "; wait\n";
 		
 		commands.push_back(command);
 	}
@@ -358,7 +359,6 @@ static double getSoundImageScore(const vector<double>& dbs) {
 }
 
 static vector<int> getSoundImageCorrection(vector<double> dbs, size_t num_speakers) {
-	/*
 	vector<int> eq;
 	
 	double mean = getMean(dbs);
@@ -370,7 +370,6 @@ static vector<int> getSoundImageCorrection(vector<double> dbs, size_t num_speake
 	}
 	
 	return eq;
-	*/
 	
 	#if 0
 	// Abs everything
@@ -387,6 +386,7 @@ static vector<int> getSoundImageCorrection(vector<double> dbs, size_t num_speake
 	
 	return eq;
 	#endif
+	#if 0
 	
 	for_each(dbs.begin(), dbs.end(), [] (auto& db) { db = abs(db); });
 	
@@ -400,6 +400,17 @@ static vector<int> getSoundImageCorrection(vector<double> dbs, size_t num_speake
 	}
 		
 	return correction_eq;
+	#endif
+}
+
+static void setSpeakerVolume(const string& ip, double delta_volume) {
+	auto& speaker = Base::system().getSpeaker(ip);
+	speaker.setVolume(speaker.getCurrentVolume() + delta_volume);
+	
+	cout << "Setting speaker volume to " << speaker.getCurrentVolume() << endl;
+	
+	string command = "amixer -c1 sset 'Headphone' " + to_string(speaker.getCurrentVolume()) + " on; wait; ";
+	Base::system().runScript({ ip }, { command });
 }
 
 static vector<double> setSpeakersBestEQ(const vector<string>& ips) {
@@ -409,6 +420,7 @@ static vector<double> setSpeakersBestEQ(const vector<string>& ips) {
 	
 	for (auto* speaker : speakers) {
 		auto correction_eq = speaker->getBestEQ();
+		speaker->setBestVolume();
 		//vector<int> correction_eq = { 9, -10, 0, 0, 0, 0, 0, 0, 0 };
 		
 		string command =	"dspd -s -u preset; wait; ";
@@ -425,6 +437,8 @@ static vector<double> setSpeakersBestEQ(const vector<string>& ips) {
 		
 		cout << "Best score: " << speaker->getBestScore() << endl;
 		scores.push_back(speaker->getBestScore());
+		
+		setSpeakerVolume(speaker->getIP(), 0);
 	}
 	
 	Base::system().runScript(ips, commands);
@@ -461,6 +475,7 @@ static void setFlatEQ(const vector<string>& ips) {
 	
 	for (auto* speaker : speakers) {
 		speaker->clearAllEQs();
+		speaker->setVolume(57);
 		
 		string command =	"dspd -s -u preset; wait; ";
 		command += 			"amixer -c1 cset numid=170 0x00,0x20,0x26,0xf3; wait; ";
@@ -473,6 +488,8 @@ static void setFlatEQ(const vector<string>& ips) {
 		command +=			"; wait\n";
 		
 		commands.push_back(command);
+		
+		setSpeakerVolume(speaker->getIP(), 0);
 	}
 	
 	Base::system().runScript(ips, commands);
@@ -606,7 +623,7 @@ SoundImageFFT9 Handle::checkSoundImage(const vector<string>& speakers, const vec
 			auto actual_speakers = Base::system().getSpeakers(speakers);
 			
 			for (size_t d = 0; d < actual_speakers.size(); d++)
-				actual_speakers.at(d)->setCorrectionEQ(corrected_dbs.at(d), score);
+				setSpeakerVolume(actual_speakers.at(d)->getIP(), actual_speakers.at(d)->setCorrectionEQ(corrected_dbs.at(d), score));
 			
 			#if 0
 			for (auto* speaker : Base::system().getSpeakers(speakers)) {
