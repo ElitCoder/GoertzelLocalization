@@ -183,6 +183,7 @@ void Speaker::clearAllEQs() {
 	eq_ = vector<int>(9, 0);
 	correction_eq_ = eq_;
 	current_best_eq_ = eq_;
+	correction_volume_ = volume_;
 	score_ = 0;
 }
 
@@ -194,8 +195,12 @@ void Speaker::setBestVolume() {
 	volume_ = best_speaker_volume_;
 }
 
+void Speaker::setCorrectionVolume() {
+	volume_ = correction_volume_;
+}
+
 // Returns current EQ
-int Speaker::setCorrectionEQ(const vector<int>& eq, double score) {
+void Speaker::setCorrectionEQ(const vector<int>& eq, double score) {
 	printEQ(ip_, eq, "input");
 		
 	if (correction_eq_.empty())
@@ -205,7 +210,7 @@ int Speaker::setCorrectionEQ(const vector<int>& eq, double score) {
 	if (score > score_) {
 		current_best_eq_ = correction_eq_;
 		score_ = score;
-		best_speaker_volume_ = volume_;
+		best_speaker_volume_ = correction_volume_;
 	}
 	
 	//printEQ(ip_, correction_eq_, "old correction");
@@ -217,7 +222,7 @@ int Speaker::setCorrectionEQ(const vector<int>& eq, double score) {
 			// If the EQ wants to lower certain frequencies a lot, make it slower
 			// Same with making them higher
 			//double difference = abs(eq.at(i));
-			//double change = 1 / difference;
+			//double change = 1 - 1 / difference;
 			//correction_eq_.at(i) += lround((double)eq.at(i) * change);
 			correction_eq_.at(i) += eq.at(i);
 		}
@@ -226,15 +231,13 @@ int Speaker::setCorrectionEQ(const vector<int>& eq, double score) {
 	}
 	
 	std::vector<int> actual_eq = correction_eq_;
-	auto delta_volume = correctMaxEQ(actual_eq);
+	correction_volume_ = volume_ + correctMaxEQ(actual_eq);
 	
-	printEQ(ip_, actual_eq, "next EQ");
+	printEQ(ip_, actual_eq, "next");
 	
-	cout << "Want to change mean to: " << delta_volume << endl;
+	cout << "Want to change volume to: " << correction_volume_ << endl;
 	
 	correction_eq_ = actual_eq;
-	
-	return delta_volume;
 }
 
 int Speaker::getCurrentVolume() const {

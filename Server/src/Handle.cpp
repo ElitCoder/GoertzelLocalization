@@ -22,7 +22,7 @@ static vector<string> g_frequencies = {	"63",
 									"8000",
 									"16000" };
 
-static double g_target_mean = -52;
+static double g_target_mean = -55;
 
 static SSHOutput runBasicScriptExternal(const vector<string>& speakers, const vector<string>& mics, const vector<string>& all_ips, const vector<string>& scripts, const string& send_from, const string& send_to) {
 	if (!Base::system().sendFile(speakers, send_from, send_to))
@@ -366,6 +366,7 @@ static vector<int> getSoundImageCorrection(vector<double> dbs, size_t num_speake
 	for (auto& db : dbs) {
 		double difference = g_target_mean - db;
 		
+		// Adjust for DSP effect
 		eq.push_back(lround(difference));
 	}
 	
@@ -403,9 +404,10 @@ static vector<int> getSoundImageCorrection(vector<double> dbs, size_t num_speake
 	#endif
 }
 
-static void setSpeakerVolume(const string& ip, double delta_volume) {
+static void setSpeakerVolume(const string& ip, int volume) {
 	auto& speaker = Base::system().getSpeaker(ip);
-	speaker.setVolume(speaker.getCurrentVolume() + delta_volume);
+	speaker.setVolume(volume);
+	//speaker.setVolume(speaker.getCurrentVolume() + delta_volume);
 	
 	cout << "Setting speaker volume to " << speaker.getCurrentVolume() << endl;
 	
@@ -438,7 +440,7 @@ static vector<double> setSpeakersBestEQ(const vector<string>& ips) {
 		cout << "Best score: " << speaker->getBestScore() << endl;
 		scores.push_back(speaker->getBestScore());
 		
-		setSpeakerVolume(speaker->getIP(), 0);
+		setSpeakerVolume(speaker->getIP(), speaker->getCurrentVolume());
 	}
 	
 	Base::system().runScript(ips, commands);
@@ -452,6 +454,7 @@ static void setCorrectedEQ(const vector<string>& ips) {
 	
 	for (auto* speaker : speakers) {
 		auto& correction_eq = speaker->getCorrectionEQ();
+		speaker->setCorrectionVolume();
 		//vector<int> correction_eq = { 9, -10, 0, 0, 0, 0, 0, 0, 0 };
 		
 		string command =	"dspd -s -u preset; wait; ";
@@ -464,6 +467,8 @@ static void setCorrectedEQ(const vector<string>& ips) {
 		command +=			"; wait\n";
 		
 		commands.push_back(command);
+		
+		setSpeakerVolume(speaker->getIP(), speaker->getCurrentVolume());
 	}
 	
 	Base::system().runScript(ips, commands);
@@ -474,8 +479,8 @@ static void setFlatEQ(const vector<string>& ips) {
 	vector<string> commands;
 	
 	for (auto* speaker : speakers) {
-		speaker->clearAllEQs();
 		speaker->setVolume(57);
+		speaker->clearAllEQs();
 		
 		string command =	"dspd -s -u preset; wait; ";
 		command += 			"amixer -c1 cset numid=170 0x00,0x20,0x26,0xf3; wait; ";
@@ -489,7 +494,7 @@ static void setFlatEQ(const vector<string>& ips) {
 		
 		commands.push_back(command);
 		
-		setSpeakerVolume(speaker->getIP(), 0);
+		setSpeakerVolume(speaker->getIP(), speaker->getCurrentVolume());
 	}
 	
 	Base::system().runScript(ips, commands);
@@ -507,6 +512,11 @@ SoundImageFFT9 Handle::checkSoundImage(const vector<string>& speakers, const vec
 		Base::system().runScript(all_ips, scripts);
 		
 		setFlatEQ(speakers);
+		
+		// Set target mean accordingly to amount of speakers
+		g_target_mean = -55 + ((double)speakers.size() * 3.0);
+		
+		cout << "Target mean is " << g_target_mean << endl;
 	}
 	
 	if (!Config::get<bool>("no_scripts")) {
@@ -569,23 +579,23 @@ SoundImageFFT9 Handle::checkSoundImage(const vector<string>& speakers, const vec
 			
 			// Correct EQ
 			vector<vector<double>> incoming_dbs;
+			vector<double> incoming_gains;
 			//vector<double> incoming_gains;
 			vector<vector<int>> corrected_dbs(speakers.size());
 			
 			// See all relative DBs
-			for (size_t k = 0; k < speakers.size(); k++)
+			for (size_t k = 0; k < speakers.size(); k++) {
 				incoming_dbs.push_back(Base::system().getSpeaker(mics.at(i)).getFrequencyResponseFrom(speakers.at(k)));
-				//incoming_gains.push_back(Base::system().getSpeaker(mics.at(i)).getLinearGainFrom(speakers.at(k)));
-				
+				incoming_gains.push_back(Base::system().getSpeaker(mics.at(i)).getLinearGainFrom(speakers.at(k)));
+			}
 			
-			/*
 			// All energy	
 			double total_gain = 0;
 			
 			for (auto& gain : incoming_gains)
 				total_gain += gain;
 				
-				
+				/*
 			for (size_t s = 0; s < speakers.size(); s++){
 				auto gain = Base::system().getSpeaker(mics.at(i)).getLinearGainFrom(speakers.at(s));
 				double percent = gain / total_gain;
@@ -608,6 +618,11 @@ SoundImageFFT9 Handle::checkSoundImage(const vector<string>& speakers, const vec
 					
 				for (size_t e = 0; e < corrected_dbs.size(); e++) {
 					double percent = (SHRT_MAX * dB_to_linear_gain(incoming_dbs.at(e).at(d))) / total_linear;
+					
+					// How much did we hear this speaker?
+					//auto gain = Base::system().getSpeaker(mics.at(i)).getLinearGainFrom(speakers.at(e));
+					//double percent_gain = gain / total_gain + 1;
+					
 					//percent = 1 - percent;
 					//double percent = 1.0 / speakers.size();
 					
@@ -623,7 +638,7 @@ SoundImageFFT9 Handle::checkSoundImage(const vector<string>& speakers, const vec
 			auto actual_speakers = Base::system().getSpeakers(speakers);
 			
 			for (size_t d = 0; d < actual_speakers.size(); d++)
-				setSpeakerVolume(actual_speakers.at(d)->getIP(), actual_speakers.at(d)->setCorrectionEQ(corrected_dbs.at(d), score));
+				actual_speakers.at(d)->getIP(), actual_speakers.at(d)->setCorrectionEQ(corrected_dbs.at(d), score);
 			
 			#if 0
 			for (auto* speaker : Base::system().getSpeakers(speakers)) {
