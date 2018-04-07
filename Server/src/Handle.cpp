@@ -22,7 +22,7 @@ static vector<string> g_frequencies = {	"63",
 									"8000",
 									"16000" };
 
-static double g_target_mean = -55;
+static double g_target_mean;
 
 static SSHOutput runBasicScriptExternal(const vector<string>& speakers, const vector<string>& mics, const vector<string>& all_ips, const vector<string>& scripts, const string& send_from, const string& send_to) {
 	if (!Base::system().sendFile(speakers, send_from, send_to))
@@ -59,6 +59,8 @@ double dB_to_linear_gain(double x) {
     return pow(10,x/20);
 }
 
+// Not used for now, since it buffer overflows for some reason
+/*
 void to_523(double param_dec, unsigned char * param_hex) {
 	long param223;
 	long param227;
@@ -76,13 +78,14 @@ void to_523(double param_dec, unsigned char * param_hex) {
 	// invert sign bit to get correct sign
 	param_hex[0] = param_hex[0] ^ 0x08;
 }
+*/
 
 bool Handle::setSpeakerAudioSettings(const vector<string>& ips, const vector<int>& volumes, const vector<int>& captures, const vector<int>& boosts) {
 	vector<string> commands;
 	
+	// In DSP pre-gain
 	// -12 dB = 002026f3
-	//vector<unsigned char> dsp_gain(100);
-	//to_523(dB_to_linear_gain(-12), dsp_gain.data());
+	// 0 dB = 00800000
 	
 	for (size_t i = 0; i < volumes.size(); i++) {
 		string volume = to_string(volumes.at(i));
@@ -368,37 +371,6 @@ static vector<double> getSoundImageCorrection(vector<double> dbs) {
 	}
 	
 	return eq;
-	
-	#if 0
-	// Abs everything
-	//for_each(dbs.begin(), dbs.end(), [] (auto& db) { db = abs(db); });
-	vector<int> eq;
-	
-	for (auto& db : dbs) {
-		double difference = -(db - g_target_mean);
-	//	double change = 1.0 - 1 / difference;
-	//	difference *= change * 1.5;
-		//difference *= 1.2;
-		eq.push_back(lround(difference));
-	}
-	
-	return eq;
-	#endif
-	#if 0
-	
-	for_each(dbs.begin(), dbs.end(), [] (auto& db) { db = abs(db); });
-	
-	double min = *min_element(dbs.begin(), dbs.end());
-	vector<int> correction_eq;
-	
-	for (auto& db : dbs) {
-		double correction = db - min;
-		
-		correction_eq.push_back(lround(correction));
-	}
-		
-	return correction_eq;
-	#endif
 }
 
 static void setSpeakerVolume(const string& ip, int volume) {
@@ -452,7 +424,6 @@ static void setCorrectedEQ(const vector<string>& ips) {
 	for (auto* speaker : speakers) {
 		auto correction_eq = speaker->getCorrectionEQ();
 		speaker->setCorrectionVolume();
-		//vector<int> correction_eq = { 9, -10, 0, 0, 0, 0, 0, 0, 0 };
 		
 		string command =	"dspd -s -u preset; wait; ";
 		command +=			"dspd -s -e ";
@@ -511,7 +482,7 @@ SoundImageFFT9 Handle::checkSoundImage(const vector<string>& speakers, const vec
 		setFlatEQ(speakers);
 		
 		// Set target mean accordingly to amount of speakers
-		g_target_mean = -55 + ((double)speakers.size() * 3.0);
+		g_target_mean = -50 + ((double)speakers.size() * 3.0);
 		
 		cout << "Target mean is " << g_target_mean << endl;
 	}
@@ -572,7 +543,6 @@ SoundImageFFT9 Handle::checkSoundImage(const vector<string>& speakers, const vec
 			// Correct EQ
 			vector<vector<double>> incoming_dbs;
 			vector<double> incoming_gains;
-			//vector<double> incoming_gains;
 			vector<vector<double>> corrected_dbs(speakers.size());
 			
 			// See all relative DBs
@@ -581,6 +551,7 @@ SoundImageFFT9 Handle::checkSoundImage(const vector<string>& speakers, const vec
 				incoming_gains.push_back(Base::system().getSpeaker(mics.at(i)).getLinearGainFrom(speakers.at(k)));
 			}
 			
+			// NOT USED
 			// All energy (some kind of indication of how close the speaker is?)
 			// Keep it for now
 			double total_gain = 0;
@@ -691,24 +662,3 @@ void Handle::setEQStatus(const vector<string>& ips, bool status) {
 	
 	Base::system().runScript(ips, vector<string>(ips.size(), command));
 }
-
-#if 0
-bool Handle::setEQ(const vector<string>& speakers, const vector<double>& settings) {
-	cout << "NOT IMPLEMENTED\n";
-	
-	return false;
-	
-	/*
-	string command =	"dspd -s -u preset; wait; ";
-	command +=			"dspd -s -e ";
-	
-	for (auto setting : settings)
-		command += to_string(lround(setting)) + ",";
-		
-	command.pop_back();	
-	command +=			"; wait";
-	
-	return !Base::system().runScript(speakers, vector<string>(speakers.size(), command)).empty();
-	*/
-}
-#endif
