@@ -55,6 +55,7 @@ void Speaker::setMicVolume(int volume) {
 	cout << "Setting (" << ip_ << ") mic volume to " << mic_volume_ << endl;
 }
 
+#if 0
 void Speaker::setLinearGainFrom(const string& ip, double db) {
 	auto iterator = find_if(mic_gain_responses_.begin(), mic_gain_responses_.end(), [&ip] (auto& peer) {
 		return peer.first == ip;
@@ -80,6 +81,7 @@ double Speaker::getLinearGainFrom(const string& ip) const {
 	else
 		return iterator->second;
 }
+#endif
 
 void Speaker::setMicBoost(int boost) {
 	mic_boost_ = boost;
@@ -162,6 +164,7 @@ static void printEQ(const string& ip, const vector<double>& eq, const string& na
 	cout << "\n";
 }
 
+#if 0
 // Returns reference EQ (flat)
 void Speaker::setEQ(const vector<int>& eq) {
 	eq_ = eq;
@@ -177,6 +180,7 @@ void Speaker::setEQ(const vector<int>& eq) {
 	cout << "\n";
 	*/
 }
+#endif
 
 double Speaker::getBestScore() const {
 	return score_;
@@ -190,11 +194,11 @@ vector<int> Speaker::getBestEQ() {
 }
 
 void Speaker::clearAllEQs() {
-	eq_ = vector<int>(9, 0);
 	correction_eq_ = vector<double>(9, 0);
 	current_best_eq_ = vector<double>(9, 0);
 	correction_volume_ = volume_;
 	score_ = 0;
+	best_speaker_volume_ = volume_;
 }
 
 int Speaker::getBestVolume() const {
@@ -223,22 +227,8 @@ void Speaker::setCorrectionEQ(const vector<double>& eq, double score) {
 		best_speaker_volume_ = correction_volume_;
 	}
 	
-	//printEQ(ip_, correction_eq_, "old correction");
-	
-	if (!correction_eq_.empty()) {
-		cout << "Correction EQ was not empty, adding new EQ on top\n";
-		
-		for (size_t i = 0; i < eq.size(); i++) {
-			// If the EQ wants to lower certain frequencies a lot, make it slower
-			// Same with making them higher
-			//double difference = abs(eq.at(i));
-			//double change = 1 - 1 / difference;
-			//correction_eq_.at(i) += lround((double)eq.at(i) * change);
-			correction_eq_.at(i) += eq.at(i);
-		}
-	} else {
-		correction_eq_ = eq;
-	}
+	for (size_t i = 0; i < eq.size(); i++)
+		correction_eq_.at(i) += eq.at(i);
 	
 	std::vector<double> actual_eq = correction_eq_;
 	correction_volume_ = volume_ + correctMaxEQ(actual_eq);
