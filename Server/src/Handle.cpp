@@ -487,10 +487,10 @@ static vector<vector<double>> weightEQs(const MicWantedEQ& eqs) {
 		}
 	}
 	
-	// Normalize to amount of speakers
+	// Normalize to amount of mics
 	for (auto& speaker : final_eqs)
 		for (auto& setting : speaker)
-			setting /= eqs.front().size();
+			setting /= eqs.size();
 	
 	return final_eqs;
 }
