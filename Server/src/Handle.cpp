@@ -347,7 +347,7 @@ static T getMean(const vector<T>& container) {
 }
 
 static double getSoundImageScore(const vector<double>& dbs) {
-	double mean = getMean(dbs);
+	double mean = g_target_mean;
 	double score = 0;
 	
 	vector<double> dbs_above_63(dbs.begin(), dbs.end());
@@ -358,10 +358,8 @@ static double getSoundImageScore(const vector<double>& dbs) {
 	return 1 / sqrt(score);
 }
 
-static vector<int> getSoundImageCorrection(vector<double> dbs, size_t num_speakers) {
+static vector<int> getSoundImageCorrection(vector<double> dbs) {
 	vector<int> eq;
-	
-	double mean = getMean(dbs);
 	
 	for (auto& db : dbs) {
 		double difference = g_target_mean - db;
@@ -575,7 +573,7 @@ SoundImageFFT9 Handle::checkSoundImage(const vector<string>& speakers, const vec
 			auto score = getSoundImageScore(dbs);
 			
 			// Calculate correction & set it to speakers (alpha)
-			auto correction = getSoundImageCorrection(dbs, speakers.size());
+			auto correction = getSoundImageCorrection(dbs);
 			
 			// Correct EQ
 			vector<vector<double>> incoming_dbs;

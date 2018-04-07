@@ -368,7 +368,7 @@ bool NetworkCommunication::runSelectAccept(fd_set &readSet, fd_set &errorSet) {
         
         {
             lock_guard<mutex> guard(mConnectionsMutex);
-            mConnections.push_back({new mutex, move(Connection(newSocket))});
+            mConnections.push_back({new mutex, Connection(newSocket)});
             //mConnections.back().second.setPlayer(new Player("Bert", "", {150000, 171, 150000}, {1, 1, 1}, 0, true)); // REMOVE THIS LATER ON
 			
 			id = mConnections.back().second.getId();

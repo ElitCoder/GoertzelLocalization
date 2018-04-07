@@ -128,7 +128,7 @@ static vector<Point> getSinglePossibles(const Point& point, double actual_distan
 			double x = point.getX() + actual_distance * cos(radians(gamma));
 			double y = point.getY() + actual_distance * sin(radians(gamma));
 				
-			possibles.push_back(Point(array<double, 3>({ x, y, 0.0 })));
+			possibles.push_back(Point(array<double, 3>({{ x, y, 0.0 }})));
 		}
 	} else {
 		for (int gamma = 0; gamma < 360; gamma += g_degree_accuracy) {
@@ -137,7 +137,7 @@ static vector<Point> getSinglePossibles(const Point& point, double actual_distan
 				double y = point.getY() + actual_distance * sin(radians(gamma)) * sin(radians(omega));
 				double z = point.getZ() + actual_distance * cos(omega);
 				
-				possibles.push_back(Point(array<double, 3>({ x, y, z })));
+				possibles.push_back(Point(array<double, 3>{{ x, y, z }}));
 			}
 		}
 	}
@@ -295,7 +295,7 @@ vector<array<double, 3>> Localization3D::run(const Localization3DInput& input, b
 	}
 	
 	// Need to have some kind of reference
-	points.front().setPosition({ 0, 0, 0 });
+	points.front().setPosition({{ 0, 0, 0 }});
 	
 	double best_point = INT_MAX;
 	double best_z_diff = INT_MAX;
