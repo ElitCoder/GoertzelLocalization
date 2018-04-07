@@ -87,14 +87,24 @@ void Speaker::setMicBoost(int boost) {
 	cout << "Setting (" << ip_ << ") mic boost to " << mic_boost_ << endl;
 }
 
-const std::vector<int>& Speaker::getCorrectionEQ() {
+template<class T>
+vector<int> getIntVector(const vector<T>& container) {
+	vector<int> result;
+	result.reserve(container.size());
+	
+	for_each(container.begin(), container.end(), [&result] (auto& value) { result.push_back(lround(value)); });
+	
+	return result;
+}
+
+vector<int> Speaker::getCorrectionEQ() {
 	if (correction_eq_.empty()) {
 		cout << "Server asking for empty correction EQ! Setting it to flat\n";
 		
-		correction_eq_ = vector<int>(9, 0);
+		correction_eq_ = vector<double>(9, 0);
 	}
 	
-	return correction_eq_;
+	return getIntVector(correction_eq_);
 }
 
 template<class T>
@@ -104,11 +114,11 @@ static T getMean(const vector<T>& container) {
 	for(const auto& element : container)
 		sum += element;
 		
-	return lround(sum / container.size());	
+	return sum / container.size();
 }
 
-static int correctMaxEQ(vector<int>& eq) {
-	int mean_db = getMean(eq);
+static int correctMaxEQ(vector<double>& eq) {
+	double mean_db = getMean(eq);
 	
 	for (auto& setting : eq)
 		setting -= mean_db;
@@ -140,10 +150,10 @@ static int correctMaxEQ(vector<int>& eq) {
 			setting = DSP_MAX_EQ;
 	}
 	
-	return mean_db;
+	return lround(mean_db);
 }
 
-static void printEQ(const string& ip, const vector<int>& eq, const string& name) {
+static void printEQ(const string& ip, const vector<double>& eq, const string& name) {
 	cout << "Setting (" << ip << ") " << name << " EQ to\t";
 	
 	for (auto setting : eq)
@@ -174,15 +184,15 @@ double Speaker::getBestScore() const {
 
 vector<int> Speaker::getBestEQ() {
 	if (current_best_eq_.empty())
-		current_best_eq_ = vector<int>(9, 0);
+		current_best_eq_ = vector<double>(9, 0);
 		
-	return current_best_eq_;
+	return getIntVector(current_best_eq_);
 }
 
 void Speaker::clearAllEQs() {
 	eq_ = vector<int>(9, 0);
-	correction_eq_ = eq_;
-	current_best_eq_ = eq_;
+	correction_eq_ = vector<double>(9, 0);
+	current_best_eq_ = vector<double>(9, 0);
 	correction_volume_ = volume_;
 	score_ = 0;
 }
@@ -200,11 +210,11 @@ void Speaker::setCorrectionVolume() {
 }
 
 // Returns current EQ
-void Speaker::setCorrectionEQ(const vector<int>& eq, double score) {
+void Speaker::setCorrectionEQ(const vector<double>& eq, double score) {
 	printEQ(ip_, eq, "input");
 		
 	if (correction_eq_.empty())
-		correction_eq_ = vector<int>(9, 0);
+		correction_eq_ = vector<double>(9, 0);
 	
 	// Only update best EQ if the score is better
 	if (score > score_) {
@@ -230,7 +240,7 @@ void Speaker::setCorrectionEQ(const vector<int>& eq, double score) {
 		correction_eq_ = eq;
 	}
 	
-	std::vector<int> actual_eq = correction_eq_;
+	std::vector<double> actual_eq = correction_eq_;
 	correction_volume_ = volume_ + correctMaxEQ(actual_eq);
 	
 	printEQ(ip_, actual_eq, "next");

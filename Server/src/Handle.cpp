@@ -451,7 +451,7 @@ static void setCorrectedEQ(const vector<string>& ips) {
 	vector<string> commands;
 	
 	for (auto* speaker : speakers) {
-		auto& correction_eq = speaker->getCorrectionEQ();
+		auto correction_eq = speaker->getCorrectionEQ();
 		speaker->setCorrectionVolume();
 		//vector<int> correction_eq = { 9, -10, 0, 0, 0, 0, 0, 0, 0 };
 		
@@ -545,14 +545,10 @@ SoundImageFFT9 Handle::checkSoundImage(const vector<string>& speakers, const vec
 			return SoundImageFFT9();
 		
 		if (corrected) {
-			size_t sound_start = ((double)idle_time + 0.5) * 48000;
-			size_t sound_average = getRMS(data, sound_start, sound_start + (48000 / 3));
-			
-			//cout << "Debug: sound_average " << sound_average << endl;
+			size_t sound_start = ((double)idle_time + 0.4) * 48000;
+			size_t sound_average = getRMS(data, sound_start, sound_start + (48000 / 2));
 			
 			double db = 20 * log10(sound_average / (double)SHRT_MAX);
-			
-			//cout << "Debug: db " << db << endl;
 			
 			// Calculate FFT for 9 band as well
 			auto db_fft = getFFT9(data, sound_start, sound_start + (48000 / 2));
@@ -560,7 +556,6 @@ SoundImageFFT9 Handle::checkSoundImage(const vector<string>& speakers, const vec
 			
 			cout << "Microphone \t" << mics.at(i) << endl;
 			
-			//for (auto& freq : db_fft) {
 			for (size_t z = 0; z < db_fft.size(); z++) {
 				auto& freq = db_fft.at(z);
 				double db_freq = 20 * log10(freq / (double)SHRT_MAX);
@@ -579,7 +574,7 @@ SoundImageFFT9 Handle::checkSoundImage(const vector<string>& speakers, const vec
 			vector<vector<double>> incoming_dbs;
 			vector<double> incoming_gains;
 			//vector<double> incoming_gains;
-			vector<vector<int>> corrected_dbs(speakers.size());
+			vector<vector<double>> corrected_dbs(speakers.size());
 			
 			// See all relative DBs
 			for (size_t k = 0; k < speakers.size(); k++) {
@@ -587,48 +582,27 @@ SoundImageFFT9 Handle::checkSoundImage(const vector<string>& speakers, const vec
 				incoming_gains.push_back(Base::system().getSpeaker(mics.at(i)).getLinearGainFrom(speakers.at(k)));
 			}
 			
-			// All energy	
+			// All energy (some kind of indication of how close the speaker is?)
+			// Keep it for now
 			double total_gain = 0;
 			
 			for (auto& gain : incoming_gains)
 				total_gain += gain;
-				
-				/*
-			for (size_t s = 0; s < speakers.size(); s++){
-				auto gain = Base::system().getSpeaker(mics.at(i)).getLinearGainFrom(speakers.at(s));
-				double percent = gain / total_gain;
-				vector<int> eq;
-				for (int e = 0; e < 9; e++)
-					eq.push_back(lround(percent*correction.at(e)));
-				corrected_dbs.push_back(eq);
-			}
-			*/
-			
 		
 			// Go through all frequency bands
 			for (int d = 0; d < 9; d++) {
 				double total_linear = 0;
 				
 				for (auto& incoming_db : incoming_dbs)
+					// SHRT_MAX is normalization used before lg()
 					total_linear += SHRT_MAX * dB_to_linear_gain(incoming_db.at(d));
 					
-				//cout << "Total linear gain: " << total_linear << endl;
-					
 				for (size_t e = 0; e < corrected_dbs.size(); e++) {
+					// How much did this speaker contribute to the current frequency band?
 					double percent = (SHRT_MAX * dB_to_linear_gain(incoming_dbs.at(e).at(d))) / total_linear;
 					
-					// How much did we hear this speaker?
-					//auto gain = Base::system().getSpeaker(mics.at(i)).getLinearGainFrom(speakers.at(e));
-					//double percent_gain = gain / total_gain + 1;
-					
-					//percent = 1 - percent;
-					//double percent = 1.0 / speakers.size();
-					
-					//cout << "Percent: " << percent << endl;
-					
+					// Adjust it's EQ based on if it's loud already. Make it louder then, since it's closer?
 					corrected_dbs.at(e).push_back(lround((double)correction.at(d) * percent));
-					
-					//cout << "Which means " << ((double)correction.at(d) * percent) << " of sound\n";
 				}
 			}
 			
@@ -637,28 +611,6 @@ SoundImageFFT9 Handle::checkSoundImage(const vector<string>& speakers, const vec
 			
 			for (size_t d = 0; d < actual_speakers.size(); d++)
 				actual_speakers.at(d)->getIP(), actual_speakers.at(d)->setCorrectionEQ(corrected_dbs.at(d), score);
-			
-			#if 0
-			for (auto* speaker : Base::system().getSpeakers(speakers)) {
-				if (!corrected) {
-					// Set flat results if not set
-					speaker->setFlatResults(dbs);
-				} else {
-					auto flat = speaker->getFlatResults();
-					auto& set = dbs;
-					
-					/*
-					// Now - before
-					for (size_t d = 0; d < dbs.size(); d++) {
-						cout << flat.at(d) << " -> " << set.at(d) << "\tdifference: " << (set.at(d) - flat.at(d)) << endl;
-						cout << "Corrected was: " << speaker->getCorrectionEQ().at(d) << endl;
-					}*/
-				}
-				
-				auto actual_new_eq = speaker->setCorrectionEQ(correction, score);
-				//speaker->setTargetMeanDB(correction.first);
-			}
-			#endif
 			
 			cout << "Current score: " << score << endl;
 			
@@ -670,12 +622,8 @@ SoundImageFFT9 Handle::checkSoundImage(const vector<string>& speakers, const vec
 			for (size_t j = 0; j < speakers.size(); j++) {
 				size_t sound_start = ((double)idle_time + j * (play_time + 1) + 0.3) * 48000;
 				size_t sound_average = getRMS(data, sound_start, sound_start + (48000 / 2));
-				
-				//cout << "Debug: sound_average " << sound_average << endl;
-				
+
 				double db = 20 * log10(sound_average / (double)SHRT_MAX);
-				
-				cout << "Debug: db from " << speakers.at(j) << " is " << db << endl;
 				
 				// Calculate FFT for 9 band as well
 				auto db_fft = getFFT9(data, sound_start, sound_start + (48000 / 2));

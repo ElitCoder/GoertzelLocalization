@@ -34,13 +34,12 @@ public:
 	
 	void setIP(const std::string& ip);
 	void setEQ(const std::vector<int>& eq);
-	void setCorrectionEQ(const std::vector<int>& eq, double score);
+	void setCorrectionEQ(const std::vector<double>& eq, double score);
 	void setVolume(int volume);
 	void setMicVolume(int volume);
 	void setMicBoost(int boost);
 	void setOnline(bool status);
 	void setPlacement(const SpeakerPlacement& placement, int placement_id);
-	//void setFlatResults(const std::vector<double>& dbs);
 	void setFrequencyResponseFrom(const std::string& ip, const std::vector<double>& dbs);
 	void clearAllEQs();
 	void setLinearGainFrom(const std::string& ip, double db);
@@ -52,8 +51,7 @@ public:
 	SpeakerPlacement& getPlacement();
 	bool isOnline() const;
 	bool hasPlacement() const;
-	const std::vector<int>& getCorrectionEQ();
-	//std::vector<double> getFlatResults() const;
+	std::vector<int> getCorrectionEQ();
 	std::vector<int> getBestEQ();
 	int getBestVolume() const;
 	double getBestScore() const;
@@ -66,11 +64,10 @@ public:
 private:
 	// Current flat EQ
 	std::vector<int> eq_;
-	//std::vector<double> flat_results_;
 	
 	// Correction EQ - make it sound better
-	std::vector<int> correction_eq_;
-	std::vector<int> current_best_eq_;
+	std::vector<double> correction_eq_;
+	std::vector<double> current_best_eq_;
 	double score_ = 0.0;
 	int best_speaker_volume_ = 0;
 	int correction_volume_ = 0;
