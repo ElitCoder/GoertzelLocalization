@@ -358,14 +358,13 @@ static double getSoundImageScore(const vector<double>& dbs) {
 	return 1 / sqrt(score);
 }
 
-static vector<int> getSoundImageCorrection(vector<double> dbs) {
-	vector<int> eq;
+static vector<double> getSoundImageCorrection(vector<double> dbs) {
+	vector<double> eq;
 	
 	for (auto& db : dbs) {
 		double difference = g_target_mean - db;
 		
-		// Adjust for DSP effect
-		eq.push_back(lround(difference));
+		eq.push_back(difference);
 	}
 	
 	return eq;
@@ -591,6 +590,32 @@ SoundImageFFT9 Handle::checkSoundImage(const vector<string>& speakers, const vec
 		
 			// Go through all frequency bands
 			for (int d = 0; d < 9; d++) {
+				// Which speaker was already loudest here? Adjust that one since
+				// boosting less sounding speakers won't affect the sound image
+				// as much since combining them with a louder source will drown the
+				// adjusted sound
+				// Source: http://www.csgnetwork.com/decibelamplificationcalc.html
+				
+				size_t index_loudest;
+				double current_loudest = -100000;
+				
+				for (size_t index = 0; index < incoming_dbs.size(); index++) {
+					if (incoming_dbs.at(index).at(d) > current_loudest) {
+						current_loudest = incoming_dbs.at(index).at(d);
+						index_loudest = index;
+					}
+				}
+				
+				cout << "Loudest for frequency " << g_frequencies.at(d) << " was " << speakers.at(index_loudest) << " with \t" << current_loudest << endl;
+				
+				for (size_t e = 0; e < corrected_dbs.size(); e++) {
+					if (e == index_loudest)
+						corrected_dbs.at(e).push_back(correction.at(d));
+					else
+						corrected_dbs.at(e).push_back(0);
+				}
+				 
+				#if 0
 				double total_linear = 0;
 				
 				for (auto& incoming_db : incoming_dbs)
@@ -604,6 +629,7 @@ SoundImageFFT9 Handle::checkSoundImage(const vector<string>& speakers, const vec
 					// Adjust it's EQ based on if it's loud already. Make it louder then, since it's closer?
 					corrected_dbs.at(e).push_back(lround((double)correction.at(d) * percent));
 				}
+				#endif
 			}
 			
 			// Set EQs
