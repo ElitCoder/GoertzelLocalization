@@ -7,14 +7,38 @@
 
 #include <algorithm>
 #include <sstream>
+#include <thread>
 
 using namespace std;
+
+static void enableSSH(const string& ip) {
+	cout << "Enabling SSH in " << ip << "... " << flush;
+	curlpp::Cleanup clean;
+	string disable_string = "http://";
+	disable_string += ip;
+	disable_string += "/axis-cgi/admin/param.cgi?action=update&Network.SSH.Enabled=yes";
+	
+	curlpp::Easy request;
+	ostringstream stream;
+	
+	request.setOpt(curlpp::options::Url(disable_string)); 
+	request.setOpt(curlpp::options::UserPwd(string("root:pass")));
+	request.setOpt(curlpp::options::HttpAuth(CURLAUTH_ANY));
+	request.setOpt(curlpp::options::WriteStream(&stream));
+	
+	request.perform();
+			
+	if (stream.str() != "OK")
+		cout << "ERROR\n";
+	else
+		cout << "done\n";
+}
 
 Speaker& System::addSpeaker(Speaker& speaker) {
 	cout << "Adding & connecting speaker " << speaker.getIP() << endl;
 	
 	// Enable SSH
-	enableSSH({ speaker.getIP() });
+	enableSSH(speaker.getIP());
 	
 	// Open connection to Speaker if it's offline
 	speaker.setOnline(ssh_.connect(speaker.getIP(), "pass"));
@@ -64,6 +88,37 @@ SSHOutput System::runScript(const vector<string>& ips, const vector<string>& scr
 }
 
 vector<Speaker*> System::getSpeakers(const vector<string>& ips) {
+	vector<string> not_connected;
+	
+	for (auto& ip : ips) {
+		auto iterator = find(speakers_.begin(), speakers_.end(), ip);
+		
+		if (iterator == speakers_.end())
+			not_connected.push_back(ip);
+	}
+	
+	if (!not_connected.empty()) {		
+		thread* enable_ssh_threads = new thread[not_connected.size()];
+		
+		for (size_t i = 0; i< not_connected.size(); i++)
+			enable_ssh_threads[i] = thread(enableSSH, ref(not_connected.at(i)));
+			
+		for (size_t i = 0; i < not_connected.size(); i++)
+			enable_ssh_threads[i].join();
+			
+		delete[] enable_ssh_threads;
+		
+		auto result = ssh_.connectResult(not_connected, "pass");
+		
+		for (size_t i = 0; i < result.size(); i++) {
+			Speaker speaker;
+			speaker.setIP(not_connected.at(i));
+			speaker.setOnline(result.at(i));
+			
+			speakers_.push_back(speaker);
+		}
+	}
+	
 	vector<Speaker*> speakers;
 	
 	for (auto& ip : ips)
@@ -119,29 +174,4 @@ bool System::getRecordings(const vector<string>& ips) {
 	}
 	
 	return getFile(ips, from, to);
-}
-
-void System::enableSSH(const vector<string>& ips) {
-	for (auto& ip : ips) {
-		cout << "Enabling SSH in " << ip << "... " << flush;
-		curlpp::Cleanup clean;
-		string disable_string = "http://";
-		disable_string += ip;
-		disable_string += "/axis-cgi/admin/param.cgi?action=update&Network.SSH.Enabled=yes";
-		
-		curlpp::Easy request;
-		ostringstream stream;
-		
-		request.setOpt(curlpp::options::Url(disable_string)); 
-		request.setOpt(curlpp::options::UserPwd(string("root:pass")));
-		request.setOpt(curlpp::options::HttpAuth(CURLAUTH_ANY));
-		request.setOpt(curlpp::options::WriteStream(&stream));
-		
-		request.perform();
-				
-		if (stream.str() != "OK")
-			cout << "ERROR\n";
-		else
-			cout << "done\n";
-	}
 }

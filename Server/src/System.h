@@ -22,7 +22,6 @@ public:
 	std::vector<Speaker*> getSpeakers(const std::vector<std::string>& ips);
 	
 private:
-	void enableSSH(const std::vector<std::string>& ips);
 	Speaker& addSpeaker(Speaker& speaker);
 	
 	std::vector<Speaker> speakers_;

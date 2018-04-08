@@ -223,11 +223,11 @@ PlacementOutput Handle::runLocalization(const vector<string>& ips, bool skip_scr
 }
 
 vector<bool> Handle::checkSpeakersOnline(const vector<string>& ips) {
+	auto speakers = Base::system().getSpeakers(ips);
 	vector<bool> online;
 	
-	for_each(ips.begin(), ips.end(), [&online] (auto& ip) {
-		online.push_back(Base::system().checkConnection({ ip }));
-	});
+	for (auto* speaker : speakers)
+		online.push_back(speaker->isOnline());
 	
 	return online;
 }
