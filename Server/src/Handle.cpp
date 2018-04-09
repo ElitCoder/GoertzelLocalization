@@ -360,7 +360,7 @@ static double getSoundImageScore(const vector<double>& dbs) {
 	double mean = g_target_mean;
 	double score = 0;
 	
-	vector<double> dbs_above_63(dbs.begin(), dbs.end());
+	vector<double> dbs_above_63(dbs.begin() + 1, dbs.end());
 	
 	for (const auto& db : dbs_above_63)
 		score += (mean - db) * (mean - db);
@@ -805,7 +805,7 @@ SoundImageFFT9 Handle::checkSoundImage(const vector<string>& speakers, const vec
 			return SoundImageFFT9();
 		
 		if (corrected) {
-			size_t sound_start = ((double)idle_time + 0.4) * 48000;
+			size_t sound_start = ((double)idle_time + 0.3) * 48000;
 			size_t sound_average = getRMS(data, sound_start, sound_start + (48000 / 2));
 			
 			double db = 20 * log10(sound_average / (double)SHRT_MAX);
@@ -828,9 +828,9 @@ SoundImageFFT9 Handle::checkSoundImage(const vector<string>& speakers, const vec
 			
 			if (!speakers.empty()) {
 				if (Base::system().getSpeaker(speakers.front()).isFlat()) {
-					//g_target_mean = getMean(dbs);
+					g_target_mean = getMean(dbs) - 6;
 					
-					//cout << "Set target mean " << g_target_mean << endl;
+					cout << "Set target mean " << g_target_mean << endl;
 				}
 			}
 			
@@ -959,7 +959,7 @@ SoundImageFFT9 Handle::checkSoundImage(const vector<string>& speakers, const vec
 			final_result.push_back(make_tuple(mics.at(i), dbs, score));
 		} else {
 			for (size_t j = 0; j < speakers.size(); j++) {
-				size_t sound_start = ((double)idle_time + j * (play_time + 1) + 0.4) * 48000;
+				size_t sound_start = ((double)idle_time + j * (play_time + 1) + 0.3) * 48000;
 				//size_t sound_average = getRMS(data, sound_start, sound_start + (48000 / 2));
 
 				//double db = 20 * log10(sound_average / (double)SHRT_MAX);

@@ -44,7 +44,7 @@ static NetworkCommunication* g_network;
 //static vector<string> g_external_microphones = {};
 
 // Speakers
-static vector<string> g_ips = { "172.25.13.200", "172.25.9.38" }; //, "172.25.9.38" };
+static vector<string> g_ips = { "172.25.14.27", "172.25.13.200", "172.25.11.47", "172.25.12.168" }; //, "172.25.9.38" };
 // External microphones
 static vector<string> g_external_microphones = { "172.25.12.99" }; //, "172.25.12.99" };
 
@@ -230,7 +230,7 @@ Packet createSoundImage(const vector<string>& speakers, const vector<string>& mi
 void soundImage(bool corrected) {
 	if (!corrected) {
 		cout << "Setting normal speaker settings... \t" << flush;
-		setSpeakerSettings(SPEAKER_MAX_VOLUME - 17, SPEAKER_MAX_CAPTURE, SPEAKER_CAPTURE_BOOST_ENABLED);
+		setSpeakerSettings(SPEAKER_MAX_VOLUME - 6, SPEAKER_MAX_CAPTURE, SPEAKER_CAPTURE_BOOST_ENABLED);
 		cout << "done\n";
 	}
 	
