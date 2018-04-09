@@ -194,11 +194,14 @@ vector<int> Speaker::getBestEQ() {
 }
 
 void Speaker::clearAllEQs() {
-	correction_eq_ = vector<double>(9, 0);
-	current_best_eq_ = vector<double>(9, 0);
+	correction_eq_ = vector<double>();
+	current_best_eq_ = vector<double>();
 	correction_volume_ = volume_;
 	score_ = 0;
 	best_speaker_volume_ = volume_;
+	first_run_ = true;
+	last_change_dbs_ = vector<double>();
+	last_correction_ = vector<double>();
 }
 
 int Speaker::getBestVolume() const {
@@ -213,8 +216,19 @@ void Speaker::setCorrectionVolume() {
 	volume_ = correction_volume_;
 }
 
+int Speaker::getCorrectionVolume() const {
+	return correction_volume_;
+}
+
+bool Speaker::isFlat() const {
+	return first_run_;
+}
+
 // Returns current EQ
 void Speaker::setCorrectionEQ(const vector<double>& eq, double score) {
+	printEQ(ip_, correction_eq_, "current");
+	cout << "Old volume: " << correction_volume_ << endl;
+	
 	printEQ(ip_, eq, "input");
 		
 	if (correction_eq_.empty())
@@ -238,6 +252,8 @@ void Speaker::setCorrectionEQ(const vector<double>& eq, double score) {
 	cout << "Want to change volume to: " << correction_volume_ << endl;
 	
 	correction_eq_ = actual_eq;
+	
+	first_run_ = false;
 }
 
 int Speaker::getCurrentVolume() const {
@@ -245,6 +261,15 @@ int Speaker::getCurrentVolume() const {
 		cout << "WARNING: trying to set volume > 57, check target_mean\nSetting it to 57 in order to prevent speaker problems\n";
 		
 	return volume_ > 57 ? 57 : volume_;
+}
+
+void Speaker::setLastChange(const vector<double>& dbs, const vector<double>& correction) {
+	last_change_dbs_ = dbs;
+	last_correction_ = correction;
+}
+
+pair<vector<double>, vector<double>> Speaker::getLastChange() const {
+	return { last_change_dbs_, last_correction_ };
 }
 
 /*

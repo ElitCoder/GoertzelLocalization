@@ -46,6 +46,8 @@ public:
 	void setBestVolume();
 	void setCorrectionVolume();
 	
+	void setLastChange(const std::vector<double>& dbs, const std::vector<double>& correction);
+	
 	const std::string& getIP() const;
 	int getPlacementID() const;
 	SpeakerPlacement& getPlacement();
@@ -58,6 +60,10 @@ public:
 	std::vector<double> getFrequencyResponseFrom(const std::string& ip) const;
 	//double getLinearGainFrom(const std::string& ip) const;
 	int getCurrentVolume() const;
+	int getCorrectionVolume() const;
+	bool isFlat() const;
+	
+	std::pair<std::vector<double>, std::vector<double>> getLastChange() const;
 
 	bool operator==(const std::string& ip);
 	
@@ -68,6 +74,10 @@ private:
 	double score_ = 0.0;
 	int best_speaker_volume_ = 0;
 	int correction_volume_ = 0;
+	bool first_run_ = true;
+	
+	std::vector<double> last_change_dbs_;
+	std::vector<double> last_correction_;
 	
 	// Information about frequency response from other speakers
 	std::vector<std::pair<std::string, std::vector<double>>> mic_frequency_responses_;
