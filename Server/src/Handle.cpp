@@ -518,6 +518,18 @@ static pair<size_t, double> getLoudestFrequencySource(const string& mic_ip, cons
 	vector<tuple<size_t, double, double>> loudest;
 	
 	for (size_t index = 0; index < speaker_ips.size(); index++) {
+		// Should make sense, let's try it later on
+		// All additions to the speaker should affect the sound level this way
+		#if 0
+		auto& speaker = Base::system().getSpeaker(speaker_ips.at(index));
+	
+		double eq_delta = simulated_eqs.at(index);
+		double volume_delta = speaker.getCorrectionVolume() - SPEAKER_MAX_VOLUME;
+		double base_level = Base::system().getSpeaker(mic_ip).getFrequencyResponseFrom(speaker_ips.at(index)).at(frequency_index);
+		
+		double final_volume = base_level + volume_delta + eq_delta;
+		#endif
+		
 		double final_volume = Base::system().getSpeaker(mic_ip).getFrequencyResponseFrom(speaker_ips.at(index)).at(frequency_index);
 		double db_change = simulated_eqs.at(index);
 		
