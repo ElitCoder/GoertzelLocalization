@@ -33,7 +33,6 @@ public:
 	};
 	
 	void setIP(const std::string& ip);
-	//void setEQ(const std::vector<int>& eq);
 	void setCorrectionEQ(const std::vector<double>& eq, double score);
 	void setVolume(int volume);
 	void setMicVolume(int volume);
@@ -42,7 +41,6 @@ public:
 	void setPlacement(const SpeakerPlacement& placement, int placement_id);
 	void setFrequencyResponseFrom(const std::string& ip, const std::vector<double>& dbs);
 	void clearAllEQs();
-	//void setLinearGainFrom(const std::string& ip, double db);
 	void setBestVolume();
 	void setCorrectionVolume();
 	
@@ -58,10 +56,9 @@ public:
 	int getBestVolume() const;
 	double getBestScore() const;
 	std::vector<double> getFrequencyResponseFrom(const std::string& ip) const;
-	//double getLinearGainFrom(const std::string& ip) const;
 	int getCurrentVolume() const;
 	int getCorrectionVolume() const;
-	bool isFlat() const;
+	bool isFirstRun() const;
 	
 	std::pair<std::vector<double>, std::vector<double>> getLastChange() const;
 
@@ -81,7 +78,6 @@ private:
 	
 	// Information about frequency response from other speakers
 	std::vector<std::pair<std::string, std::vector<double>>> mic_frequency_responses_;
-	//std::vector<std::pair<std::string, double>> mic_gain_responses_; 
 	
 	std::string ip_	= "not set";
 	int volume_		= 0;

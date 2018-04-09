@@ -56,10 +56,12 @@ static short getRMS(const vector<short>& data, size_t start, size_t end) {
 	return sqrt(sum);
 }
 
+#if 0
 /* converts dB to linear gain */
 double dB_to_linear_gain(double x) {
     return pow(10,x/20);
 }
+#endif
 
 // Not used for now, since it buffer overflows for some reason
 /*
@@ -210,8 +212,6 @@ PlacementOutput Handle::runLocalization(const vector<string>& ips, bool skip_scr
 	// Keep track of which localization this is
 	static int placement_id = -1;
 	placement_id++;
-	
-	cout << "Setting placement ID to " << placement_id << endl;
 	
 	for (size_t i = 0; i < ips.size(); i++) {
 		Speaker::SpeakerPlacement speaker_placement(ips.at(i));
@@ -387,7 +387,7 @@ static void setSpeakerVolume(const string& ip, int volume) {
 	
 	cout << "Setting speaker volume to " << speaker.getCurrentVolume() << endl;
 	
-	string command = "amixer -c1 sset 'Headphone' " + to_string(speaker.getCurrentVolume()) + " on; wait; ";
+	string command = "amixer -c1 sset 'Headphone' " + to_string(speaker.getCurrentVolume()) + " on; wait\n";
 	Base::system().runScript({ ip }, { command });
 }
 
@@ -513,85 +513,13 @@ static double getFinalScore(const vector<double>& scores) {
 	return 1 / (sqrt(total_score) / (double)scores.size());
 }
 
-static double getDecibelTarget(const vector<string>& ips, int frequency_index) {
-	double final_db = 0;
-	
-	for (auto* speaker : Base::system().getSpeakers(ips)) {
-		double volume_delta = speaker->getCurrentVolume();
-		double eq_delta = speaker->getCorrectionEQ().at(frequency_index);
-		
-		double speaker_out_db = volume_delta + eq_delta;
-		
-		final_db += pow(10, speaker_out_db / 20);
-	}
-	
-	return 20 * log10(final_db);
-}
-
-static double getDecibelTarget(const vector<double>& dbs) {
-	double final_db = 0;
-	
-	for (auto& db : dbs)
-		final_db += pow(10, db / 20);
-	
-	return 20 * log10(final_db);
-}
-
-static pair<size_t, double> getLoudestFrequencySource(const string& mic_ip, const vector<string>& speaker_ips, vector<double> simulated_eqs, int frequency_index, double change, bool best_range) {
+static pair<size_t, double> getLoudestFrequencySource(const string& mic_ip, const vector<string>& speaker_ips, vector<double> simulated_eqs, int frequency_index, bool best_range) {
 	// index, db, eq_range
 	vector<tuple<size_t, double, double>> loudest;
 	
 	for (size_t index = 0; index < speaker_ips.size(); index++) {
-		const double MAX_VOLUME = SPEAKER_MAX_VOLUME; // Change this constant later
-		const double FLAT_EQ = 0; // Same here
-		
-		double volume_delta = Base::system().getSpeaker(speaker_ips.at(index)).getCorrectionVolume() - MAX_VOLUME;
-		//double eq_delta = Base::system().getSpeaker(speaker_ips.at(index)).getCorrectionEQ().at(frequency_index) - FLAT_EQ;
-		double eq_delta = simulated_eqs.at(index) - FLAT_EQ;
-		
-		//double final_volume = Base::system().getSpeaker(mic_ip).getFrequencyResponseFrom(speaker_ips.at(index)).at(frequency_index) /* start */ + volume_delta /* corrected volume */ + eq_delta /* current EQ */;
-		
-		double final_volume = -100;
-		
-		//if (change > 1) {
-			final_volume = Base::system().getSpeaker(mic_ip).getFrequencyResponseFrom(speaker_ips.at(index)).at(frequency_index);
-		//} else {
-		//	final_volume = Base::system().getSpeaker(mic_ip).getFrequencyResponseFrom(speaker_ips.at(index)).at(frequency_index) /* start */ + volume_delta /* corrected volume */ + eq_delta /* current EQ */;
-		//}
-		
-		double eq_min = 1000;
-		
-		for (auto& db : Base::system().getSpeaker(speaker_ips.at(index)).getCorrectionEQ())
-			if (eq_min > db)
-				eq_min = db;
-				
-		double eq_max = -1000;
-		
-		for (auto& db : Base::system().getSpeaker(speaker_ips.at(index)).getCorrectionEQ())
-			if (eq_max < db)
-				eq_max = db;
-		
-		double db_change = simulated_eqs.at(index) + change;
-		
-		if (db_change < eq_min)
-			eq_min = simulated_eqs.at(index);
-			
-		if (db_change > eq_max)
-			eq_max = simulated_eqs.at(index);
-				
-		double eq_range = eq_max - eq_min;
-		
-		//cout << "Range: " << eq_range << " with " << eq_max << " and " << eq_min << endl;
-		
-		#if 0
-		if (final_volume > current_loudest) {
-			current_loudest = final_volume;
-			index_loudest = index;
-		}
-		#endif
-		
-		if (change < 0)
-			db_change *= -1;
+		double final_volume = Base::system().getSpeaker(mic_ip).getFrequencyResponseFrom(speaker_ips.at(index)).at(frequency_index);
+		double db_change = simulated_eqs.at(index);
 		
 		loudest.push_back(make_tuple(index, final_volume, db_change));
 	}
@@ -602,11 +530,9 @@ static pair<size_t, double> getLoudestFrequencySource(const string& mic_ip, cons
 	});
 	
 	if (!best_range) {
-		// Always pick the loudest one for now
+		// Always pick the loudest one since we don't care about gain
 		return { get<0>(loudest.front()), get<2>(loudest.front()) };
 	}
-	
-	//cout << "First " << get<1>(loudest.front()) << " Second " << get<1>(loudest.at(1)) << endl;
 	
 	// Pick the first with non-maxed EQ at chosen frequency
 	for (auto& information : loudest) {
@@ -614,7 +540,7 @@ static pair<size_t, double> getLoudestFrequencySource(const string& mic_ip, cons
 			return { get<0>(information), get<2>(information) };
 	}
 	
-	// Everyone was maxed, pick the one with least maxed EQ
+	// All speakers were maxed, pick the one with least maxed EQ
 	sort(loudest.begin(), loudest.end(), [] (auto& first, auto& second) {
 		return get<2>(first) < get<2>(second);
 	});
@@ -623,30 +549,6 @@ static pair<size_t, double> getLoudestFrequencySource(const string& mic_ip, cons
 }
 
 static vector<double> getSpeakerEQChange(const string& mic_ip, const vector<string>& speaker_ips, int frequency_index, double wanted_change) {
-	vector<double> current_eq_dbs;
-	
-	for (size_t index = 0; index < speaker_ips.size(); index++) {
-		const double MAX_VOLUME = SPEAKER_MAX_VOLUME; // Change this constant later
-		const double FLAT_EQ = 0; // Same here
-		
-		double volume_delta = Base::system().getSpeaker(speaker_ips.at(index)).getCurrentVolume() - MAX_VOLUME;
-		double eq_delta = Base::system().getSpeaker(speaker_ips.at(index)).getCorrectionEQ().at(frequency_index) - FLAT_EQ;
-		
-		double final_volume = Base::system().getSpeaker(mic_ip).getFrequencyResponseFrom(speaker_ips.at(index)).at(frequency_index) /* start */ + volume_delta /* corrected volume */ + eq_delta /* current EQ */;
-		
-		current_eq_dbs.push_back(final_volume);
-	}
-	
-	// Current DB level	
-	double current_target = getDecibelTarget(current_eq_dbs);
-	
-	// Wanted DB level
-	double wanted_target = current_target + wanted_change;
-	
-	//cout << "Current DB level: " << current_target << endl;
-	//cout << "Wanted change: " << wanted_change << endl;
-	//cout << "To: " << wanted_target << endl;
-	
 	// Added EQ
 	vector<double> added_eq(speaker_ips.size(), 0);
 	
@@ -659,100 +561,27 @@ static vector<double> getSpeakerEQChange(const string& mic_ip, const vector<stri
 
 		double db_change = wanted_change > 0 ? 1 : -1;
 		
-		auto index = getLoudestFrequencySource(mic_ip, speaker_ips, test_eq, frequency_index, db_change, false);
+		auto index = getLoudestFrequencySource(mic_ip, speaker_ips, test_eq, frequency_index, false);
 		added_eq.at(index.first) += db_change;
+		test_eq.at(index.first) += db_change;
 		
-		if (frequency_index == 8) {
-			cout << "Adding to max " << speaker_ips.at(index.first) << " with range " << index.second << endl;;
-		}
-		
-		double range = index.second;
+		double range = index.second += db_change;
 		size_t iterations = 0;
 		
-		while (range > abs(DSP_MAX_EQ)) {
-			index = getLoudestFrequencySource(mic_ip, speaker_ips, test_eq, frequency_index, db_change, true);
+		// Can't make it lower or higher anyway
+		while (db_change < 0 ? (range <= DSP_MIN_EQ) : (range >= DSP_MAX_EQ)) {
+			index = getLoudestFrequencySource(mic_ip, speaker_ips, test_eq, frequency_index, true);
 			added_eq.at(index.first) += db_change;
+			test_eq.at(index.first) += db_change;
 			range = index.second;
 			
-			if (frequency_index == 8) {
-				cout << "Adding to support speaker " << speaker_ips.at(index.first) << " with range " << index.second << endl;;
-			}
-			
-			iterations++;
-			
-			if (iterations >= speaker_ips.size())
+			// Already gone through all speakers
+			if (++iterations >= speaker_ips.size())
 				break;
 		}
 	}
 	
 	return added_eq;
-	
-	#if 0
-	while (abs(current_target - wanted_target) > 1) {
-		// Current testing EQ
-		vector<double> test_eq(added_eq);
-		
-		for (size_t i = 0; i < test_eq.size(); i++)
-			test_eq.at(i) += Base::system().getSpeaker(speaker_ips.at(i)).getCorrectionEQ().at(frequency_index);
-		
-		// Find current loudest source
-		//auto index = getLoudestFrequencySource(mic_ip, speaker_ips, test_eq, frequency_index);
-		
-		if (wanted_target > current_target) {
-			// Is it possible to change this EQ more?
-			auto index = getLoudestFrequencySource(mic_ip, speaker_ips, test_eq, frequency_index, 1);
-			
-			// Boost EQ
-			added_eq.at(index)++;
-		} else {
-			// Is it possible to change this EQ more?
-			auto index = getLoudestFrequencySource(mic_ip, speaker_ips, test_eq, frequency_index, -1);
-			
-			// Lower EQ
-			added_eq.at(index)--;
-		}
-		
-		// Calculate new DB values
-		for (size_t index = 0; index < speaker_ips.size(); index++) {
-			const double MAX_VOLUME = 57; // Change this constant later
-			const double FLAT_EQ = 0; // Same here
-			
-			double volume_delta = Base::system().getSpeaker(speaker_ips.at(index)).getCorrectionVolume() - MAX_VOLUME;
-			double eq_delta = test_eq.at(index) - FLAT_EQ;
-			
-			double final_volume = Base::system().getSpeaker(mic_ip).getFrequencyResponseFrom(speaker_ips.at(index)).at(frequency_index) /* start */ + volume_delta /* corrected volume */ + eq_delta /* current EQ */;
-			
-			current_eq_dbs.at(index) = final_volume;
-		}
-		
-		current_target = getDecibelTarget(current_eq_dbs);
-		
-		//cout << "Current target level: " << current_target << endl;
-		//cout << "Diff: " << abs(current_target - wanted_target) << endl;
-	}
-	
-	cout << endl;
-	
-	#if 0
-	vector<double> current_eq_dbs;
-	
-	for (auto& ip : speaker_ips)
-		original_flat_eq_dbs.push_back(Base::system().getSpeaker(mic_ip).getFrequencyResponseFrom(ip).at(frequency_index));
-		
-	// Current DB level	
-	double current_target = getDecibelTarget(original_flat_eq_dbs);
-	
-	// Wanted DB level
-	double wanted_target = current_target + wanted_change;
-	
-	while (abs(current_target - wanted_change) < 3) {
-		// Find current loudest source
-		
-	}
-	#endif
-	
-	return added_eq;
-	#endif
 }
 
 SoundImageFFT9 Handle::checkSoundImage(const vector<string>& speakers, const vector<string>& mics, int play_time, int idle_time, bool corrected) {
@@ -767,12 +596,6 @@ SoundImageFFT9 Handle::checkSoundImage(const vector<string>& speakers, const vec
 		Base::system().runScript(all_ips, scripts);
 		
 		setFlatEQ(speakers);
-		
-		// - NOT USED - Set target mean accordingly to amount of speakers
-		// Set target mean independent of speakers, they should adapt to chosen gain
-		//g_target_mean = -50;// + ((double)speakers.size() * 3.0);
-		
-		//cout << "Target mean is " << g_target_mean << endl;
 	}
 	
 	if (!Config::get<bool>("no_scripts")) {
@@ -820,15 +643,15 @@ SoundImageFFT9 Handle::checkSoundImage(const vector<string>& speakers, const vec
 				auto& freq = db_fft.at(z);
 				double db_freq = 20 * log10(freq / (double)SHRT_MAX);
 				
-				cout << "Frequency " << g_frequencies.at(z) << ": \t" << db_freq << endl;
+				cout << "Frequency \t" << g_frequencies.at(z) << ": \t" << db_freq << endl;
 				dbs.push_back(db_freq);
 			}
 			
 			// Is this the first run ever?
 			
 			if (!speakers.empty()) {
-				if (Base::system().getSpeaker(speakers.front()).isFlat()) {
-					g_target_mean = getMean(dbs) - 6;
+				if (Base::system().getSpeaker(speakers.front()).isFirstRun()) {
+					g_target_mean = getMean(dbs) - 9;
 					
 					cout << "Set target mean " << g_target_mean << endl;
 				}
@@ -841,17 +664,11 @@ SoundImageFFT9 Handle::checkSoundImage(const vector<string>& speakers, const vec
 			auto correction = getSoundImageCorrection(dbs);
 			
 			// Correct EQ
-			vector<vector<double>> incoming_dbs;
-			vector<double> incoming_volumes;
-			//vector<double> incoming_gains;
 			vector<vector<double>> corrected_dbs(speakers.size());
 			
-			// See all relative DBs
-			for (size_t k = 0; k < speakers.size(); k++) {
-				incoming_dbs.push_back(Base::system().getSpeaker(mics.at(i)).getFrequencyResponseFrom(speakers.at(k)));
-				incoming_volumes.push_back(Base::system().getSpeaker(mics.at(i)).getCurrentVolume());
-			}
-			
+			// This needs to be done smarter, since only using the correction values won't represent the actual dB change in the speakers
+			// since EQ:ing an already maxed speaker won't boost.. anything
+			#if 0
 			// Calculate factors (room dependent?)
 			auto last_dbs = Base::system().getSpeaker(mics.at(i)).getLastChange().first;
 			auto last_corrections = Base::system().getSpeaker(mics.at(i)).getLastChange().second;
@@ -864,15 +681,6 @@ SoundImageFFT9 Handle::checkSoundImage(const vector<string>& speakers, const vec
 				auto current_db = dbs.at(f);
 				
 				double change = current_db - last_db;
-				
-				#if 0
-				cout << "Factor for " << g_frequencies[f] << ": " << last_correction / change  << endl;
-				cout << "last_db " << last_db << endl;
-				cout << "last_correction " << last_correction << endl;
-				cout << "current_db " << current_db << endl;
-				cout << "change " << change << endl;
-				#endif
-				
 				double factor = last_correction / change;
 				
 				if (factor < 0.5)
@@ -882,15 +690,6 @@ SoundImageFFT9 Handle::checkSoundImage(const vector<string>& speakers, const vec
 					
 				factors.at(f) = factor;
 			}
-			
-			#if 0
-			// NOT USED
-			// All energy (some kind of indication of how close the speaker is?)
-			// Keep it for now
-			double total_gain = 0;
-			
-			for (auto& gain : incoming_gains)
-				total_gain += gain;
 			#endif
 			
 			// Go through all frequency bands
@@ -901,12 +700,8 @@ SoundImageFFT9 Handle::checkSoundImage(const vector<string>& speakers, const vec
 				// adjusted sound
 				// Source: http://www.csgnetwork.com/decibelamplificationcalc.html
 				
-				// More information about incoherent sound sources here
+				// More information about incoherent/coherent sound sources here
 				// http://www.sengpielaudio.com/calculator-spl.htm
-				
-				// Current output energy for frequency d
-				//auto current_db_target = getDecibelTarget(speakers, d);
-				//cout << "DB target: " << current_db_target << endl;
 				
 				auto wanted_change = correction.at(d);
 				
@@ -914,36 +709,7 @@ SoundImageFFT9 Handle::checkSoundImage(const vector<string>& speakers, const vec
 				auto speaker_eq_change = getSpeakerEQChange(mics.at(i), speakers, d, wanted_change);
 				
 				for (size_t e = 0; e < corrected_dbs.size(); e++)
-					corrected_dbs.at(e).push_back(speaker_eq_change.at(e) * factors.at(d));
-
-				#if 0
-				size_t index_loudest;
-				double current_loudest = -100000;
-				
-				for (size_t index = 0; index < incoming_dbs.size(); index++) {
-					const double MAX_VOLUME = 57; // Change this constant later
-					const double FLAT_EQ = 0; // Same here
-					
-					double volume_delta = incoming_volumes.at(index) - MAX_VOLUME;
-					double eq_delta = Base::system().getSpeaker(speakers.at(index)).getCorrectionEQ().at(d) - FLAT_EQ;
-					
-					double final_volume = incoming_dbs.at(index).at(d) /* start */ + volume_delta /* corrected volume */ + eq_delta /* current EQ */;
-					
-					if (final_volume > current_loudest) {
-						current_loudest = final_volume;
-						index_loudest = index;
-					}
-				}
-				
-				cout << "Loudest for frequency " << g_frequencies.at(d) << " was " << speakers.at(index_loudest) << " with \t" << current_loudest << endl;
-				
-				for (size_t e = 0; e < corrected_dbs.size(); e++) {
-					if (e == index_loudest)
-						corrected_dbs.at(e).push_back(correction.at(d));
-					else
-						corrected_dbs.at(e).push_back(0);
-				}
-				#endif
+					corrected_dbs.at(e).push_back(speaker_eq_change.at(e));
 			}
 			
 			// Add this to further calculations when we have all the information
@@ -960,15 +726,11 @@ SoundImageFFT9 Handle::checkSoundImage(const vector<string>& speakers, const vec
 		} else {
 			for (size_t j = 0; j < speakers.size(); j++) {
 				size_t sound_start = ((double)idle_time + j * (play_time + 1) + 0.3) * 48000;
-				//size_t sound_average = getRMS(data, sound_start, sound_start + (48000 / 2));
-
-				//double db = 20 * log10(sound_average / (double)SHRT_MAX);
 				
 				// Calculate FFT for 9 band as well
 				auto db_fft = getFFT9(data, sound_start, sound_start + (48000 / 2));
 				vector<double> dbs;
 				
-				//for (auto& freq : db_fft) {
 				for (size_t z = 0; z < db_fft.size(); z++) {
 					auto& freq = db_fft.at(z);
 					double db_freq = 20 * log10(freq / (double)SHRT_MAX);
@@ -978,9 +740,6 @@ SoundImageFFT9 Handle::checkSoundImage(const vector<string>& speakers, const vec
 				
 				// DBs is vector of the current speaker with all it's frequency dBs
 				Base::system().getSpeaker(mics.at(i)).setFrequencyResponseFrom(speakers.at(j), dbs);
-				
-				// Set linear gain from speaker to mic
-				//Base::system().getSpeaker(mics.at(i)).setLinearGainFrom(speakers.at(j), dB_to_linear_gain(db) * SHRT_MAX); 
 			}
 		}
 	}
@@ -997,16 +756,6 @@ SoundImageFFT9 Handle::checkSoundImage(const vector<string>& speakers, const vec
 		
 		for (size_t d = 0; d < actual_speakers.size(); d++)
 			actual_speakers.at(d)->getIP(), actual_speakers.at(d)->setCorrectionEQ(final_eqs.at(d), final_score);
-		
-		#if 0
-		// Set EQs
-		auto actual_speakers = Base::system().getSpeakers(speakers);
-		
-		for (size_t d = 0; d < actual_speakers.size(); d++)
-			actual_speakers.at(d)->getIP(), actual_speakers.at(d)->setCorrectionEQ(corrected_dbs.at(d), score);
-		
-		cout << "Current score: " << score << endl;
-		#endif
 	}
 	
 	return final_result;

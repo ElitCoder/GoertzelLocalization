@@ -186,31 +186,8 @@ static void handle(NetworkCommunication& network, Connection& connection, Packet
 			break;	
 		}
 		
-		case PACKET_SET_EQ: {
-			cout << "NOT IMPLEMENTED\n";
-			
-			break;
-			
-			/*
-			vector<string> speakers;
-			vector<double> settings;
-			
-			int num_speakers = input_packet.getInt();
-			
-			for (int i = 0; i < num_speakers; i++)
-				speakers.push_back(input_packet.getString());
-				
-			for (int i = 0; i < 9; i++)
-				settings.push_back(input_packet.getFloat());
-				
-			auto answer = Handle::setEQ(speakers, settings);
-			
-			packet.addBool(answer);
-			break;
-			*/
-		}
-		
-		default: cout << "Debug: got some random packet, answering with empty packet\n";
+		default:	cout << "Debug: got some random packet, answering with empty packet\n";
+					cout << "Debug: header " << header << endl;
 	}
 	
 	packet.finalize();

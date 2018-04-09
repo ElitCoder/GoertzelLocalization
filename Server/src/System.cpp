@@ -12,7 +12,6 @@
 using namespace std;
 
 static void enableSSH(const string& ip) {
-	cout << "Enabling SSH in " << ip << "... " << flush;
 	curlpp::Cleanup clean;
 	string disable_string = "http://";
 	disable_string += ip;
@@ -29,12 +28,11 @@ static void enableSSH(const string& ip) {
 	request.perform();
 			
 	if (stream.str() != "OK")
-		cout << "ERROR\n";
-	else
-		cout << "done\n";
+		cout << "ERROR in enableSSH()\n";
 }
 
 Speaker& System::addSpeaker(Speaker& speaker) {
+	cout << "Using backup addSpeaker()\n";
 	cout << "Adding & connecting speaker " << speaker.getIP() << endl;
 	
 	// Enable SSH

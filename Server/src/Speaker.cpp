@@ -55,34 +55,6 @@ void Speaker::setMicVolume(int volume) {
 	cout << "Setting (" << ip_ << ") mic volume to " << mic_volume_ << endl;
 }
 
-#if 0
-void Speaker::setLinearGainFrom(const string& ip, double db) {
-	auto iterator = find_if(mic_gain_responses_.begin(), mic_gain_responses_.end(), [&ip] (auto& peer) {
-		return peer.first == ip;
-	});
-	
-	if (iterator == mic_gain_responses_.end())
-		mic_gain_responses_.push_back({ ip, db });
-	else
-		(*iterator) = { ip, db };
-		
-	cout << "Linear gain from: " << ip << " is " << db << endl;
-	//for_each(dbs.begin(), dbs.end(), [] (auto& value) { cout << value << " "; });
-	//cout << endl;
-}
-
-double Speaker::getLinearGainFrom(const string& ip) const {
-	auto iterator = find_if(mic_gain_responses_.begin(), mic_gain_responses_.end(), [&ip] (auto& peer) {
-		return peer.first == ip;
-	});
-	
-	if (iterator == mic_gain_responses_.end())
-		return -100;
-	else
-		return iterator->second;
-}
-#endif
-
 void Speaker::setMicBoost(int boost) {
 	mic_boost_ = boost;
 	
@@ -124,26 +96,6 @@ static int correctMaxEQ(vector<double>& eq) {
 	
 	for (auto& setting : eq)
 		setting -= mean_db;
-		
-	//cout << "Lower setting with " << mean_db << endl;
-	
-	// See if > max and < min
-	/*
-	int min = *min_element(eq.begin(), eq.end());
-	
-	if (min > DSP_MIN_EQ) {
-		//cout << "min lower is " << min << endl;
-
-		// Move everything lower to fit curve
-		int delta = min - DSP_MIN_EQ;
-		
-		//cout << "delta is " << delta << endl;
-		
-		for (auto& setting : eq)
-		setting -= delta;
-	
-	}
-	*/
 	
 	for (auto& setting : eq) {
 		if (setting < DSP_MIN_EQ)
@@ -163,24 +115,6 @@ static void printEQ(const string& ip, const vector<double>& eq, const string& na
 		
 	cout << "\n";
 }
-
-#if 0
-// Returns reference EQ (flat)
-void Speaker::setEQ(const vector<int>& eq) {
-	eq_ = eq;
-	
-	//printEQ(ip_, eq, "flat");
-	
-	/*
-	cout << "Setting (" << ip_ << ") EQ to ";
-	
-	for (auto setting : eq_)
-		cout << setting << ", ";
-		
-	cout << "\n";
-	*/
-}
-#endif
 
 double Speaker::getBestScore() const {
 	return score_;
@@ -220,7 +154,7 @@ int Speaker::getCorrectionVolume() const {
 	return correction_volume_;
 }
 
-bool Speaker::isFlat() const {
+bool Speaker::isFirstRun() const {
 	return first_run_;
 }
 
@@ -271,25 +205,6 @@ void Speaker::setLastChange(const vector<double>& dbs, const vector<double>& cor
 pair<vector<double>, vector<double>> Speaker::getLastChange() const {
 	return { last_change_dbs_, last_correction_ };
 }
-
-/*
-void Speaker::setFlatResults(const vector<double>& dbs) {
-	if (!flat_results_.empty())
-		return;
-		
-	flat_results_ = dbs;	
-}
-
-vector<double> Speaker::getFlatResults() const {
-	if (flat_results_.empty()) {
-		cout << "Server asking for empty flat results, returning 0\n";
-		
-		return vector<double>(9, 0);
-	}
-	
-	return flat_results_;
-}
-*/
 
 void Speaker::setFrequencyResponseFrom(const string& ip, const vector<double>& dbs) {
 	auto iterator = find_if(mic_frequency_responses_.begin(), mic_frequency_responses_.end(), [&ip] (auto& peer) {
