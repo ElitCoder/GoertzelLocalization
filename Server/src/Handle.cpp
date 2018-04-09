@@ -354,7 +354,7 @@ static double getSoundImageScore(const vector<double>& dbs) {
 	double mean = g_target_mean;
 	double score = 0;
 	
-	vector<double> dbs_above_63(dbs.begin(), dbs.end());
+	vector<double> dbs_above_63(dbs.begin() + 1, dbs.end() - 1);
 	
 	for (const auto& db : dbs_above_63)
 		score += (mean - db) * (mean - db);
@@ -522,7 +522,7 @@ SoundImageFFT9 Handle::checkSoundImage(const vector<string>& speakers, const vec
 		
 		// - NOT USED - Set target mean accordingly to amount of speakers
 		// Set target mean independent of speakers, they should adapt to chosen gain
-		g_target_mean = -40;// + ((double)speakers.size() * 3.0);
+		g_target_mean = -50;// + ((double)speakers.size() * 3.0);
 		
 		//cout << "Target mean is " << g_target_mean << endl;
 	}
@@ -686,27 +686,30 @@ SoundImageFFT9 Handle::checkSoundImage(const vector<string>& speakers, const vec
 		}
 	}
 	
-	// Weight mics' different EQs against eachother
-	auto final_eqs = weightEQs(weighted_eq);
-	
-	// Calculate final score
-	auto final_score = getFinalScore(scores);
-	
-	// Set new EQs
-	auto actual_speakers = Base::system().getSpeakers(speakers);
-	
-	for (size_t d = 0; d < actual_speakers.size(); d++)
-		actual_speakers.at(d)->getIP(), actual_speakers.at(d)->setCorrectionEQ(final_eqs.at(d), final_score);
-	
-	#if 0
-	// Set EQs
-	auto actual_speakers = Base::system().getSpeakers(speakers);
-	
-	for (size_t d = 0; d < actual_speakers.size(); d++)
-		actual_speakers.at(d)->getIP(), actual_speakers.at(d)->setCorrectionEQ(corrected_dbs.at(d), score);
-	
-	cout << "Current score: " << score << endl;
-	#endif
+	if (corrected) {
+		// Weight mics' different EQs against eachother
+		auto final_eqs = weightEQs(weighted_eq);
+		
+		// Calculate final score
+		auto final_score = getFinalScore(scores);
+		
+		// Set new EQs
+		auto actual_speakers = Base::system().getSpeakers(speakers);
+		
+		for (size_t d = 0; d < actual_speakers.size(); d++)
+			actual_speakers.at(d)->getIP(), actual_speakers.at(d)->setCorrectionEQ(final_eqs.at(d), final_score);
+		
+		#if 0
+		// Set EQs
+		auto actual_speakers = Base::system().getSpeakers(speakers);
+		
+		for (size_t d = 0; d < actual_speakers.size(); d++)
+			actual_speakers.at(d)->getIP(), actual_speakers.at(d)->setCorrectionEQ(corrected_dbs.at(d), score);
+		
+		cout << "Current score: " << score << endl;
+		#endif
+		
+	}
 	
 	return final_result;
 }
