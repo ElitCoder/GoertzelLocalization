@@ -518,7 +518,7 @@ static pair<size_t, double> getLoudestFrequencySource(const string& mic_ip, cons
 	vector<tuple<size_t, double, double>> loudest;
 	
 	for (size_t index = 0; index < speaker_ips.size(); index++) {
-		// Should make sense, let's try it later on
+		// TODO: Should make sense, let's try it later on
 		// All additions to the speaker should affect the sound level this way
 		#if 0
 		auto& speaker = Base::system().getSpeaker(speaker_ips.at(index));
@@ -564,7 +564,7 @@ static vector<double> getSpeakerEQChange(const string& mic_ip, const vector<stri
 	// Added EQ
 	vector<double> added_eq(speaker_ips.size(), 0);
 	
-	for (double change = 0; change < abs(wanted_change); change++) {
+	for (int i = 0; i < lround(abs(wanted_change)); i++) {
 		// Current testing EQ
 		vector<double> test_eq(added_eq);
 		
@@ -580,7 +580,7 @@ static vector<double> getSpeakerEQChange(const string& mic_ip, const vector<stri
 		double range = index.second += db_change;
 		size_t iterations = 0;
 		
-		// Can't make it lower or higher anyway
+		// Can't make it lower or higher anyway, give it to another speaker
 		while (db_change < 0 ? (range <= DSP_MIN_EQ) : (range >= DSP_MAX_EQ)) {
 			index = getLoudestFrequencySource(mic_ip, speaker_ips, test_eq, frequency_index, true);
 			added_eq.at(index.first) += db_change;
@@ -682,34 +682,36 @@ SoundImageFFT9 Handle::checkSoundImage(const vector<string>& speakers, const vec
 			// Correct EQ
 			vector<vector<double>> corrected_dbs(speakers.size());
 			
-			// This needs to be done smarter, since only using the correction values won't represent the actual dB change in the speakers
-			// since EQ:ing an already maxed speaker won't boost.. anything
-			#if 0
 			// Calculate factors (room dependent?)
+			// Sets sensitive bands (i.e. small adjustments will amplify)
 			auto last_dbs = Base::system().getSpeaker(mics.at(i)).getLastChange().first;
 			auto last_corrections = Base::system().getSpeaker(mics.at(i)).getLastChange().second;
-			
-			vector<double> factors(dbs.size(), 1);
-			
+
 			for (size_t f = 0; f < last_dbs.size(); f++) {
 				auto last_db = last_dbs.at(f);
 				auto last_correction = last_corrections.at(f);
 				auto current_db = dbs.at(f);
 				
 				double change = current_db - last_db;
-				double factor = last_correction / change;
+				double factor = abs(change / last_correction);
 				
-				if (factor < 0.5)
-					factor = 0.5;
-				else if (factor > 1)
-					factor = 1;
-					
-				factors.at(f) = factor;
+				// TODO: Calculate the factor & correction based on something else later on
+				if (factor > 2 && last_correction > 2) {
+					// Set this band to sensitive
+					Base::system().getSpeaker(mics.at(i)).setBandSensitive(f, true);
+				}
 			}
-			#endif
 			
 			// Go through all frequency bands
 			for (int d = 0; d < 9; d++) {
+				// Is this band sensitive? Only adjust it with 1 dB each run
+				if (Base::system().getSpeaker(mics.at(i)).isBandSensitive(d)) {
+					if (correction.at(d) > 1)
+						correction.at(d) = 1;
+					else if (correction.at(d) < -1)
+						correction.at(d) = -1;
+				}
+				
 				// Which speaker was already loudest here? Adjust that one since
 				// boosting less sounding speakers won't affect the sound image
 				// as much since combining them with a louder source will drown the

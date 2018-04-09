@@ -137,10 +137,15 @@ void Speaker::clearAllEQs() {
 	last_change_dbs_.clear();
 	last_correction_.clear();
 	mic_frequency_responses_.clear();
+	sensitive_band_ = vector<bool>(9, false);
 }
 
 int Speaker::getBestVolume() const {
 	return best_speaker_volume_;
+}
+
+bool Speaker::isBandSensitive(int band_index) const {
+	return sensitive_band_.at(band_index);
 }
 
 void Speaker::setBestVolume() {
@@ -201,6 +206,12 @@ int Speaker::getCurrentVolume() const {
 void Speaker::setLastChange(const vector<double>& dbs, const vector<double>& correction) {
 	last_change_dbs_ = dbs;
 	last_correction_ = correction;
+}
+
+void Speaker::setBandSensitive(int band_index, bool status) {
+	sensitive_band_.at(band_index) = status;
+	
+	cout << "Microphone " << ip_ << " setting band " << band_index << " to " << status << endl;
 }
 
 pair<vector<double>, vector<double>> Speaker::getLastChange() const {

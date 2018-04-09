@@ -43,7 +43,7 @@ public:
 	void clearAllEQs();
 	void setBestVolume();
 	void setCorrectionVolume();
-	
+	void setBandSensitive(int band_index, bool status);
 	void setLastChange(const std::vector<double>& dbs, const std::vector<double>& correction);
 	
 	const std::string& getIP() const;
@@ -59,6 +59,7 @@ public:
 	int getCurrentVolume() const;
 	int getCorrectionVolume() const;
 	bool isFirstRun() const;
+	bool isBandSensitive(int band_index) const;
 	
 	std::pair<std::vector<double>, std::vector<double>> getLastChange() const;
 
@@ -75,6 +76,7 @@ private:
 	
 	std::vector<double> last_change_dbs_;
 	std::vector<double> last_correction_;
+	std::vector<bool> sensitive_band_ = std::vector<bool>(9, false);
 	
 	// Information about frequency response from other speakers
 	std::vector<std::pair<std::string, std::vector<double>>> mic_frequency_responses_;
