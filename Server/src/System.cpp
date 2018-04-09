@@ -24,9 +24,15 @@ static void enableSSH(const string& ip) {
 	request.setOpt(curlpp::options::UserPwd(string("root:pass")));
 	request.setOpt(curlpp::options::HttpAuth(CURLAUTH_ANY));
 	request.setOpt(curlpp::options::WriteStream(&stream));
+	request.setOpt(curlpp::options::Timeout(10));
 	
-	request.perform();
-			
+	try {
+		request.perform();
+	} catch (...) {
+		// GET request failed
+		return;
+	}
+	
 	if (stream.str() != "OK")
 		cout << "ERROR in enableSSH()\n";
 }
