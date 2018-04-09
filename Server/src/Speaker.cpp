@@ -128,14 +128,15 @@ vector<int> Speaker::getBestEQ() {
 }
 
 void Speaker::clearAllEQs() {
-	correction_eq_ = vector<double>();
-	current_best_eq_ = vector<double>();
+	correction_eq_.clear();
+	current_best_eq_.clear();
 	correction_volume_ = volume_;
 	score_ = 0;
 	best_speaker_volume_ = volume_;
 	first_run_ = true;
-	last_change_dbs_ = vector<double>();
-	last_correction_ = vector<double>();
+	last_change_dbs_.clear();
+	last_correction_.clear();
+	mic_frequency_responses_.clear();
 }
 
 int Speaker::getBestVolume() const {

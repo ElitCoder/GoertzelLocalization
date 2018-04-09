@@ -608,6 +608,10 @@ SoundImageFFT9 Handle::checkSoundImage(const vector<string>& speakers, const vec
 		Base::system().runScript(all_ips, scripts);
 		
 		setFlatEQ(speakers);
+		
+		// Clear saved information in mics as well
+		for (auto& mic_ip : mics)
+			Base::system().getSpeaker(mic_ip).clearAllEQs();
 	}
 	
 	if (!Config::get<bool>("no_scripts")) {
