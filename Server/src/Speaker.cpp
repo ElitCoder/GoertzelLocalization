@@ -211,7 +211,7 @@ void Speaker::setLastChange(const vector<double>& dbs, const vector<double>& cor
 void Speaker::setBandSensitive(int band_index, bool status) {
 	sensitive_band_.at(band_index) = status;
 	
-	cout << "Microphone " << ip_ << " setting band " << band_index << " to " << status << endl;
+	cout << "Microphone " << ip_ << " setting band " << band_index << " to sensitive status " << status << endl;
 }
 
 pair<vector<double>, vector<double>> Speaker::getLastChange() const {

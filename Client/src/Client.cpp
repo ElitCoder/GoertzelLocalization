@@ -337,7 +337,11 @@ Packet createBestEQ(const vector<string>& ips) {
 
 void bestEQ() {
 	cout << "Setting best EQ... " << flush;
-	g_network->pushOutgoingPacket(createBestEQ(g_ips));
+	
+	vector<string> all_ips(g_ips);
+	all_ips.insert(all_ips.end(), g_external_microphones.begin(), g_external_microphones.end());
+	
+	g_network->pushOutgoingPacket(createBestEQ(all_ips));
 	auto answer = g_network->waitForIncomingPacket();
 	answer.getByte();
 	cout << "done\n\n" << flush;
