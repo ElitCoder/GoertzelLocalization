@@ -709,7 +709,7 @@ SoundImageFFT9 Handle::checkSoundImage(const vector<string>& speakers, const vec
 				double factor = abs(change / last_correction);
 				
 				// TODO: Calculate the factor & correction based on something else later on
-				if (factor > 2 && last_correction > 3) {
+				if (factor > 2.5 && last_correction > 2) {
 					// Set this band to sensitive
 					Base::system().getSpeaker(mics.at(i)).setBandSensitive(f, true);
 				}
