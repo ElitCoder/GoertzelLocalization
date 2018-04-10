@@ -360,7 +360,7 @@ static double getSoundImageScore(const vector<double>& dbs) {
 	double mean = g_target_mean;
 	double score = 0;
 	
-	vector<double> dbs_above_63(dbs.begin() + 1, dbs.end());
+	vector<double> dbs_above_63(dbs.begin(), dbs.end());
 	
 	for (const auto& db : dbs_above_63)
 		score += (mean - db) * (mean - db);
@@ -520,6 +520,7 @@ static pair<size_t, double> getLoudestFrequencySource(const string& mic_ip, cons
 	for (size_t index = 0; index < speaker_ips.size(); index++) {
 		// TODO: Should make sense, let's try it later on
 		// All additions to the speaker should affect the sound level this way
+		#if 0
 		auto& speaker = Base::system().getSpeaker(speaker_ips.at(index));
 	
 		double eq_delta = simulated_eqs.at(index);
@@ -528,12 +529,12 @@ static pair<size_t, double> getLoudestFrequencySource(const string& mic_ip, cons
 		
 		double final_volume = base_level + volume_delta + eq_delta;
 		double db_change = simulated_eqs.at(index);
-		
-		#if 0
-		double final_volume = Base::system().getSpeaker(mic_ip).getFrequencyResponseFrom(speaker_ips.at(index)).at(frequency_index);
-		double db_change = simulated_eqs.at(index);
 		#endif
 		
+		// Always change the closest speaker first
+		double final_volume = Base::system().getSpeaker(mic_ip).getFrequencyResponseFrom(speaker_ips.at(index)).at(frequency_index);
+		double db_change = simulated_eqs.at(index);
+			
 		loudest.push_back(make_tuple(index, final_volume, db_change));
 	}
 	
@@ -682,7 +683,7 @@ SoundImageFFT9 Handle::checkSoundImage(const vector<string>& speakers, const vec
 				if (Base::system().getSpeaker(speakers.front()).isFirstRun()) {
 					// Normalize to -45, or lower if the speaker is low
 					double lower_mean = getMean(dbs) - 9;
-					g_target_mean = -45 > lower_mean ? lower_mean : -45;
+					g_target_mean = -50 > lower_mean ? lower_mean : -50;
 					
 					cout << "Set target mean " << g_target_mean << endl;
 				}
@@ -711,7 +712,7 @@ SoundImageFFT9 Handle::checkSoundImage(const vector<string>& speakers, const vec
 				double factor = abs(change / last_correction);
 				
 				// TODO: Calculate the factor & correction based on something else later on
-				if (factor > 2.5 && last_correction > 2) {
+				if (factor > 3 && last_correction > 2) {
 					// Set this band to sensitive
 					Base::system().getSpeaker(mics.at(i)).setBandSensitive(f, true);
 				}
@@ -794,7 +795,7 @@ SoundImageFFT9 Handle::checkSoundImage(const vector<string>& speakers, const vec
 		auto actual_speakers = Base::system().getSpeakers(speakers);
 		
 		for (size_t d = 0; d < actual_speakers.size(); d++)
-			actual_speakers.at(d)->getIP(), actual_speakers.at(d)->setCorrectionEQ(final_eqs.at(d), final_score);
+			actual_speakers.at(d)->setCorrectionEQ(final_eqs.at(d), final_score);
 	}
 	
 	return final_result;
