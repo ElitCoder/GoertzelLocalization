@@ -230,7 +230,7 @@ Packet createSoundImage(const vector<string>& speakers, const vector<string>& mi
 
 void soundImage(bool corrected) {
 	if (!corrected) {
-		cout << "Setting normal speaker settings... \t" << flush;
+		cout << "Resetting speaker settings... \t" << flush;
 		setSpeakerSettings(SPEAKER_MAX_VOLUME - 6, SPEAKER_MAX_CAPTURE, SPEAKER_CAPTURE_BOOST_ENABLED);
 		cout << "done\n";
 	}
@@ -276,7 +276,7 @@ void soundImage(bool corrected) {
 		
 		cout << "\nDone, use set best EQ to set all speakers to optimal settings!\n\n";
 	} else {
-		cout << "Resetting sound image to flat... \t" << flush;
+		cout << "Analyzing individual speaker profiles... \t" << flush;
 		g_network->pushOutgoingPacket(createSoundImage(g_ips, g_external_microphones, corrected, 1));
 		g_network->waitForIncomingPacket();
 		cout << "done\n\n";

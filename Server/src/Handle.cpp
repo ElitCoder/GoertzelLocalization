@@ -84,6 +84,12 @@ void to_523(double param_dec, unsigned char * param_hex) {
 }
 */
 
+static vector<string> createEnableAudioSystem(const vector<string>& ips) {
+	string command = "systemctl start audio_relayd; wait\n";
+	
+	return vector<string>(ips.size(), command);
+}
+
 void Handle::resetEverything(const vector<string>& ips) {
 	string command = 	"dspd -s -w; wait; ";
 	command +=			"amixer -c1 sset 'Headphone' 57 on; wait; ";
@@ -93,6 +99,9 @@ void Handle::resetEverything(const vector<string>& ips) {
 	command +=			"amixer -c1 sset 'PGA Boost' 2; wait\n";
 	
 	Base::system().runScript(ips, vector<string>(ips.size(), command));
+	
+	auto scripts = createEnableAudioSystem(ips);
+	Base::system().runScript(ips, scripts);
 }
 
 bool Handle::setSpeakerAudioSettings(const vector<string>& ips, const vector<int>& volumes, const vector<int>& captures, const vector<int>& boosts) {
@@ -117,6 +126,7 @@ bool Handle::setSpeakerAudioSettings(const vector<string>& ips, const vector<int
 		command +=			"dspd -s -m; wait; dspd -s -u limiter; wait; ";
 		command +=			"dspd -s -u static; wait; ";
 		command +=			"dspd -s -u preset; wait; dspd -s -p flat; wait; ";
+		command +=			"amixer -c1 cset numid=170 0x00,0x80,0x00,0x00; wait; ";
 		command +=			"amixer -c1 sset 'PGA Boost' " + boost + "; wait\n";
 		
 		commands.push_back(command);
@@ -299,12 +309,6 @@ static vector<string> createDisableAudioSystem(const vector<string>& ips) {
 	return vector<string>(ips.size(), command);
 }
 
-static vector<string> createEnableAudioSystem(const vector<string>& ips) {
-	string command = "systemctl start audio_relayd; wait\n";
-	
-	return vector<string>(ips.size(), command);
-}
-
 // Taken from git/SO
 static double goertzel(int numSamples,float TARGET_FREQUENCY,int SAMPLING_RATE, short* data)
 {
@@ -371,6 +375,7 @@ static double getSoundImageScore(const vector<double>& dbs) {
 	double mean = g_target_mean;
 	double score = 0;
 	
+	// Ignore 63, 125, 250 since they are variable due to microphone
 	vector<double> dbs_above_63(dbs.begin() + 3, dbs.end());
 	
 	for (const auto& db : dbs_above_63)
@@ -551,7 +556,7 @@ static pair<size_t, double> getLoudestFrequencySource(const string& mic_ip, cons
 		// Always change the closest speaker first
 		double final_volume = Base::system().getSpeaker(mic_ip).getFrequencyResponseFrom(speaker_ips.at(index)).at(frequency_index);
 		double db_change = simulated_eqs.at(index);
-			
+		
 		loudest.push_back(make_tuple(index, final_volume, db_change));
 	}
 	
