@@ -45,7 +45,7 @@ static NetworkCommunication* g_network;
 //static vector<string> g_external_microphones = {};
 
 // Speakers
-static vector<string> g_ips = { "172.25.13.200", "172.25.12.168", "172.25.11.47", "172.25.9.27", "172.25.13.250", }; //, "172.25.9.38" };
+static vector<string> g_ips = { "172.25.9.38", "172.25.13.200" }; //, "172.25.9.38" };
 // External microphones
 static vector<string> g_external_microphones = { "172.25.12.99" }; //, "172.25.12.99" };
 

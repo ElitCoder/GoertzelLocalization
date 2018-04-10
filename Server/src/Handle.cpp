@@ -586,14 +586,13 @@ static double getFinalScore(const vector<double>& scores) {
 	return 1 / (sqrt(total_score) / (double)scores.size());
 }
 
-static pair<size_t, double> getLoudestFrequencySource(const string& mic_ip, const vector<string>& speaker_ips, vector<double> simulated_eqs, int frequency_index, bool best_range, double change) {
+static vector<pair<size_t, double>> getLoudestFrequencySource(const string& mic_ip, const vector<string>& speaker_ips, vector<double> simulated_eqs, int frequency_index, bool best_range, double change) {
 	// index, db, eq_range
 	vector<tuple<size_t, double, double>> loudest;
 	
 	for (size_t index = 0; index < speaker_ips.size(); index++) {
 		// TODO: Should make sense, let's try it later on
 		// All additions to the speaker should affect the sound level this way
-		#if 0
 		auto& speaker = Base::system().getSpeaker(speaker_ips.at(index));
 	
 		double eq_delta = simulated_eqs.at(index);
@@ -602,25 +601,48 @@ static pair<size_t, double> getLoudestFrequencySource(const string& mic_ip, cons
 		
 		double final_volume = base_level + volume_delta + eq_delta;
 		double db_change = simulated_eqs.at(index);
-		#endif
 		
+		#if 0
 		// Always change the closest speaker first
 		double final_volume = Base::system().getSpeaker(mic_ip).getFrequencyResponseFrom(speaker_ips.at(index)).at(frequency_index);
 		double db_change = simulated_eqs.at(index);
+		#endif
 		
 		loudest.push_back(make_tuple(index, final_volume, db_change));
 	}
+	
+	vector<pair<size_t, double>> chosen_speakers;
 	
 	// Sort by loudness
 	sort(loudest.begin(), loudest.end(), [] (auto& first, auto& second) {
 		return get<1>(first) > get<1>(second);
 	});
 	
+	chosen_speakers.push_back({ get<0>(loudest.front()), get<2>(loudest.front()) });
+	
+	return chosen_speakers;
+		
+	#if 0
 	if (!best_range) {
+		auto lower_limit = get<1>(loudest.front()) - 6; /* Remove this magic value later */
+		
+		for (auto& speaker : loudest) {
+			if (get<1>(speaker) < lower_limit)
+				break;
+				
+			chosen_speakers.push_back({ get<0>(speaker), get<2>(speaker) });
+		}
+		
+		return chosen_speakers;
+		
 		// Always pick the loudest one since we don't care about gain
-		return { get<0>(loudest.front()), get<2>(loudest.front()) };
+		//return { get<0>(loudest.front()), get<2>(loudest.front()) };
 	}
 	
+	return chosen_speakers;
+	#endif
+	
+	#if 0
 	// Pick the first with non-maxed EQ at chosen frequency
 	for (auto& information : loudest) {
 
@@ -643,6 +665,7 @@ static pair<size_t, double> getLoudestFrequencySource(const string& mic_ip, cons
 	});
 	
 	return { get<0>(loudest.front()), get<2>(loudest.front()) };
+	#endif
 }
 
 static vector<double> getSpeakerEQChange(const string& mic_ip, const vector<string>& speaker_ips, int frequency_index, double wanted_change) {
@@ -660,6 +683,14 @@ static vector<double> getSpeakerEQChange(const string& mic_ip, const vector<stri
 
 		double db_change = wanted_change > 0 ? 1 : -1;
 		
+		auto indices = getLoudestFrequencySource(mic_ip, speaker_ips, test_eq, frequency_index, false, db_change);
+		
+		for (auto& index : indices) {
+			added_eq.at(index.first) += db_change;
+			test_eq.at(index.first) += db_change;
+		}
+		
+		#if 0
 		auto index = getLoudestFrequencySource(mic_ip, speaker_ips, test_eq, frequency_index, false, db_change);
 		added_eq.at(index.first) += db_change;
 		test_eq.at(index.first) += db_change;
@@ -670,6 +701,8 @@ static vector<double> getSpeakerEQChange(const string& mic_ip, const vector<stri
 		//cout << "Added " << db_change << " to " << speaker_ips.at(index.first) << endl;
 		//cout << "Outside loop, range " << range << endl;
 		
+		#endif
+		#if 0
 		// Can't make it lower or higher anyway, give it to another speaker
 		while (db_change < 0 ? (range <= DSP_MIN_EQ) : (range >= DSP_MAX_EQ)) {
 			index = getLoudestFrequencySource(mic_ip, speaker_ips, test_eq, frequency_index, true, db_change);
@@ -684,6 +717,7 @@ static vector<double> getSpeakerEQChange(const string& mic_ip, const vector<stri
 			if (++iterations >= speaker_ips.size())
 				break;
 		}
+		#endif
 	}
 	
 	//cout << "Added EQ: ";
