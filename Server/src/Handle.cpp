@@ -376,7 +376,7 @@ static double getSoundImageScore(const vector<double>& dbs) {
 	double score = 0;
 	
 	// Ignore 63, 125, 250 since they are variable due to microphone
-	vector<double> dbs_above_63(dbs.begin() + 3, dbs.end());
+	vector<double> dbs_above_63(dbs.begin(), dbs.end());
 	
 	for (const auto& db : dbs_above_63)
 		score += (mean - db) * (mean - db);
@@ -390,7 +390,7 @@ static vector<double> getSoundImageCorrection(vector<double> dbs) {
 	for (auto& db : dbs) {
 		double difference = g_target_mean - db;
 		
-		eq.push_back(difference);
+		eq.push_back(trunc(difference));
 	}
 	
 	return eq;
