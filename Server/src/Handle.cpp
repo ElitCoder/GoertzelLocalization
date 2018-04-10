@@ -762,8 +762,9 @@ SoundImageFFT9 Handle::checkSoundImage(const vector<string>& speakers, const vec
 			if (!speakers.empty()) {
 				if (Base::system().getSpeaker(speakers.front()).isFirstRun()) {
 					double new_mean = getMean(dbs) - 3;
+					g_target_mean = new_mean;
 					
-					cout << "Set target mean " << new_mean << endl;
+					cout << "Set target mean " << g_target_mean << endl;
 				}
 			}
 			
