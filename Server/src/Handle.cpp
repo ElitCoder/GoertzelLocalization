@@ -761,12 +761,9 @@ SoundImageFFT9 Handle::checkSoundImage(const vector<string>& speakers, const vec
 			
 			if (!speakers.empty()) {
 				if (Base::system().getSpeaker(speakers.front()).isFirstRun()) {
-					// Normalize to -45, or lower if the speaker is low
-				//	double lower_mean = getMean(dbs) - 9;
-					//g_target_mean = -50 > lower_mean ? lower_mean : -50;
-					g_target_mean = -50 + ((double)speakers.size() * 3.0);
+					double new_mean = getMean(dbs) - 3;
 					
-					cout << "Set target mean " << g_target_mean << endl;
+					cout << "Set target mean " << new_mean << endl;
 				}
 			}
 			
