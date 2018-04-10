@@ -18,7 +18,8 @@ enum {
 	PACKET_CHECK_SOUND_IMAGE,
 	PACKET_SET_EQ,
 	PACKET_SET_BEST_EQ,
-	PACKET_SET_EQ_STATUS
+	PACKET_SET_EQ_STATUS,
+	PACKET_RESET_EVERYTHING
 };
 
 static void handle(NetworkCommunication& network, Connection& connection, Packet& input_packet) {
@@ -87,6 +88,18 @@ static void handle(NetworkCommunication& network, Connection& connection, Packet
 			}
 			
 			break;
+		}
+		
+		case PACKET_RESET_EVERYTHING: {
+			int num_speakers = input_packet.getInt();
+			vector<string> ips;
+			
+			for (int i = 0; i < num_speakers; i++)
+				ips.push_back(input_packet.getString());
+				
+			Handle::resetEverything(ips);
+			
+			break;	
 		}
 		
 		case PACKET_PARSE_SERVER_CONFIG: {

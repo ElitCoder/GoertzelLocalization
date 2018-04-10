@@ -84,6 +84,17 @@ void to_523(double param_dec, unsigned char * param_hex) {
 }
 */
 
+void Handle::resetEverything(const vector<string>& ips) {
+	string command = 	"dspd -s -w; wait; ";
+	command +=			"amixer -c1 sset 'Headphone' 57 on; wait; ";
+	command +=			"amixer -c1 sset 'Capture' 63; wait; ";
+	command +=			"dspd -s -p flat; wait; ";
+	command +=			"amixer -c1 cset numid=170 0x00,0x80,0x00,0x00; wait; ";
+	command +=			"amixer -c1 sset 'PGA Boost' 2; wait\n";
+	
+	Base::system().runScript(ips, vector<string>(ips.size(), command));
+}
+
 bool Handle::setSpeakerAudioSettings(const vector<string>& ips, const vector<int>& volumes, const vector<int>& captures, const vector<int>& boosts) {
 	vector<string> commands;
 	
@@ -360,7 +371,7 @@ static double getSoundImageScore(const vector<double>& dbs) {
 	double mean = g_target_mean;
 	double score = 0;
 	
-	vector<double> dbs_above_63(dbs.begin(), dbs.end());
+	vector<double> dbs_above_63(dbs.begin() + 3, dbs.end());
 	
 	for (const auto& db : dbs_above_63)
 		score += (mean - db) * (mean - db);
@@ -504,11 +515,17 @@ static vector<vector<double>> weightEQs(const MicWantedEQ& eqs) {
 static double getFinalScore(const vector<double>& scores) {
 	double total_score = 0;
 	
+	cout << "Scores: ";
+	
 	for (auto& score : scores) {
+		cout << score << " ";
+		
 		double db_difference = 1 / score;
 		
 		total_score += db_difference * db_difference;
 	}
+	
+	cout << endl;
 		
 	return 1 / (sqrt(total_score) / (double)scores.size());
 }
@@ -682,8 +699,9 @@ SoundImageFFT9 Handle::checkSoundImage(const vector<string>& speakers, const vec
 			if (!speakers.empty()) {
 				if (Base::system().getSpeaker(speakers.front()).isFirstRun()) {
 					// Normalize to -45, or lower if the speaker is low
-					double lower_mean = getMean(dbs) - 9;
-					g_target_mean = -50 > lower_mean ? lower_mean : -50;
+				//	double lower_mean = getMean(dbs) - 9;
+					//g_target_mean = -50 > lower_mean ? lower_mean : -50;
+					g_target_mean = -50 + ((double)speakers.size() * 3.0);
 					
 					cout << "Set target mean " << g_target_mean << endl;
 				}

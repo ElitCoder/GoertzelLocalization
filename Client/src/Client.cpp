@@ -14,7 +14,8 @@ enum {
 	PACKET_CHECK_SOUND_IMAGE,
 	PACKET_SET_EQ,
 	PACKET_SET_BEST_EQ,
-	PACKET_SET_EQ_STATUS
+	PACKET_SET_EQ_STATUS,
+	PACKET_RESET_EVERYTHING
 };
 
 enum {
@@ -44,7 +45,7 @@ static NetworkCommunication* g_network;
 //static vector<string> g_external_microphones = {};
 
 // Speakers
-static vector<string> g_ips = { "172.25.14.27", "172.25.13.200", "172.25.11.47", "172.25.12.168" }; //, "172.25.9.38" };
+static vector<string> g_ips = { "172.25.9.38", "172.25.13.200" }; //, "172.25.9.38" };
 // External microphones
 static vector<string> g_external_microphones = { "172.25.12.99" }; //, "172.25.12.99" };
 
@@ -376,6 +377,28 @@ void setEQStatus(bool status) {
 	cout << "done\n\n";
 }
 
+Packet createResetEverything(const vector<string>& ips) {
+	Packet packet;
+	packet.addHeader(PACKET_RESET_EVERYTHING);
+	packet.addInt(ips.size());
+	
+	for (auto& ip : ips)
+		packet.addString(ip);
+		
+	packet.finalize();
+	return packet;
+}
+
+void resetEverything() {
+	vector<string> all_ips(g_ips);
+	all_ips.insert(all_ips.end(), g_external_microphones.begin(), g_external_microphones.end());
+	
+	cout << "Resetting... \t" << flush;
+	g_network->pushOutgoingPacket(createResetEverything(all_ips));
+	g_network->waitForIncomingPacket();
+	cout << "done\n\n";
+}
+
 void run(const string& host, unsigned short port) {
 	cout << "Connecting to server.. ";
 	NetworkCommunication network(host, port);
@@ -397,6 +420,7 @@ void run(const string& host, unsigned short port) {
 		
 		cout << "9. Enable EQ in all speakers\n";
 		cout << "10. Disable EQ in all speakers\n";
+		cout << "11. Set to speaker defaults (all IPs)\n";
 		cout << "\n: ";
 		
 		int input;
@@ -433,6 +457,9 @@ void run(const string& host, unsigned short port) {
 				break;
 				
 			case 10: setEQStatus(false);
+				break;
+				
+			case 11: resetEverything();
 				break;
 				
 			default: cout << "Wrong input format!\n";
