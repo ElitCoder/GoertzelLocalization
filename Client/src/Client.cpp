@@ -45,7 +45,7 @@ static NetworkCommunication* g_network;
 //static vector<string> g_external_microphones = {};
 
 // Speakers
-static vector<string> g_ips = { "172.25.13.200" };//, "172.25.12.168", "172.25.11.47", "172.25.9.27", "172.25.13.250", }; //, "172.25.9.38" };
+static vector<string> g_ips = { "172.25.13.200", "172.25.12.168", "172.25.11.47", "172.25.9.27", "172.25.13.250", }; //, "172.25.9.38" };
 // External microphones
 static vector<string> g_external_microphones = { "172.25.12.99" }; //, "172.25.12.99" };
 
@@ -352,25 +352,25 @@ void soundImage(bool corrected) {
 	*/
 }
 
-Packet createBestEQ(const vector<string>& ips) {
+Packet createBestEQ(const vector<string>& speakers, const vector<string>& mics) {
 	Packet packet;
 	packet.addHeader(PACKET_SET_BEST_EQ);
-	packet.addInt(ips.size());
+	packet.addInt(speakers.size());
+	packet.addInt(mics.size());
 	
-	for (auto& ip : ips)
+	for (auto& ip : speakers)
 		packet.addString(ip);
 		
+	for (auto& ip : mics)
+		packet.addString(ip);
+				
 	packet.finalize();
 	return packet;
 }
 
 void bestEQ() {
 	cout << "Setting best EQ... " << flush;
-	
-	vector<string> all_ips(g_ips);
-	all_ips.insert(all_ips.end(), g_external_microphones.begin(), g_external_microphones.end());
-	
-	g_network->pushOutgoingPacket(createBestEQ(all_ips));
+	g_network->pushOutgoingPacket(createBestEQ(g_ips, g_external_microphones));
 	auto answer = g_network->waitForIncomingPacket();
 	answer.getByte();
 	cout << "done\n\n" << flush;

@@ -448,7 +448,7 @@ static void setSpeakerVolume(const string& ip, int volume, int base_dsp_level) {
 	Base::system().runScript({ ip }, { command });
 }
 
-static vector<double> setSpeakersBestEQ(const vector<string>& ips) {
+static vector<double> setSpeakersBestEQ(const vector<string>& ips, const vector<string>& mics) {
 	auto speakers = Base::system().getSpeakers(ips);
 	vector<string> commands;
 	vector<double> scores;
@@ -484,6 +484,9 @@ static vector<double> setSpeakersBestEQ(const vector<string>& ips) {
 	}
 	
 	Base::system().runScript(ips, commands);
+	
+	// Set mics to normal values
+	Handle::resetEverything(mics);
 	
 	return scores;
 }
@@ -882,12 +885,15 @@ SoundImageFFT9 Handle::checkSoundImage(const vector<string>& speakers, const vec
 	return final_result;
 }
 
-vector<double> Handle::setBestEQ(const vector<string>& speakers) {
-	// Enable audio system again
-	auto scripts = createEnableAudioSystem(speakers);
-	Base::system().runScript(speakers, scripts);
+vector<double> Handle::setBestEQ(const vector<string>& speakers, const vector<string>& mics) {
+	vector<string> all_ips(speakers);
+	all_ips.insert(all_ips.end(), mics.begin(), mics.end());
 	
-	return setSpeakersBestEQ(speakers);
+	// Enable audio system again
+	auto scripts = createEnableAudioSystem(all_ips);
+	Base::system().runScript(all_ips, scripts);
+	
+	return setSpeakersBestEQ(speakers, mics);
 }
 
 void Handle::setEQStatus(const vector<string>& ips, bool status) {

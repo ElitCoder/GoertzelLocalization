@@ -171,12 +171,17 @@ static void handle(NetworkCommunication& network, Connection& connection, Packet
 		
 		case PACKET_SET_BEST_EQ: {
 			vector<string> speakers;
+			vector<string> mics;
 			int num_speakers = input_packet.getInt();
+			int num_mics = input_packet.getInt();
 			
 			for (int i = 0; i < num_speakers; i++)
 				speakers.push_back(input_packet.getString());
 				
-			auto eq = Handle::setBestEQ(speakers);
+			for (int i = 0; i < num_mics; i++)
+				mics.push_back(input_packet.getString());	
+				
+			auto eq = Handle::setBestEQ(speakers, mics);
 			
 			packet.addInt(eq.size());
 			

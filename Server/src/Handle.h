@@ -16,7 +16,7 @@ public:
 	static PlacementOutput runLocalization(const std::vector<std::string>& ips, bool skip_script, bool force_update);
 	static std::vector<bool> checkSpeakersOnline(const std::vector<std::string>& ips);
 	static SoundImageFFT9 checkSoundImage(const std::vector<std::string>& speakers, const std::vector<std::string>& mics, int play_time, int idle_time, bool corrected);
-	static std::vector<double> setBestEQ(const std::vector<std::string>& speakers);
+	static std::vector<double> setBestEQ(const std::vector<std::string>& speakers, const std::vector<std::string>& mics);
 	static void setEQStatus(const std::vector<std::string>& ips, bool status);
 	static void resetEverything(const std::vector<std::string>& ips);
 };
