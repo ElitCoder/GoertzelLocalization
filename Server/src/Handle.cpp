@@ -535,7 +535,7 @@ static double getFinalScore(const vector<double>& scores) {
 	return 1 / (sqrt(total_score) / (double)scores.size());
 }
 
-static pair<size_t, double> getLoudestFrequencySource(const string& mic_ip, const vector<string>& speaker_ips, vector<double> simulated_eqs, int frequency_index, bool best_range) {
+static pair<size_t, double> getLoudestFrequencySource(const string& mic_ip, const vector<string>& speaker_ips, vector<double> simulated_eqs, int frequency_index, bool best_range, double change) {
 	// index, db, eq_range
 	vector<tuple<size_t, double, double>> loudest;
 	
@@ -572,6 +572,16 @@ static pair<size_t, double> getLoudestFrequencySource(const string& mic_ip, cons
 	
 	// Pick the first with non-maxed EQ at chosen frequency
 	for (auto& information : loudest) {
+
+		// If we're improving a low EQ, let's do it
+		if (get<2>(information) < DSP_MIN_EQ && change > 0)
+			return { get<0>(information), get<2>(information) };
+			
+		// If we're lowering a high EQ, let's do it	
+		if (get<2>(information) > DSP_MAX_EQ && change < 0)
+			return { get<0>(information), get<2>(information) };
+			
+		// If it fits into the range, let's do it
 		if (get<2>(information) < DSP_MAX_EQ && get<2>(information) > DSP_MIN_EQ)
 			return { get<0>(information), get<2>(information) };
 	}
@@ -599,7 +609,7 @@ static vector<double> getSpeakerEQChange(const string& mic_ip, const vector<stri
 
 		double db_change = wanted_change > 0 ? 1 : -1;
 		
-		auto index = getLoudestFrequencySource(mic_ip, speaker_ips, test_eq, frequency_index, false);
+		auto index = getLoudestFrequencySource(mic_ip, speaker_ips, test_eq, frequency_index, false, db_change);
 		added_eq.at(index.first) += db_change;
 		test_eq.at(index.first) += db_change;
 		
@@ -611,7 +621,7 @@ static vector<double> getSpeakerEQChange(const string& mic_ip, const vector<stri
 		
 		// Can't make it lower or higher anyway, give it to another speaker
 		while (db_change < 0 ? (range <= DSP_MIN_EQ) : (range >= DSP_MAX_EQ)) {
-			index = getLoudestFrequencySource(mic_ip, speaker_ips, test_eq, frequency_index, true);
+			index = getLoudestFrequencySource(mic_ip, speaker_ips, test_eq, frequency_index, true, db_change);
 			added_eq.at(index.first) += db_change;
 			test_eq.at(index.first) += db_change;
 			range = index.second += db_change;
