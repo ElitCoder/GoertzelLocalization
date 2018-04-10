@@ -56,15 +56,26 @@ static short getRMS(const vector<short>& data, size_t start, size_t end) {
 	return sqrt(sum);
 }
 
-#if 0
+// The following 2 functions are from SO
+constexpr char hexmap[] = {'0', '1', '2', '3', '4', '5', '6', '7',
+                           '8', '9', 'a', 'b', 'c', 'd', 'e', 'f'};
+
+string getHexString(unsigned char* data, int len) {
+	string s(len * 2, ' ');
+	
+	for (int i = 0; i < len; ++i) {
+		s[2 * i]     = hexmap[(data[i] & 0xF0) >> 4];
+		s[2 * i + 1] = hexmap[data[i] & 0x0F];
+	}
+	
+	return s;
+}
+
 /* converts dB to linear gain */
 double dB_to_linear_gain(double x) {
     return pow(10,x/20);
 }
-#endif
 
-// Not used for now, since it buffer overflows for some reason
-/*
 void to_523(double param_dec, unsigned char * param_hex) {
 	long param223;
 	long param227;
@@ -82,7 +93,6 @@ void to_523(double param_dec, unsigned char * param_hex) {
 	// invert sign bit to get correct sign
 	param_hex[0] = param_hex[0] ^ 0x08;
 }
-*/
 
 static vector<string> createEnableAudioSystem(const vector<string>& ips) {
 	string command = "systemctl start audio_relayd; wait\n";
@@ -92,10 +102,10 @@ static vector<string> createEnableAudioSystem(const vector<string>& ips) {
 
 void Handle::resetEverything(const vector<string>& ips) {
 	string command = 	"dspd -s -w; wait; ";
-	command +=			"amixer -c1 sset 'Headphone' 57 on; wait; ";
+	command +=			"amixer -c1 sset 'Headphone' 57 on; wait; "; 				/* 57 is 0 dB for C1004-e */
 	command +=			"amixer -c1 sset 'Capture' 63; wait; ";
 	command +=			"dspd -s -p flat; wait; ";
-	command +=			"amixer -c1 cset numid=170 0x00,0x80,0x00,0x00; wait; ";
+	command +=			"amixer -c1 cset numid=170 0x00,0x80,0x00,0x00; wait; "; 	/* Sets DSP gain to 0 */
 	command +=			"amixer -c1 sset 'PGA Boost' 2; wait\n";
 	
 	Base::system().runScript(ips, vector<string>(ips.size(), command));
@@ -126,7 +136,7 @@ bool Handle::setSpeakerAudioSettings(const vector<string>& ips, const vector<int
 		command +=			"dspd -s -m; wait; dspd -s -u limiter; wait; ";
 		command +=			"dspd -s -u static; wait; ";
 		command +=			"dspd -s -u preset; wait; dspd -s -p flat; wait; ";
-		command +=			"amixer -c1 cset numid=170 0x00,0x80,0x00,0x00; wait; ";
+		command +=			"amixer -c1 cset numid=170 0x00,0x80,0x00,0x00; wait; "; /* Sets DSP gain to 0 */
 		command +=			"amixer -c1 sset 'PGA Boost' " + boost + "; wait\n";
 		
 		commands.push_back(command);
@@ -396,14 +406,45 @@ static vector<double> getSoundImageCorrection(vector<double> dbs) {
 	return eq;
 }
 
-static void setSpeakerVolume(const string& ip, int volume) {
+static void setSpeakerVolume(const string& ip, int volume, int base_dsp_level) {
 	auto& speaker = Base::system().getSpeaker(ip);
 	speaker.setVolume(volume);
 	//speaker.setVolume(speaker.getCurrentVolume() + delta_volume);
 	
 	cout << "Setting speaker volume to " << speaker.getCurrentVolume() << endl;
+	int delta = speaker.getCurrentVolume() - SPEAKER_MAX_VOLUME;
 	
-	string command = "amixer -c1 sset 'Headphone' " + to_string(speaker.getCurrentVolume()) + " on; wait\n";
+	// current_dsp_level = -18 ?
+	// Gives the speaker 6 dB headroom to boost before DSP limiting on maxed EQ
+	int final_level = base_dsp_level + delta;
+	
+	// Don't boost above limit
+	if (final_level > 0) {
+		cout << "WARNING" << endl;
+		cout << "Trying to boost DSP gain above 0 dB\n";
+		cout << "Is " << final_level << endl;
+		
+		final_level = 0;
+	}
+	
+	unsigned char bytes[4];
+	to_523(dB_to_linear_gain(final_level), bytes);
+	string hex_string = getHexString(bytes, 4);
+	string hex_bytes = "";
+	
+	cout << "Setting DSP gain bytes to " << hex_string << endl;
+	cout << "For level " << final_level << endl;
+	
+	for (size_t i = 0; i < hex_string.length(); i += 2) 
+		hex_bytes += "0x" + hex_string.substr(i, 2) + ",";
+		
+	hex_bytes.pop_back();	
+	
+	//string command = "amixer -c1 sset 'Headphone' " + to_string(speaker.getCurrentVolume()) + " on; wait\n";
+	string command =	"amixer -c1 cset numid=170 ";
+	command +=			hex_bytes;
+	command +=			"; wait\n";
+	
 	Base::system().runScript({ ip }, { command });
 }
 
@@ -412,13 +453,20 @@ static vector<double> setSpeakersBestEQ(const vector<string>& ips) {
 	vector<string> commands;
 	vector<double> scores;
 	
+	int highest_dsp_gain = -10000;
+	
+	for (auto* speaker : speakers) {
+		if (speaker->getBestVolume() > highest_dsp_gain)
+			highest_dsp_gain = speaker->getBestVolume();		
+	}
+	
 	for (auto* speaker : speakers) {
 		auto correction_eq = speaker->getBestEQ();
 		speaker->setBestVolume();
 		//vector<int> correction_eq = { 9, -10, 0, 0, 0, 0, 0, 0, 0 };
 		
 		string command =	"dspd -s -u preset; wait; ";
-		command +=			"amixer -c1 cset numid=170 0x00,0x80,0x00,0x00; wait; ";
+		//command +=			"amixer -c1 cset numid=170 0x00,0x80,0x00,0x00; wait; ";
 		command +=			"dspd -s -e ";
 		
 		for (auto setting : correction_eq)
@@ -432,7 +480,7 @@ static vector<double> setSpeakersBestEQ(const vector<string>& ips) {
 		cout << "Best score: " << speaker->getBestScore() << endl;
 		scores.push_back(speaker->getBestScore());
 		
-		setSpeakerVolume(speaker->getIP(), speaker->getCurrentVolume());
+		setSpeakerVolume(speaker->getIP(), speaker->getCurrentVolume(), SPEAKER_MAX_VOLUME - highest_dsp_gain);
 	}
 	
 	Base::system().runScript(ips, commands);
@@ -459,7 +507,7 @@ static void setCorrectedEQ(const vector<string>& ips) {
 		
 		commands.push_back(command);
 		
-		setSpeakerVolume(speaker->getIP(), speaker->getCurrentVolume());
+		setSpeakerVolume(speaker->getIP(), speaker->getCurrentVolume(), -18);
 	}
 	
 	Base::system().runScript(ips, commands);
@@ -474,7 +522,7 @@ static void setFlatEQ(const vector<string>& ips) {
 		speaker->clearAllEQs();
 		
 		string command =	"dspd -s -u preset; wait; ";
-		command += 			"amixer -c1 cset numid=170 0x00,0x20,0x26,0xf3; wait; ";
+		//command += 			"amixer -c1 cset numid=170 0x00,0x20,0x26,0xf3; wait; ";
 		command +=			"dspd -s -e ";
 		
 		for (auto setting : vector<int>(9, 0))
@@ -485,7 +533,7 @@ static void setFlatEQ(const vector<string>& ips) {
 		
 		commands.push_back(command);
 		
-		setSpeakerVolume(speaker->getIP(), speaker->getCurrentVolume());
+		setSpeakerVolume(speaker->getIP(), speaker->getCurrentVolume(), -18);
 	}
 	
 	Base::system().runScript(ips, commands);
@@ -598,7 +646,7 @@ static vector<double> getSpeakerEQChange(const string& mic_ip, const vector<stri
 	// Added EQ
 	vector<double> added_eq(speaker_ips.size(), 0);
 	
-	cout << "Wanted change " << wanted_change << endl;
+	//cout << "Wanted change " << wanted_change << endl;
 	
 	for (int i = 0; i < lround(abs(wanted_change)); i++) {
 		// Current testing EQ
@@ -616,8 +664,8 @@ static vector<double> getSpeakerEQChange(const string& mic_ip, const vector<stri
 		double range = index.second += db_change;
 		size_t iterations = 0;
 		
-		cout << "Added " << db_change << " to " << speaker_ips.at(index.first) << endl;
-		cout << "Outside loop, range " << range << endl;
+		//cout << "Added " << db_change << " to " << speaker_ips.at(index.first) << endl;
+		//cout << "Outside loop, range " << range << endl;
 		
 		// Can't make it lower or higher anyway, give it to another speaker
 		while (db_change < 0 ? (range <= DSP_MIN_EQ) : (range >= DSP_MAX_EQ)) {
@@ -626,8 +674,8 @@ static vector<double> getSpeakerEQChange(const string& mic_ip, const vector<stri
 			test_eq.at(index.first) += db_change;
 			range = index.second += db_change;
 			
-			cout << "Added " << db_change << " to " << speaker_ips.at(index.first) << endl;
-			cout << "In loop, range " << range << endl;
+			//cout << "Added " << db_change << " to " << speaker_ips.at(index.first) << endl;
+			//cout << "In loop, range " << range << endl;
 			
 			// Already gone through all speakers
 			if (++iterations >= speaker_ips.size())
@@ -635,9 +683,9 @@ static vector<double> getSpeakerEQChange(const string& mic_ip, const vector<stri
 		}
 	}
 	
-	cout << "Added EQ: ";
-	for_each(added_eq.begin(), added_eq.end(), [] (auto& eq) { cout << eq << " "; });
-	cout << endl;
+	//cout << "Added EQ: ";
+	//for_each(added_eq.begin(), added_eq.end(), [] (auto& eq) { cout << eq << " "; });
+	//cout << endl;
 	
 	return added_eq;
 }
@@ -751,9 +799,11 @@ SoundImageFFT9 Handle::checkSoundImage(const vector<string>& speakers, const vec
 				}
 			}
 			
+			/*
 			cout << "Total EQ correction wanted by mic: ";
 			for_each(correction.begin(), correction.end(), [] (auto& eq) { cout << eq << endl; });
 			cout << endl;
+			*/
 			
 			// Go through all frequency bands
 			for (int d = 0; d < 9; d++) {

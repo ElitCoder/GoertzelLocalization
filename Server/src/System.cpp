@@ -24,7 +24,7 @@ static void enableSSH(const string& ip) {
 	request.setOpt(curlpp::options::UserPwd(string("root:pass")));
 	request.setOpt(curlpp::options::HttpAuth(CURLAUTH_ANY));
 	request.setOpt(curlpp::options::WriteStream(&stream));
-	request.setOpt(curlpp::options::Timeout(10));
+	request.setOpt(curlpp::options::Timeout(60));
 	
 	try {
 		request.perform();
@@ -72,10 +72,12 @@ SSHOutput System::runScript(const vector<string>& ips, const vector<string>& scr
 	// Make sure all speakers are connected
 	checkConnection(ips);
 	
+	/*
 	for (size_t i = 0; i < ips.size(); i++) {
 		cout << "SSH: running script (" << ips.at(i) << ")\n**************\n";
 		cout << scripts.at(i) << "**************\n\n";
 	}
+	*/
 	
 	cout << "Running SSH commands... " << flush;
 	
@@ -157,9 +159,11 @@ bool System::sendFile(const vector<string>& ips, const string& from, const strin
 bool System::getFile(const vector<string>& ips, const vector<string>& from, const vector<string>& to) {
 	checkConnection(ips);
 	
+	/*
 	for (size_t i = 0; i < ips.size(); i++) {
 		cout << "Retrieving (" << ips.at(i) << ") " << from.at(i) << " -> " << to.at(i) << endl;
 	}
+	*/
 	
 	cout << "Retrieving files from SSH... " << flush;
 	auto status = ssh_.transferLocal(ips, from, to, true);

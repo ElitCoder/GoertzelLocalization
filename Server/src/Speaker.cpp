@@ -197,10 +197,7 @@ void Speaker::setCorrectionEQ(const vector<double>& eq, double score) {
 }
 
 int Speaker::getCurrentVolume() const {
-	if (volume_ > 57)
-		cout << "WARNING: trying to set volume > 57, check target_mean\nSetting it to 57 in order to prevent speaker problems\n";
-		
-	return volume_ > 57 ? 57 : volume_;
+	return volume_;
 }
 
 void Speaker::setLastChange(const vector<double>& dbs, const vector<double>& correction) {

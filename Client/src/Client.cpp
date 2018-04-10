@@ -45,7 +45,7 @@ static NetworkCommunication* g_network;
 //static vector<string> g_external_microphones = {};
 
 // Speakers
-static vector<string> g_ips = { "172.25.13.200", "172.25.12.168" }; //, "172.25.9.38" };
+static vector<string> g_ips = { "172.25.13.200" };//, "172.25.12.168", "172.25.11.47", "172.25.9.27", "172.25.13.250", }; //, "172.25.9.38" };
 // External microphones
 static vector<string> g_external_microphones = { "172.25.12.99" }; //, "172.25.12.99" };
 
@@ -99,14 +99,42 @@ static void setSpeakerSettings(int speaker_volume, int speaker_capture, int spea
 	g_network->waitForIncomingPacket();
 }
 
+/*
 static void setMaxSpeakerSettings() {
 	setSpeakerSettings(SPEAKER_MAX_VOLUME, SPEAKER_MAX_CAPTURE, SPEAKER_CAPTURE_BOOST_ENABLED);
 }
+*/
+
+Packet createResetEverything(const vector<string>& ips) {
+	Packet packet;
+	packet.addHeader(PACKET_RESET_EVERYTHING);
+	packet.addInt(ips.size());
+	
+	for (auto& ip : ips)
+		packet.addString(ip);
+		
+	packet.finalize();
+	return packet;
+}
+
+void resetEverything() {
+	vector<string> all_ips(g_ips);
+	all_ips.insert(all_ips.end(), g_external_microphones.begin(), g_external_microphones.end());
+	
+	cout << "Resetting... \t" << flush;
+	g_network->pushOutgoingPacket(createResetEverything(all_ips));
+	g_network->waitForIncomingPacket();
+	cout << "done\n\n";
+}
 
 void startSpeakerLocalization(const vector<string>& ips, bool force) {
+	resetEverything();
+	
+	/*
 	cout << "Setting max speaker settings.. " << flush;
-	setMaxSpeakerSettings();
+	//setMaxSpeakerSettings();
 	cout << "done\n";
+	*/
 	
 	cout << "Running speaker localization script.. " << flush;
 	g_network->pushOutgoingPacket(createStartSpeakerLocalization(ips, force));
@@ -231,7 +259,7 @@ Packet createSoundImage(const vector<string>& speakers, const vector<string>& mi
 void soundImage(bool corrected) {
 	if (!corrected) {
 		cout << "Resetting speaker settings... \t" << flush;
-		setSpeakerSettings(SPEAKER_MAX_VOLUME - 6, SPEAKER_MAX_CAPTURE, SPEAKER_CAPTURE_BOOST_ENABLED);
+		setSpeakerSettings(SPEAKER_MAX_VOLUME, SPEAKER_MAX_CAPTURE, SPEAKER_CAPTURE_BOOST_ENABLED);
 		cout << "done\n";
 	}
 	
@@ -373,28 +401,6 @@ Packet createSetEQStatus(const vector<string>& ips, bool status) {
 void setEQStatus(bool status) {
 	cout << (status ? "Enabling" : "Disabling") << " EQ in speakers... \t" << flush;
 	g_network->pushOutgoingPacket(createSetEQStatus(g_ips, status));
-	g_network->waitForIncomingPacket();
-	cout << "done\n\n";
-}
-
-Packet createResetEverything(const vector<string>& ips) {
-	Packet packet;
-	packet.addHeader(PACKET_RESET_EVERYTHING);
-	packet.addInt(ips.size());
-	
-	for (auto& ip : ips)
-		packet.addString(ip);
-		
-	packet.finalize();
-	return packet;
-}
-
-void resetEverything() {
-	vector<string> all_ips(g_ips);
-	all_ips.insert(all_ips.end(), g_external_microphones.begin(), g_external_microphones.end());
-	
-	cout << "Resetting... \t" << flush;
-	g_network->pushOutgoingPacket(createResetEverything(all_ips));
 	g_network->waitForIncomingPacket();
 	cout << "done\n\n";
 }
