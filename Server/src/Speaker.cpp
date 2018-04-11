@@ -138,6 +138,8 @@ void Speaker::clearAllEQs() {
 	last_correction_.clear();
 	mic_frequency_responses_.clear();
 	sensitive_band_ = vector<bool>(9, false);
+	last_eq_change_ = vector<double>(9, 0);
+	blocked_eq_ = vector<bool>(9, false);
 }
 
 int Speaker::getBestVolume() const {
@@ -164,8 +166,47 @@ bool Speaker::isFirstRun() const {
 	return first_run_;
 }
 
+template<class T>
+static vector<T> vectorDifference(const vector<T>& first, const vector<T>& second) {
+	if (first.size() != second.size()) {
+		cout << "WARNING: vectorDifference failed due to not same size vectors\n";
+		
+		return vector<T>();
+	}
+		
+	vector<T> difference;
+	
+	for (size_t i = 0; i < first.size(); i++)
+		difference.push_back(first.at(i) - second.at(i));
+		
+	return difference;
+}
+
+vector<double> Speaker::getLastEQChange() const {
+	if (last_eq_change_.empty())
+		return vector<double>(9, 0);
+		
+	return last_eq_change_;
+}
+
+void Speaker::resetLastEQChange(int band_index) {
+	if (last_eq_change_.empty())
+		return;
+		
+	auto change = last_eq_change_.at(band_index);
+	correction_eq_.at(band_index) -= change;
+}
+
+void Speaker::preventEQChange(int band_index) {
+	blocked_eq_.at(band_index) = true;
+}
+
+bool Speaker::isBlockedEQ(int band_index) const {
+	return blocked_eq_.at(band_index);
+}
+
 // Returns current EQ
-void Speaker::setCorrectionEQ(const vector<double>& eq, double score) {
+void Speaker::setCorrectionEQ(vector<double> eq, double score) {
 	printEQ(ip_, correction_eq_, "current");
 	cout << "Old volume: " << correction_volume_ << endl;
 	
@@ -184,8 +225,11 @@ void Speaker::setCorrectionEQ(const vector<double>& eq, double score) {
 	for (size_t i = 0; i < eq.size(); i++)
 		correction_eq_.at(i) += eq.at(i);
 	
-	std::vector<double> actual_eq = correction_eq_;
+	vector<double> actual_eq = correction_eq_;
 	correction_volume_ = volume_ + correctMaxEQ(actual_eq);
+	
+	// Difference between correction_eq and actual_eq
+	last_eq_change_ = eq; //vectorDifference(actual_eq, correction_eq_);
 	
 	printEQ(ip_, actual_eq, "next");
 	

@@ -33,7 +33,7 @@ public:
 	};
 	
 	void setIP(const std::string& ip);
-	void setCorrectionEQ(const std::vector<double>& eq, double score);
+	void setCorrectionEQ(std::vector<double> eq, double score);
 	void setVolume(int volume);
 	void setMicVolume(int volume);
 	void setMicBoost(int boost);
@@ -45,6 +45,8 @@ public:
 	void setCorrectionVolume();
 	void setBandSensitive(int band_index, bool status);
 	void setLastChange(const std::vector<double>& dbs, const std::vector<double>& correction);
+	void resetLastEQChange(int band_index);
+	void preventEQChange(int band_index);
 	
 	const std::string& getIP() const;
 	int getPlacementID() const;
@@ -60,6 +62,8 @@ public:
 	int getCorrectionVolume() const;
 	bool isFirstRun() const;
 	bool isBandSensitive(int band_index) const;
+	std::vector<double> getLastEQChange() const;
+	bool isBlockedEQ(int band_index) const;
 	
 	std::pair<std::vector<double>, std::vector<double>> getLastChange() const;
 
@@ -73,7 +77,9 @@ private:
 	int best_speaker_volume_ = 0;
 	int correction_volume_ = 0;
 	bool first_run_ = true;
+	std::vector<bool> blocked_eq_ = std::vector<bool>(9, false);
 	
+	std::vector<double> last_eq_change_ = std::vector<double>(9, 0);
 	std::vector<double> last_change_dbs_;
 	std::vector<double> last_correction_;
 	std::vector<bool> sensitive_band_ = std::vector<bool>(9, false);
