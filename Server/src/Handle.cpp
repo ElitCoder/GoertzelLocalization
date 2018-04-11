@@ -593,6 +593,7 @@ static vector<pair<size_t, double>> getLoudestFrequencySource(const string& mic_
 	for (size_t index = 0; index < speaker_ips.size(); index++) {
 		// TODO: Should make sense, let's try it later on
 		// All additions to the speaker should affect the sound level this way
+
 		auto& speaker = Base::system().getSpeaker(speaker_ips.at(index));
 	
 		double eq_delta = simulated_eqs.at(index);
@@ -618,12 +619,9 @@ static vector<pair<size_t, double>> getLoudestFrequencySource(const string& mic_
 		return get<1>(first) > get<1>(second);
 	});
 	
-	chosen_speakers.push_back({ get<0>(loudest.front()), get<2>(loudest.front()) });
-	
-	return chosen_speakers;
+	//chosen_speakers.push_back({ get<0>(loudest.front()), get<2>(loudest.front()) });
 		
-	#if 0
-	if (!best_range) {
+	if (!best_range) {		
 		auto lower_limit = get<1>(loudest.front()) - 6; /* Remove this magic value later */
 		
 		for (auto& speaker : loudest) {
@@ -631,6 +629,8 @@ static vector<pair<size_t, double>> getLoudestFrequencySource(const string& mic_
 				break;
 				
 			chosen_speakers.push_back({ get<0>(speaker), get<2>(speaker) });
+			
+			cout << "Chose " << speaker_ips.at(get<0>(speaker)) << " to add " << g_frequencies[frequency_index] << endl;
 		}
 		
 		return chosen_speakers;
@@ -640,7 +640,6 @@ static vector<pair<size_t, double>> getLoudestFrequencySource(const string& mic_
 	}
 	
 	return chosen_speakers;
-	#endif
 	
 	#if 0
 	// Pick the first with non-maxed EQ at chosen frequency
@@ -688,6 +687,9 @@ static vector<double> getSpeakerEQChange(const string& mic_ip, const vector<stri
 		for (auto& index : indices) {
 			added_eq.at(index.first) += db_change;
 			test_eq.at(index.first) += db_change;
+			
+			if (db_change > 0)
+				break;
 		}
 		
 		#if 0
@@ -702,13 +704,14 @@ static vector<double> getSpeakerEQChange(const string& mic_ip, const vector<stri
 		//cout << "Outside loop, range " << range << endl;
 		
 		#endif
+
 		#if 0
 		// Can't make it lower or higher anyway, give it to another speaker
 		while (db_change < 0 ? (range <= DSP_MIN_EQ) : (range >= DSP_MAX_EQ)) {
 			index = getLoudestFrequencySource(mic_ip, speaker_ips, test_eq, frequency_index, true, db_change);
-			added_eq.at(index.first) += db_change;
-			test_eq.at(index.first) += db_change;
-			range = index.second += db_change;
+			added_eq.at(index.first) -= db_change;
+			test_eq.at(index.first) -= db_change;
+			range = index.second -= db_change;
 			
 			//cout << "Added " << db_change << " to " << speaker_ips.at(index.first) << endl;
 			//cout << "In loop, range " << range << endl;
@@ -827,11 +830,15 @@ SoundImageFFT9 Handle::checkSoundImage(const vector<string>& speakers, const vec
 				double change = current_db - last_db;
 				double factor = abs(change / last_correction);
 				
+				#if 0
+				Base::system().getSpeaker(mics.at(i)).setBandSensitive(f, true);
+				
 				// TODO: Calculate the factor & correction based on something else later on
-				if (factor > 3 && last_correction > 2) {
+				if (factor > 2) {
 					// Set this band to sensitive
-					Base::system().getSpeaker(mics.at(i)).setBandSensitive(f, true);
+					//Base::system().getSpeaker(mics.at(i)).setBandSensitive(f, true);
 				}
+				#endif
 			}
 			
 			/*
