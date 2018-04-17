@@ -1,3 +1,6 @@
+**	DEPRECATED BY NETWORKAUDIOCORRECTION			**
+**	SEE github.com/ElitCoder/NetworkAudioCorrection.git	**
+
 Build essentials (Debian-based):
 ./install.sh
 
